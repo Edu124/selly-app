@@ -2073,6 +2073,18 @@ function OfflineAIApp() {
   // ── Stop ongoing generation ───────────────────────────────────────────────
   const stopGenerate = () => {
     invoke("stop_generate").catch(console.error);
+    // Immediately update UI — don't wait for llm-done event
+    setStreaming(false);
+    const stoppedMsgId = streamMsgIdRef.current;
+    streamBufRef.current = "";
+    streamMsgIdRef.current = null;
+    if (stoppedMsgId) {
+      setChats(prev => prev.map(ch =>
+        ch.id === activeRef.current
+          ? { ...ch, messages: ch.messages.map(m => m.id === stoppedMsgId ? { ...m, streaming: false } : m) }
+          : ch
+      ));
+    }
   };
 
   // ── Reset server binary and re-download (noavx fallback) ─────────────────
