@@ -94,34 +94,34 @@ const MODELS = [
     licenseGated:  false,
   },
   {
-    id:            "bartowski/Phi-3.5-mini-instruct-GGUF",
-    file:          "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+    id:            "MaziyarPanahi/Phi-3.5-mini-instruct-GGUF",
+    file:          "Phi-3.5-mini-instruct.Q4_K_M.gguf",
     label:         "Phi-3.5 Mini",
     org:           "Microsoft",
     orgColor:      C.blue,
-    sizeMB:        2200,
-    size:          "~2.2 GB",
+    sizeMB:        2390,
+    size:          "~2.4 GB",
     minRamGB:      4,
     quality:       "Excellent",
     speed:         "Moderate",
-    desc:          "Best reasoning quality. Accept license at huggingface.co/microsoft/Phi-3.5-mini-instruct then paste your HF token.",
-    requiresToken: true,
-    licenseGated:  true,
+    desc:          "Best reasoning quality — no token or account needed. MIT license by Microsoft.",
+    requiresToken: false,
+    licenseGated:  false,
   },
   {
-    id:            "bartowski/gemma-2-2b-it-GGUF",
+    id:            "lmstudio-community/gemma-2-2b-it-GGUF",
     file:          "gemma-2-2b-it-Q4_K_M.gguf",
     label:         "Gemma 2 2B",
     org:           "Google",
     orgColor:      C.green,
-    sizeMB:        1600,
-    size:          "~1.6 GB",
+    sizeMB:        1710,
+    size:          "~1.7 GB",
     minRamGB:      3,
     quality:       "Good",
     speed:         "Fast",
-    desc:          "Fast & efficient for document Q&A. Accept license on HuggingFace + paste HF token.",
-    requiresToken: true,
-    licenseGated:  true,
+    desc:          "Fast & efficient for document Q&A — no token or account needed. By Google.",
+    requiresToken: false,
+    licenseGated:  false,
   },
 ];
 
@@ -909,26 +909,28 @@ function ModelModal({ modelState, activeModelId, hfToken, onTokenChange, onDownl
             </div>
           )}
 
-          {/* HuggingFace token */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <label style={{ fontSize: 11, color: C.t2, fontWeight: 600, letterSpacing: "0.04em" }}>
-              HUGGINGFACE TOKEN <span style={{ color: C.t3, fontWeight: 400 }}>(only needed for Phi-3.5 &amp; Gemma)</span>
-            </label>
-            <input
-              type="password"
-              placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
-              value={hfToken}
-              onChange={e => onTokenChange(e.target.value)}
-              style={{
-                background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8,
-                padding: "8px 12px", color: C.t1, fontSize: 13, outline: "none",
-                fontFamily: "monospace",
-              }}
-            />
-            <div style={{ fontSize: 11, color: C.t3 }}>
-              Get a free token at huggingface.co/settings/tokens — also accept each model's license there first.
+          {/* HuggingFace token — only shown if a model requires it */}
+          {sel.requiresToken && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <label style={{ fontSize: 11, color: C.t2, fontWeight: 600, letterSpacing: "0.04em" }}>
+                HUGGINGFACE TOKEN
+              </label>
+              <input
+                type="password"
+                placeholder="hf_xxxxxxxxxxxxxxxxxxxx"
+                value={hfToken}
+                onChange={e => onTokenChange(e.target.value)}
+                style={{
+                  background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8,
+                  padding: "8px 12px", color: C.t1, fontSize: 13, outline: "none",
+                  fontFamily: "monospace",
+                }}
+              />
+              <div style={{ fontSize: 11, color: C.t3 }}>
+                Get a free token at huggingface.co/settings/tokens — also accept each model&apos;s license there first.
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Info box */}
           <div style={{ padding: "11px 14px", background: "rgba(59,130,246,0.06)", borderRadius: 10, border: "1px solid rgba(59,130,246,0.18)", fontSize: 12, color: C.t2, lineHeight: 1.65 }}>
@@ -1699,7 +1701,7 @@ const INIT_CHATS = [{
   id: 1, title: "Welcome", date: "Today",
   messages: [{
     id: 1, role: "ai",
-    text: "Hello! I'm Codeforge AI — a research assistant running 100% on your device.\n\nYour documents and data never leave this machine.\n\nTo get started:\n1. Click **Models** in the sidebar\n2. Download a model — **no account or token needed** to start!\n   • **Qwen2.5 0.5B** — fastest, ~397 MB, completely free (recommended)\n   • **Qwen2.5 1.5B** — better quality, ~986 MB, also free\n   • Phi-3.5 / Gemma 2 — best quality (require HF token + license)\n3. Model connects automatically after download — ready to chat!\n4. Connect research papers or documents via **Sources**\n5. Ask anything — the AI will use your documents as context",
+    text: "Hello! I'm Codeforge AI — a research assistant running 100% on your device.\n\nYour documents and data never leave this machine.\n\nTo get started:\n1. Click **Models** in the sidebar\n2. Download a model — **no account or token needed for any model!**\n   • **Qwen2.5 0.5B** — fastest, ~397 MB (recommended)\n   • **Qwen2.5 1.5B** — better quality, ~986 MB\n   • **Phi-3.5 Mini** — excellent reasoning, ~2.4 GB\n   • **Gemma 2 2B** — fast & efficient, ~1.7 GB\n3. Model connects automatically after download — ready to chat!\n4. Connect research papers or documents via **Sources**\n5. Ask anything — the AI will use your documents as context",
     time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
   }],
 }];
