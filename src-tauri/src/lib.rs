@@ -4,17 +4,12 @@ use std::sync::Mutex;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn models_dir(_app: &AppHandle) -> PathBuf {
-    #[cfg(target_os = "windows")]
-    let dir = PathBuf::from(r"D:\OfflineAI\models");
-    #[cfg(not(target_os = "windows"))]
-    let dir = {
-        let base = _app
-            .path()
-            .app_data_dir()
-            .unwrap_or_else(|_| PathBuf::from("."));
-        base.join("models")
-    };
+fn models_dir(app: &AppHandle) -> PathBuf {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("models");
     std::fs::create_dir_all(&dir).ok();
     dir
 }

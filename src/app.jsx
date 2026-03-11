@@ -137,9 +137,9 @@ const CLERK_KEY = "pk_test_aW1tZW5zZS1yb2RlbnQtNTEuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
 // ─── App version + update config ─────────────────────────────────────────────
 // Bump APP_VERSION with every release so the update banner auto-hides.
-const APP_VERSION = "0.1.0";
+const APP_VERSION = "0.3.2";
 // GitHub Releases API — returns the latest release JSON (tag_name, body, html_url).
-const UPDATE_CHECK_URL = "https://api.github.com/repos/bhaveshshahani824-pixel/codeforge/releases/latest";
+const UPDATE_CHECK_URL = "https://api.github.com/repos/Edu124/Codeforge-ai/releases/latest";
 
 // ─── Hub trial config ─────────────────────────────────────────────────────────
 const HUB_TRIAL_DAYS   = 5;
@@ -1777,14 +1777,29 @@ function LoginPage() {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function OfflineAIApp() {
-  const [chats, setChats] = useState(INIT_CHATS);
-  const [active, setActive] = useState(1);
+  const [chats, setChats] = useState(() => {
+    try {
+      const saved = localStorage.getItem("codeforge_chats");
+      if (saved) { const parsed = JSON.parse(saved); if (parsed?.length) return parsed; }
+    } catch {}
+    return INIT_CHATS;
+  });
+  const [active, setActive] = useState(() => {
+    try {
+      const saved = localStorage.getItem("codeforge_chats");
+      if (saved) { const parsed = JSON.parse(saved); if (parsed?.length) return parsed[0].id; }
+    } catch {}
+    return 1;
+  });
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [showConn, setShowConn] = useState(false);
   const [showMod, setShowMod] = useState(false);
   const [connectors, setConnectors] = useState([]);
   const [sSearch, setSSearch] = useState("");
+  const [contextMenu, setContextMenu] = useState(null); // null | { chatId, x, y }
+  const [renamingId, setRenamingId] = useState(null);   // chatId being renamed
+  const [renameVal, setRenameVal] = useState("");
 
   // modelState: { [modelId]: { status: "not-downloaded"|"downloading"|"downloaded"|"loaded"|"error", progress?, error? } }
   const [modelState, setModelState] = useState({});
@@ -2042,6 +2057,7 @@ function OfflineAIApp() {
   }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats, active]);
+  useEffect(() => { try { localStorage.setItem("codeforge_chats", JSON.stringify(chats)); } catch {} }, [chats]);
 
   // ── Download model (single GGUF file) ─────────────────────────────────────
   const downloadModel = async (modelId) => {
@@ -2321,7 +2337,23 @@ function OfflineAIApp() {
   }, []);
 
   const activeChat = chats.find(c => c.id === active);
-  const filteredChats = chats.filter(c => c.title.toLowerCase().includes(sSearch.toLowerCase()));
+  const searchQ = sSearch.trim().toLowerCase();
+  const filteredChats = searchQ
+    ? chats.filter(c =>
+        c.title.toLowerCase().includes(searchQ) ||
+        c.messages.some(m => m.text?.toLowerCase().includes(searchQ))
+      )
+    : chats;
+  // For each chat, find first matching message snippet (if title didn't match)
+  const getMatchSnippet = (ch) => {
+    if (!searchQ || ch.title.toLowerCase().includes(searchQ)) return null;
+    const m = ch.messages.find(msg => msg.text?.toLowerCase().includes(searchQ));
+    if (!m) return null;
+    const idx = m.text.toLowerCase().indexOf(searchQ);
+    const start = Math.max(0, idx - 20);
+    const end = Math.min(m.text.length, idx + searchQ.length + 30);
+    return (start > 0 ? "…" : "") + m.text.slice(start, end) + (end < m.text.length ? "…" : "");
+  };
 
   const activeModel = MODELS.find(m => m.id === activeModelId);
   const ms = activeModelId ? modelState[activeModelId] : null;
@@ -2330,7 +2362,7 @@ function OfflineAIApp() {
 
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: C.bgDeep, fontFamily: "'DM Sans',-apple-system,sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", background: C.bgDeep, fontFamily: "'DM Sans',-apple-system,sans-serif", overflow: "hidden" }} onClick={() => contextMenu && setContextMenu(null)}>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
@@ -2372,18 +2404,56 @@ function OfflineAIApp() {
         </div>
 
         {/* Chat list */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "6px 8px" }}>
-          {filteredChats.map(ch => (
-            <div key={ch.id} onClick={() => setActive(ch.id)} style={{
-              padding: "9px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2,
-              background: active === ch.id ? "rgba(59,130,246,0.12)" : "transparent",
-              border: `1px solid ${active === ch.id ? C.borderHi : "transparent"}`,
-              transition: "all 0.15s",
-            }}>
-              <div style={{ fontSize: 12.5, color: active === ch.id ? C.t1 : C.t2, fontWeight: active === ch.id ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.title}</div>
-              <div style={{ fontSize: 10, color: C.t3, marginTop: 2 }}>{ch.date}</div>
-            </div>
-          ))}
+        <div style={{ flex: 1, overflowY: "auto", padding: "6px 8px" }} onClick={() => setContextMenu(null)}>
+          {filteredChats.map(ch => {
+            const snippet = getMatchSnippet(ch);
+            const isRenaming = renamingId === ch.id;
+            return (
+              <div key={ch.id}
+                onClick={() => { setContextMenu(null); if (!isRenaming) setActive(ch.id); }}
+                onContextMenu={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const menuW = 130, menuH = 72;
+                  const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
+                  const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
+                  setContextMenu({ chatId: ch.id, x, y });
+                }}
+                style={{
+                  padding: "9px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2,
+                  background: active === ch.id ? "rgba(59,130,246,0.12)" : "transparent",
+                  border: `1px solid ${active === ch.id ? C.borderHi : "transparent"}`,
+                  transition: "all 0.15s",
+                }}>
+                {isRenaming ? (
+                  <input
+                    autoFocus
+                    value={renameVal}
+                    onChange={e => setRenameVal(e.target.value)}
+                    onBlur={() => {
+                      if (renameVal.trim()) {
+                        setChats(prev => prev.map(c => c.id === ch.id ? { ...c, title: renameVal.trim() } : c));
+                      }
+                      setRenamingId(null);
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") e.target.blur();
+                      if (e.key === "Escape") { setRenamingId(null); }
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    style={{ background: "none", border: "none", outline: "none", fontSize: 12.5,
+                             color: C.t1, width: "100%", fontFamily: "inherit", caretColor: C.cyan }}
+                  />
+                ) : (
+                  <div style={{ fontSize: 12.5, color: active === ch.id ? C.t1 : C.t2, fontWeight: active === ch.id ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.title}</div>
+                )}
+                {snippet && !isRenaming && (
+                  <div style={{ fontSize: 10, color: C.cyan, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>{snippet}</div>
+                )}
+                <div style={{ fontSize: 10, color: C.t3, marginTop: 2 }}>{ch.date}</div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Bottom nav */}
@@ -2667,6 +2737,52 @@ function OfflineAIApp() {
           onRemove={id => setConnectors(prev => prev.filter(c => c.id !== id))}
           onClose={() => setShowConn(false)}
         />
+      )}
+
+      {/* Context menu — rendered at root level so nothing clips it */}
+      {contextMenu && (
+        <div
+          style={{
+            position: "fixed", zIndex: 99999,
+            left: contextMenu.x, top: contextMenu.y,
+            background: C.bgCard, border: `1px solid ${C.border}`,
+            borderRadius: 8, padding: "4px 0", minWidth: 130,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+          }}
+          onClick={e => e.stopPropagation()}
+          onContextMenu={e => e.preventDefault()}
+        >
+          {[
+            { label: "Rename", action: () => {
+              const ch = chats.find(c => c.id === contextMenu.chatId);
+              if (ch) { setRenameVal(ch.title); setRenamingId(ch.id); setActive(ch.id); }
+              setContextMenu(null);
+            }},
+            { label: "Delete", action: () => {
+              const id = contextMenu.chatId;
+              setChats(prev => {
+                const next = prev.filter(c => c.id !== id);
+                if (next.length === 0) {
+                  const newId = Date.now();
+                  setActive(newId);
+                  return [{ id: newId, title: "New Chat", date: "Today", messages: [] }];
+                }
+                if (active === id) setActive(next[0].id);
+                return next;
+              });
+              setContextMenu(null);
+            }, danger: true },
+          ].map(({ label, action, danger }) => (
+            <div key={label} onClick={action} style={{
+              padding: "7px 14px", fontSize: 12.5, cursor: "pointer",
+              color: danger ? "#f87171" : C.t1,
+              transition: "background 0.1s",
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = danger ? "rgba(248,113,113,0.12)" : "rgba(255,255,255,0.06)"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >{label}</div>
+          ))}
+        </div>
       )}
     </div>
   );

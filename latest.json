@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0",
-  "notes": "Initial release of Codeforge AI — offline AI research assistant",
-  "pub_date": "2025-03-10T00:00:00Z",
+  "version": "0.3.2",
+  "notes": "Fixed model downloads for users without a D: drive. Models now save to the standard app data folder on any Windows machine.",
+  "pub_date": "2026-03-11T00:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbmh2YmlMd2dTZ29FZUZRRUs3OXJicHRzb3hoam5peEZlK1YyZDEzN212ZGx6eFJzMXlnK1BoSGNXZTdEOUlCb3h4WTBxM0xLczdPNU5WbWdnMEt0d3ZqMVhGLzhxSmdVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzczMTUzOTE3CWZpbGU6Q29kZWZvcmdlIEFJXzAuMS4wX3g2NC1zZXR1cC5uc2lzLnppcApzUE9aQjJRYXQreXlabTc2a0RzSG5IL3J0eWxkRXNxSkRpNFJXdVJzS01pN3pyeDd4THJLZ2w1UzlUQ0crQ0pxU1Vsa0xVMk83UWgwSDZYdkN5OWhDZz09Cg==",
-      "url": "https://github.com/bhaveshshahani824-pixel/codeforge/releases/download/v0.1.0/Codeforge.AI_0.1.0_x64-setup.nsis.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUbmh2YmlMd2dTZ2pRT1h3Y1lHM1pRZmxsaXVjMXFoVWhBQ0FOcDNBaklid05aYUtYdks5QWtkVVlVWHhsWlUvR1Y5ZWhld2I2T05YTGs1b2diTjhDN0p1QVF5UlpteGdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzczMjM4OTIzCWZpbGU6Q29kZWZvcmdlIEFJXzAuMy4yX3g2NF9lbi1VUy5tc2kuemlwCnhQWGVNWmN2c3JEMTBGRHl6d081TnFzck5LUVE2ZmxoSHBYcUZMc2djTWhUNTVwK2FJYWdIZ2NrbHZKcG9pOHlUL2dtVGJMd2dUZjlvMEJnbittSkNBPT0K",
+      "url": "https://github.com/Edu124/Codeforge-ai/releases/download/v0.3.2/Codeforge.AI_0.3.2_x64_en-US.msi.zip"
     }
   }
 }
