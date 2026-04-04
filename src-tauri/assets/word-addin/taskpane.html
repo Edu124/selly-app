@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodeForge AI</title>
+  <title>CodeForge AI — Word</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,12 +30,13 @@
     .logo { display: flex; align-items: center; gap: 8px; }
     .logo-icon {
       width: 24px; height: 24px;
-      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      background: #2B579A;
       border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: 700; color: #fff;
     }
     .logo-text { font-size: 13px; font-weight: 700; color: #f1f5f9; }
+    .logo-app  { font-size: 11px; font-weight: 500; color: #64748b; margin-left: 2px; }
     .status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; }
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; transition: background 0.3s; }
     .status-dot.connected { background: #22c55e; }
@@ -118,7 +119,7 @@
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── Insert button (formula mode) ── */
+    /* ── Insert button (rewrite mode) ── */
     .insert-btn {
       display: block; margin-top: 10px; width: 100%;
       background: #14532d; border: 1px solid #16a34a; border-radius: 7px;
@@ -150,39 +151,6 @@
     button:disabled { opacity: 0.45; cursor: not-allowed; }
     .sub-hint { font-size: 10.5px; color: #334155; margin-top: 5px; }
 
-    /* ── Macro overlay ── */
-    .macro-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-      z-index: 999; display: flex; align-items: center; justify-content: center; padding: 16px;
-    }
-    .macro-overlay-box {
-      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
-      padding: 20px; width: 100%; max-width: 300px;
-    }
-    .macro-overlay-title { font-size: 13px; font-weight: 700; color: #f1f5f9; margin-bottom: 12px; }
-    .macro-steps { list-style: none; padding: 0; margin: 0 0 10px; }
-    .macro-steps li {
-      display: flex; align-items: center; gap: 10px;
-      padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 12px; color: #94a3b8;
-    }
-    .macro-steps li:last-child { border-bottom: none; }
-    .macro-step-num {
-      width: 22px; height: 22px; border-radius: 50%; background: #1D6F42;
-      color: #86efac; font-size: 11px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .macro-key {
-      background: #0f172a; border: 1px solid #334155; border-radius: 4px;
-      padding: 1px 6px; font-size: 11px; font-weight: 600; color: #f1f5f9;
-    }
-    .macro-warn { font-size: 10.5px; color: #475569; margin-top: 8px; }
-    .macro-ok-btn {
-      margin-top: 14px; width: 100%; background: #1D6F42; border: 1px solid #16a34a;
-      border-radius: 8px; color: #86efac; font-size: 12px; font-weight: 600;
-      padding: 8px; cursor: pointer; height: auto;
-    }
-    .macro-ok-btn:hover { background: #166534; }
-
     /* ── Empty state ── */
     .empty {
       flex: 1; display: flex; flex-direction: column;
@@ -198,8 +166,10 @@
 
   <div class="header">
     <div class="logo">
-      <div class="logo-icon">C</div>
-      <div class="logo-text">CodeForge AI</div>
+      <div class="logo-icon">W</div>
+      <div>
+        <div class="logo-text">CodeForge AI <span class="logo-app">· Word</span></div>
+      </div>
     </div>
     <div class="status">
       <div class="status-dot" id="statusDot"></div>
@@ -208,17 +178,16 @@
   </div>
 
   <div class="mode-toggle">
-    <button class="mode-btn active" id="modeAsk"     onclick="setMode('ask')">📊 Ask</button>
-    <button class="mode-btn"        id="modeFormula" onclick="setMode('formula')">✏️ Formula</button>
-    <button class="mode-btn"        id="modeMacro"   onclick="setMode('macro')">🔧 Macro</button>
+    <button class="mode-btn active" id="modeAsk"     onclick="setMode('ask')">📄 Ask</button>
+    <button class="mode-btn"        id="modeRewrite" onclick="setMode('rewrite')">✏️ Rewrite</button>
   </div>
 
   <div class="chat" id="chat">
     <div class="empty" id="emptyState">
-      <div class="empty-icon" id="emptyIcon">📊</div>
-      <div class="empty-title" id="emptyTitle">Ask about your data</div>
+      <div class="empty-icon" id="emptyIcon">📄</div>
+      <div class="empty-title" id="emptyTitle">Ask about your document</div>
       <div class="empty-sub" id="emptySub">
-        Select cells in Excel, then ask a question below.
+        Select text or ask about the full document below.
       </div>
     </div>
   </div>
@@ -227,14 +196,14 @@
     <div class="input-row">
       <textarea
         id="question"
-        placeholder="e.g. What is revenue for 2023?"
+        placeholder="e.g. Summarize this document"
         rows="1"
         onkeydown="handleKey(event)"
         oninput="autoResize(this)"
       ></textarea>
       <button id="askBtn" onclick="ask()" disabled>Ask</button>
     </div>
-    <div class="sub-hint" id="subHint">Select cells in Excel, then ask a question</div>
+    <div class="sub-hint" id="subHint">Select text or ask about the full document</div>
   </div>
 
   <script src="taskpane.js"></script>

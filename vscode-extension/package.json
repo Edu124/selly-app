@@ -1,38 +1,82 @@
 {
   "name": "codeforgeai-hub",
   "displayName": "Codeforge AI Hub",
-  "description": "Connect VS Code / Cursor to Codeforge AI for offline AI assistance with your open files",
-  "version": "1.0.0",
+  "description": "Offline AI for VS Code — unit tests, inline suggestions, smart debug, terminal error explainer",
+  "version": "1.1.0",
   "publisher": "codeforgeai",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["AI", "Other"],
   "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
   "contributes": {
+
     "commands": [
-      { "command": "codeforgeai.explain",  "title": "Codeforge AI: Explain Selection" },
-      { "command": "codeforgeai.refactor", "title": "Codeforge AI: Refactor Selection" },
-      { "command": "codeforgeai.fix",      "title": "Codeforge AI: Fix Bug in Selection" },
-      { "command": "codeforgeai.comment",  "title": "Codeforge AI: Add Comments" },
-      { "command": "codeforgeai.connect",  "title": "Codeforge AI: Reconnect to Hub" }
+      { "command": "codeforgeai.explain",              "title": "CodeForge AI: Explain Selection" },
+      { "command": "codeforgeai.refactor",             "title": "CodeForge AI: Refactor Selection" },
+      { "command": "codeforgeai.fix",                  "title": "CodeForge AI: Fix Bug in Selection" },
+      { "command": "codeforgeai.comment",              "title": "CodeForge AI: Add Comments" },
+      { "command": "codeforgeai.generateTests",        "title": "CodeForge AI: Generate Unit Tests" },
+      { "command": "codeforgeai.debugWithAI",          "title": "CodeForge AI: Debug with AI" },
+      { "command": "codeforgeai.explainTerminalError", "title": "CodeForge AI: Explain Terminal Error" },
+      { "command": "codeforgeai.connect",              "title": "CodeForge AI: Reconnect to Hub" }
     ],
+
     "menus": {
       "editor/context": [
-        { "command": "codeforgeai.explain",  "when": "editorHasSelection", "group": "codeforgeai@1" },
-        { "command": "codeforgeai.refactor", "when": "editorHasSelection", "group": "codeforgeai@2" },
-        { "command": "codeforgeai.fix",      "when": "editorHasSelection", "group": "codeforgeai@3" },
-        { "command": "codeforgeai.comment",  "when": "editorHasSelection", "group": "codeforgeai@4" }
+        { "command": "codeforgeai.explain",       "when": "editorHasSelection", "group": "codeforgeai@1" },
+        { "command": "codeforgeai.refactor",      "when": "editorHasSelection", "group": "codeforgeai@2" },
+        { "command": "codeforgeai.fix",           "when": "editorHasSelection", "group": "codeforgeai@3" },
+        { "command": "codeforgeai.comment",       "when": "editorHasSelection", "group": "codeforgeai@4" },
+        { "command": "codeforgeai.generateTests", "when": "editorHasSelection", "group": "codeforgeai@5" },
+        { "command": "codeforgeai.debugWithAI",   "when": "editorIsOpen",       "group": "codeforgeai@6" }
+      ],
+      "terminal/context": [
+        { "command": "codeforgeai.explainTerminalError", "group": "codeforgeai@1" }
       ]
-    }
+    },
+
+    "configuration": {
+      "title": "CodeForge AI",
+      "properties": {
+        "codeforgeai.inlineSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline code suggestions as you type (Tab to accept). Powered by your local model."
+        }
+      }
+    },
+
+    "keybindings": [
+      {
+        "command": "codeforgeai.explainTerminalError",
+        "key": "ctrl+shift+e",
+        "mac": "cmd+shift+e",
+        "when": "terminalFocus"
+      },
+      {
+        "command": "codeforgeai.debugWithAI",
+        "key": "ctrl+shift+d",
+        "mac": "cmd+shift+d",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeforgeai.generateTests",
+        "key": "ctrl+shift+t",
+        "mac": "cmd+shift+t",
+        "when": "editorTextFocus"
+      }
+    ]
+
   },
+
   "scripts": {
     "compile": "tsc -p ./",
     "build":   "tsc -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
-    "@types/ws": "^8.5.10",
-    "typescript": "^5.3.3"
+    "@types/vscode":  "^1.85.0",
+    "@types/ws":      "^8.5.10",
+    "typescript":     "^5.3.3"
   },
   "dependencies": {
     "ws": "^8.16.0"

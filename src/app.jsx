@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
-import { ClerkProvider, SignIn, useAuth } from "@clerk/react";
+import { ClerkProvider, SignIn, useAuth, useClerk } from "@clerk/react";
 import * as WebLLM from "@mlc-ai/web-llm";
 import { pipeline, env as hfEnv } from "@huggingface/transformers";
 hfEnv.allowLocalModels = false;
@@ -261,11 +261,8 @@ const HF = "https://huggingface.co";
 // 4. In Clerk dashboard → Email address → enable "Email verification code"
 const CLERK_KEY = "pk_test_aW1tZW5zZS1yb2RlbnQtNTEuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
-// ─── App version + update config ─────────────────────────────────────────────
-// Bump APP_VERSION with every release so the update banner auto-hides.
+// ─── App version ──────────────────────────────────────────────────────────────
 const APP_VERSION = "0.3.4";
-// GitHub Releases API — returns the latest release JSON (tag_name, body, html_url).
-const UPDATE_CHECK_URL = "https://api.github.com/repos/Edu124/Codeforge-ai/releases/latest";
 
 // ─── Hub trial config ─────────────────────────────────────────────────────────
 const HUB_TRIAL_DAYS   = 5;
@@ -851,6 +848,50 @@ function detectLanguage(text) {
 }
 
 // ─── Prompt engineering ───────────────────────────────────────────────────────
+// ── Query classifier ─────────────────────────────────────────────────────────
+function classifyQuery(text) {
+  const t = text.toLowerCase();
+  if (/\b(sin|cos|tan|log|sqrt|integral|derivative|equation|solve|proof|formula|theorem|algebra|geometry|trigonometry|calculus|matrix|vector|probability|statistics|calculate|compute|percentage|ratio|average|mean|median)\b/.test(t))
+    return "math";
+  if (/\b(write a|write me|generate a|create a|compose|tell me a story|story about|poem|fiction|narrative|imagine|fantasy|essay|script|song|lyrics|joke|riddle|short story|novel)\b/.test(t))
+    return "creative";
+  if (/\b(code|function|class|debug|implement|script|program|api|sql|query|syntax|bug|fix this|refactor|algorithm|variable|loop|array|html|css|react|python|javascript|typescript)\b/.test(t))
+    return "code";
+  if (/\b(what is|who is|when did|where is|how many|define|explain|describe|history of|facts about|difference between|why does|how does)\b/.test(t))
+    return "factual";
+  return "general";
+}
+
+const QUERY_TYPE_PROMPTS = {
+  math:
+    "\n\nMATH/SCIENCE MODE: Work through this problem step-by-step. " +
+    "State the formula first, then substitute values, then calculate. " +
+    "Show every step. Double-check arithmetic before giving the final answer. " +
+    "If you are not 100% certain of a formula or result, say so explicitly rather than guessing.",
+  creative:
+    "\n\nCREATIVE MODE: Generate something COMPLETELY NEW and DIFFERENT from anything you have already produced in this conversation. " +
+    "Use different characters, different settings, different plot, different themes, different tone. " +
+    "Originality and variety are the top priority — never reuse ideas, names, or structures from earlier responses.",
+  code:
+    "\n\nCODE MODE: Output clean, working code only. Add inline comments only where the logic is non-obvious. " +
+    "Follow the same language and style as any existing code shown. " +
+    "After the code block, give a 1-2 sentence explanation of what it does. No extra boilerplate.",
+  factual:
+    "\n\nFACTUAL MODE: State the direct answer in the very first sentence. " +
+    "Only add context or explanation if it meaningfully helps understanding. Do not pad.",
+  general: "",
+};
+
+function getQueryParams(type) {
+  switch (type) {
+    case "math":     return { temperature: 0.1,  repeatPenalty: 1.05 };
+    case "creative": return { temperature: 0.85, repeatPenalty: 1.4  };
+    case "code":     return { temperature: 0.2,  repeatPenalty: 1.1  };
+    case "factual":  return { temperature: 0.3,  repeatPenalty: 1.1  };
+    default:         return { temperature: 0.5,  repeatPenalty: 1.15 };
+  }
+}
+
 function buildSystemPrompt(connectors, lang = "en") {
   const hasDocs = connectors.some(c => c.chunks?.length > 0);
   const base = `You are Codeforge AI — a research assistant running 100% on this device. No data leaves this machine.\n\nACCURACY RULES (highest priority — always apply these before answering):\n- PREMISE CHECK: Before answering any math, science, or factual question, verify whether the user's stated facts, equations, or identities are correct. If the user's premise is FALSE or INCORRECT (e.g., a wrong equation like "sinθ + cosθ = 1" when the correct identity is "sin²θ + cos²θ = 1"), you MUST explicitly correct it first using "⚠️ Correction:" before explaining the right concept. Never build an explanation on a false premise — correcting the user is more helpful than confirming a mistake.\n- MATH NOTATION: Write math using plain Unicode text only (e.g., sin²θ + cos²θ = 1, √x, π, θ). Do NOT output raw LaTeX commands like \\sin, \\cos, \\frac{a}{b}, \\sqrt{} or \\text{} — these appear as broken garbled text to the user.\n- NO HALLUCINATION: Never invent facts, formulas, examples, or real-world applications you are not certain about. If you are unsure of an example, omit it or say "I'm not certain about this". It is far better to say "I don't know" than to fabricate a plausible-sounding but wrong answer.\n- CLEAN OUTPUT: Your response must use only the characters of the target language's script. Never mix in characters or words from unrelated writing systems (e.g., no Chinese/Arabic/Cyrillic characters in a French or English response). If you are about to output a character you cannot verify, omit it.\n\nRESPONSE RULES:\n- Be precise, cite sources when context is provided.\n- Structure complex answers with bullet points or sections.\n- If the answer is not in the provided context, say so — never hallucinate.\n- Prefer concise, evidence-based responses.\n- CONCISENESS: Never repeat yourself. Each sentence must add new information. If the answer fits in one sentence, give one sentence — do not pad with restating the question, summaries of what you just said, or closing remarks like "In summary" or "To conclude".\n- Direct answers: For factual or numerical questions, state the answer first, then explain only if needed.\n- For Excel/financial data: calculate requested metrics from the numbers in the context; show your working.\n- Language identification: You understand ALL world languages. When asked "what language is this?", "which language is this?", or any similar question, ALWAYS explicitly state the full language name first (e.g., "This is French.", "This text is written in Arabic.", "This is Spanish."), then provide the translation or meaning. Never skip naming the language.`;
@@ -861,8 +902,9 @@ function buildSystemPrompt(connectors, lang = "en") {
 
 // Build a raw prompt string for llama.cpp (no tokenizer required in JS).
 // Uses ChatML format (Qwen, Phi-3.5) or Gemma format depending on model.
-function buildPrompt(history, userText, ctxChunks, connectors, modelId, lang = "en", liveCtx = null) {
-  const sys = buildSystemPrompt(connectors, lang);
+function buildPrompt(history, userText, ctxChunks, connectors, modelId, lang = "en", liveCtx = null, queryType = "general") {
+  const typeInstr = QUERY_TYPE_PROMPTS[queryType] || "";
+  const sys = buildSystemPrompt(connectors, lang) + typeInstr;
 
   // Context goes BEFORE the question so the model reads the document first,
   // then encounters the question with full context already in working memory.
@@ -883,7 +925,7 @@ function buildPrompt(history, userText, ctxChunks, connectors, modelId, lang = "
   const isGemma = modelId.toLowerCase().includes("gemma");
 
   // When data context is present, reduce history to save token space.
-  const histSlice = (liveCtx || ctxChunks.length > 2) ? -2 : -4;
+  const histSlice = (liveCtx || ctxChunks.length > 2) ? -4 : -8;
   const recentHistory = history.slice(histSlice);
 
   if (isGemma) {
@@ -920,6 +962,28 @@ function Btn({ onClick, disabled, style, children }) {
 }
 function Spinner() {
   return <span style={{ width: 13, height: 13, border: `2px solid rgba(255,255,255,0.2)`, borderTopColor: C.cyan, borderRadius: "50%", display: "inline-block", animation: "oai-spin 0.8s linear infinite" }} />;
+}
+
+function LogoutButton() {
+  const { signOut } = useClerk();
+  return (
+    <Btn
+      onClick={() => signOut()}
+      style={{
+        width: "100%", padding: "9px 10px", background: "transparent",
+        border: `1px solid ${C.border}`, borderRadius: 8,
+        color: C.t3, fontSize: 12, display: "flex", alignItems: "center", gap: 8,
+        marginTop: 4, textAlign: "left",
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+      Sign out
+    </Btn>
+  );
 }
 
 // ─── Analytical Calculation Card ──────────────────────────────────────────────
@@ -1897,16 +1961,22 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
 
   // Editor badge colour
   const editorColor = (editor) => {
-    if (editor === "cursor")   return C.purple;
-    if (editor === "windsurf") return C.green;
-    if (editor === "excel")    return "#1D6F42"; // Excel green
+    if (editor === "cursor")     return C.purple;
+    if (editor === "windsurf")   return C.green;
+    if (editor === "excel")      return "#1D6F42"; // Excel green
+    if (editor === "browser")    return "#F97316"; // Browser orange
+    if (editor === "word")       return "#2B579A"; // Word blue
+    if (editor === "powerpoint") return "#C43E1C"; // PowerPoint red
     return C.blue; // vscode
   };
 
   const editorLabel = (editor) => {
-    if (editor === "cursor")   return "Cursor";
-    if (editor === "windsurf") return "Windsurf";
-    if (editor === "excel")    return "Excel";
+    if (editor === "cursor")     return "Cursor";
+    if (editor === "windsurf")   return "Windsurf";
+    if (editor === "excel")      return "Excel";
+    if (editor === "browser")    return "Browser";
+    if (editor === "word")       return "Word";
+    if (editor === "powerpoint") return "PowerPoint";
     return "VS Code";
   };
 
@@ -2043,9 +2113,12 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
             </div>
             <div style={{ padding: "14px 18px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 12, color: C.t2, lineHeight: 1.7, maxWidth: 380 }}>
               <div style={{ fontWeight: 600, color: C.t1, marginBottom: 6 }}>How to connect:</div>
+              <div style={{ fontWeight: 600, color: C.t3, marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>VS Code / Cursor</div>
               <div>1. Install the <strong style={{ color: C.cyan }}>Codeforge AI Hub</strong> extension from the <code style={{ background: C.bgDeep, padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>vscode-extension/</code> folder</div>
-              <div style={{ marginTop: 4 }}>2. Open any file in VS Code or Cursor</div>
-              <div style={{ marginTop: 4 }}>3. The editor connects automatically — it appears here</div>
+              <div style={{ marginTop: 4 }}>2. Open any file — it connects automatically</div>
+              <div style={{ fontWeight: 600, color: C.t3, marginTop: 10, marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>Excel / Word / PowerPoint</div>
+              <div>1. Open the add-in from the <code style={{ background: C.bgDeep, padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>excel-addin/</code> folder via Insert → Add-ins</div>
+              <div style={{ marginTop: 4 }}>2. The Office add-in connects here automatically</div>
               <div style={{ marginTop: 8, padding: "6px 10px", background: C.bgDeep, borderRadius: 7, fontFamily: "monospace", fontSize: 11, color: C.cyan }}>ws://127.0.0.1:7471</div>
             </div>
           </div>
@@ -2826,6 +2899,7 @@ function LoginPage() {
       colorPrimary: C.blue, colorBackground: C.bgPanel,
       colorText: C.t1, colorTextSecondary: C.t2,
       colorInputBackground: C.bgCard, colorInputText: C.t1,
+      colorInputPlaceholder: C.t3,
       borderRadius: "12px", fontFamily: "inherit",
     },
     elements: {
@@ -2833,8 +2907,19 @@ function LoginPage() {
       headerTitle: { color: C.t1 }, headerSubtitle: { color: C.t2 },
       socialButtonsBlockButton: { background: C.bgCard, border: `1px solid ${C.border}`, color: C.t1 },
       dividerLine: { background: C.border }, dividerText: { color: C.t3 },
-      formFieldInput: { background: C.bgCard, borderColor: C.border, color: C.t1 },
-      formButtonPrimary: { background: C.blue }, footerAction: { color: C.t3 },
+      formFieldInput: {
+        background: C.bgCard, borderColor: C.border, color: C.t1,
+        caretColor: C.cyan,
+      },
+      formFieldLabel: { color: C.t2 },
+      otpCodeFieldInput: {
+        background: C.bgCard, borderColor: C.border, color: C.t1,
+        fontSize: "20px", fontWeight: "700",
+      },
+      formButtonPrimary: { background: C.blue },
+      footerAction: { color: C.t3 },
+      identityPreviewText: { color: C.t1 },
+      identityPreviewEditButton: { color: C.blue },
     },
   };
 
@@ -2849,29 +2934,24 @@ function LoginPage() {
         <div style={{ fontSize: 13, color: C.t2, marginTop: 4 }}>Research AI — runs 100% on your device</div>
       </div>
 
-      {/* Back button — visible once user has clicked into a sub-flow (Google, etc.) */}
-      {inSubFlow && (
-        <button onClick={handleReset} style={{
-          display: "flex", alignItems: "center", gap: 6, background: "none",
-          border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2,
-          fontSize: 13, padding: "7px 16px", cursor: "pointer", fontFamily: "inherit",
-        }}>
-          ← Back to sign in
-        </button>
-      )}
-
       {/* Clerk SignIn — key forces full remount on reset; click sets inSubFlow */}
       <div onClick={() => setInSubFlow(true)} style={{ display: "contents" }}>
         <SignIn key={signInKey} routing="virtual" appearance={appearance} />
       </div>
 
-      {/* Fallback reset link always visible */}
-      <div style={{ fontSize: 11, color: C.t3, textAlign: "center" }}>
-        Stuck on a screen?{" "}
-        <span onClick={handleReset} style={{ color: C.blue, cursor: "pointer", textDecoration: "underline" }}>
-          Start over
-        </span>
-      </div>
+      {/* Back button — fixed top-left, always on screen no matter what Clerk renders */}
+      {inSubFlow && (
+        <button onClick={handleReset} style={{
+          position: "fixed", top: 16, left: 16, zIndex: 9999,
+          display: "flex", alignItems: "center", gap: 6,
+          background: C.bgCard, border: `1px solid ${C.border}`,
+          borderRadius: 8, color: C.t2, fontSize: 13,
+          padding: "8px 16px", cursor: "pointer", fontFamily: "inherit",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
+        }}>
+          ← Back
+        </button>
+      )}
     </div>
   );
 }
@@ -2920,6 +3000,7 @@ function OfflineAIApp() {
   // ── Extension Hub state (desktop only) ────────────────────────────────────
   // hubClients: { [id]: { id, editor, file, language, selectedCode, cursorLine, messages: [] } }
   const [showHub, setShowHub] = useState(false);
+  const [activeTab, setActiveTab] = useState("model"); // "model" | "hub"
   const [hubClients, setHubClients] = useState({});
   const [activeHubId, setActiveHubId] = useState(null);
   const [hubStreaming, setHubStreaming] = useState(false);
@@ -2983,48 +3064,16 @@ function OfflineAIApp() {
     }
   };
 
-  // ── Hub trial ─────────────────────────────────────────────────────────────
-  // trialDaysLeft: null = trial not started yet, ≥1 = active, 0 = expired
-  const getTrialDaysLeft = () => {
-    const start = localStorage.getItem(HUB_TRIAL_KEY);
-    if (!start) return null; // not started
-    const elapsed = Date.now() - Number(start);
-    const daysUsed = Math.floor(elapsed / (1000 * 60 * 60 * 24));
-    return Math.max(0, HUB_TRIAL_DAYS - daysUsed);
-  };
+  // ── Hub trial — disabled, always unlocked ────────────────────────────────
+  const getTrialDaysLeft = () => null; // null = no trial, always active
   const [trialDaysLeft, setTrialDaysLeft] = useState(getTrialDaysLeft);
 
-  // ── Auto-update check ─────────────────────────────────────────────────────
-  // updateAvailable: null (none) | { version, notes, url }
-  const [updateAvailable, setUpdateAvailable] = useState(null);
-  const [updateDismissed, setUpdateDismissed] = useState(false);
-  const [updateInstalling, setUpdateInstalling] = useState(false);
 
   // Fetch local IP for mobile QR bridge
   useEffect(() => {
     invoke("get_local_ip").then(ip => setLocalIP(ip)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    // Check for updates 4 seconds after launch (so app loads first).
-    const timer = setTimeout(async () => {
-      try {
-        const info = await invoke("check_for_update", { url: UPDATE_CHECK_URL });
-        // GitHub releases API uses tag_name (e.g. "v0.2.0") and html_url
-        const latestVersion = (info?.tag_name || info?.version || "").replace(/^v/, "");
-        if (latestVersion && latestVersion !== APP_VERSION) {
-          setUpdateAvailable({
-            version: latestVersion,
-            notes: info.body || info.notes || "",
-            url: info.html_url || info.url || "",
-          });
-        }
-      } catch {
-        // No internet or placeholder URL — silently ignore
-      }
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, []);
 
   const activeRef           = useRef(active);   // stable ref for event listeners
   const bottomRef           = useRef(null);
@@ -3348,35 +3397,6 @@ function OfflineAIApp() {
     }
   };
 
-  // ── In-app update install (tauri-plugin-updater) ─────────────────────────
-  const [updateProgress, setUpdateProgress] = useState(0);
-  const installUpdate = async () => {
-    setUpdateInstalling(true);
-    setUpdateProgress(0);
-    let unlisten;
-    try {
-      const { listen } = await import("@tauri-apps/api/event");
-      unlisten = await listen("update-progress", e => setUpdateProgress(e.payload));
-    } catch {}
-    try {
-      await invoke("install_update");
-      // Rust calls app.restart() — app closes and relaunches automatically
-    } catch (err) {
-      console.warn("[update] auto-install failed, opening browser:", err);
-      // Fall back: open the GitHub releases page so the user can download manually
-      const releaseUrl = updateAvailable?.url || "https://github.com/Edu124/Codeforge-ai/releases/latest";
-      try {
-        const { open } = await import("@tauri-apps/plugin-shell");
-        await open(releaseUrl);
-      } catch {
-        window.open(releaseUrl, "_blank");
-      }
-      setUpdateInstalling(false);
-      setUpdateProgress(0);
-    } finally {
-      if (unlisten) unlisten();
-    }
-  };
 
   // ── Reset server binary and re-download (noavx fallback) ─────────────────
   const resetServer = async () => {
@@ -3527,7 +3547,9 @@ function OfflineAIApp() {
       }
     }
 
-    const prompt = buildPrompt(history, text + analyticsNote, liveCtx ? [] : ctxChunks, connectors, activeModelId, effectiveLang, liveCtx);
+    const queryType = classifyQuery(text);
+    const { temperature: qTemp, repeatPenalty } = getQueryParams(queryType);
+    const prompt = buildPrompt(history, text + analyticsNote, liveCtx ? [] : ctxChunks, connectors, activeModelId, effectiveLang, liveCtx, queryType);
 
     // Mobile browser — prefer WebLLM (fully offline), fall back to LAN
     const isTauri = typeof window.__TAURI__ !== "undefined";
@@ -3576,7 +3598,7 @@ function OfflineAIApp() {
           const res = await fetch(`http://${lanIP}:8080/completion`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt, n_predict: 2048, temperature: 0.5, stream: true }),
+            body: JSON.stringify({ prompt, n_predict: 2048, temperature: qTemp, stream: true, repeat_penalty: repeatPenalty, repeat_last_n: 256, frequency_penalty: 0.1 }),
           });
           const reader = res.body.getReader();
           const dec = new TextDecoder();
@@ -3663,7 +3685,7 @@ function OfflineAIApp() {
       }
     }
 
-    invoke("generate", { prompt, maxTokens: 8192, temperature: 0.5 }).catch(err => {
+    invoke("generate", { prompt, maxTokens: 8192, temperature: qTemp, repeatPenalty }).catch(err => {
       const errText = String(err);
       setStreaming(false);
       streamBufRef.current = "";
@@ -3738,7 +3760,7 @@ function OfflineAIApp() {
       prompt += `<|im_start|>user\n${fullText}<|im_end|>\n<|im_start|>assistant\n`;
     }
 
-    invoke("generate", { prompt, maxTokens: 8192, temperature: 0.5 }).catch(err => {
+    invoke("generate", { prompt, maxTokens: 8192, temperature: 0.4, repeatPenalty: 1.1 }).catch(err => {
       setHubStreaming(false);
       hubStreamBufRef.current = "";
       hubStreamMsgRef.current = null;
@@ -3891,7 +3913,7 @@ If no issues found, respond with: []`;
 
 
   return (
-    <div className="app-layout" style={{ background: C.bgDeep, fontFamily: "'DM Sans',-apple-system,sans-serif" }} onClick={() => contextMenu && setContextMenu(null)}>
+    <div style={{ position: "fixed", inset: 0, background: C.bgDeep, fontFamily: "'DM Sans',-apple-system,sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
@@ -3904,486 +3926,56 @@ If no issues found, respond with: []`;
         textarea{resize:none;outline:none} button{outline:none;border:none} input{outline:none}
       `}</style>
 
-      {/* ── Sidebar ── */}
-      <div className="sidebar" style={{ background: C.bgPanel, borderRight: `1px solid ${C.border}` }}>
-
+      {/* ── Header ── */}
+      <div style={{ height: 58, background: C.bgPanel, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", padding: "0 20px", justifyContent: "space-between", flexShrink: 0 }}>
         {/* Logo */}
-        <div className="sidebar-header" style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 14 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Icon d={IC.brain} size={16} stroke="#fff" />
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.t1 }}>Codeforge AI</div>
-              <div style={{ fontSize: 10, color: C.t3 }}>Research Assistant</div>
-            </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon d={IC.brain} size={17} stroke="#fff" />
           </div>
-          <Btn onClick={newChat} style={{ width: "100%", padding: "8px", background: C.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-            <Icon d={IC.plus} size={13} /> New Chat
-          </Btn>
-        </div>
-
-        {/* Search */}
-        <div className="sidebar-search" style={{ padding: "10px 12px 6px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-            <Icon d={IC.search} size={12} stroke={C.t3} />
-            <input value={sSearch} onChange={e => setSSearch(e.target.value)} placeholder="Search chats…"
-              style={{ background: "none", border: "none", outline: "none", fontSize: 12, color: C.t1, width: "100%", fontFamily: "inherit", caretColor: C.cyan }} />
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.t1, lineHeight: 1.2 }}>Codeforge AI</div>
+            <div style={{ fontSize: 10, color: C.t3 }}>Local AI Hub</div>
           </div>
         </div>
 
-        {/* Chat list */}
-        <div className="sidebar-chat-list" style={{ padding: "6px 8px" }} onClick={() => setContextMenu(null)}>
-          {filteredChats.map(ch => {
-            const snippet = getMatchSnippet(ch);
-            const isRenaming = renamingId === ch.id;
-            return (
-              <div key={ch.id}
-                onClick={() => { setContextMenu(null); if (!isRenaming) { setActive(ch.id); setShowHub(false); } }}
-                onContextMenu={e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const menuW = 130, menuH = 72;
-                  const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
-                  const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
-                  setContextMenu({ chatId: ch.id, x, y });
-                }}
-                style={{
-                  padding: "9px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2,
-                  background: active === ch.id ? "rgba(59,130,246,0.12)" : "transparent",
-                  border: `1px solid ${active === ch.id ? C.borderHi : "transparent"}`,
-                  transition: "all 0.15s",
-                }}>
-                {isRenaming ? (
-                  <input
-                    autoFocus
-                    value={renameVal}
-                    onChange={e => setRenameVal(e.target.value)}
-                    onBlur={() => {
-                      if (renameVal.trim()) {
-                        setChats(prev => prev.map(c => c.id === ch.id ? { ...c, title: renameVal.trim() } : c));
-                      }
-                      setRenamingId(null);
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === "Enter") e.target.blur();
-                      if (e.key === "Escape") { setRenamingId(null); }
-                    }}
-                    onClick={e => e.stopPropagation()}
-                    style={{ background: "none", border: "none", outline: "none", fontSize: 12.5,
-                             color: C.t1, width: "100%", fontFamily: "inherit", caretColor: C.cyan }}
-                  />
-                ) : (
-                  <div style={{ fontSize: 12.5, color: active === ch.id ? C.t1 : C.t2, fontWeight: active === ch.id ? 500 : 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.title}</div>
-                )}
-                {snippet && !isRenaming && (
-                  <div style={{ fontSize: 10, color: C.cyan, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>{snippet}</div>
-                )}
-                <div style={{ fontSize: 10, color: C.t3, marginTop: 2 }}>{ch.date}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Bottom nav — mobile: icon tabs | desktop: text buttons */}
-        <div style={{ padding: isDesktop ? "10px 8px" : "0", borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: isDesktop ? "column" : "row", gap: isDesktop ? 2 : 0 }}>
-
-          {/* ── Mobile tab bar ── */}
-          {!isDesktop && [
-            { id: "chat",   icon: IC.chat,    label: "Chat"  },
-            { id: "music",  icon: IC.music,   label: "Music" },
-            { id: "games",  icon: IC.gamepad, label: "Games" },
-            { id: "models", icon: IC.server,  label: "AI"    },
+        {/* Tab bar */}
+        <div style={{ display: "flex", gap: 3, background: C.bgCard, borderRadius: 11, padding: "4px", border: `1px solid ${C.border}` }}>
+          {[
+            { id: "model", label: "Model", icon: IC.server },
+            { id: "hub",   label: "Hub",   icon: IC.hub   },
           ].map(tab => (
-            <button key={tab.id}
-              className="mobile-tab-btn"
-              onClick={() => { setMobileTab(tab.id); }}
-              style={{
-                color: mobileTab === tab.id ? C.blue : C.t3,
-                borderTop: mobileTab === tab.id ? `2px solid ${C.blue}` : "2px solid transparent",
-              }}>
-              <Icon d={tab.icon} size={20} stroke={mobileTab === tab.id ? C.blue : C.t3} />
-              <span style={{ fontWeight: mobileTab === tab.id ? 600 : 400 }}>{tab.label}</span>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "7px 22px", borderRadius: 8, border: "none", cursor: "pointer",
+              background: activeTab === tab.id ? C.bgPanel : "transparent",
+              color: activeTab === tab.id ? C.t1 : C.t3,
+              fontSize: 13, fontWeight: activeTab === tab.id ? 600 : 400,
+              boxShadow: activeTab === tab.id ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+              transition: "all 0.15s",
+            }}>
+              <Icon d={tab.icon} size={13} stroke={activeTab === tab.id ? C.t1 : C.t3} />
+              {tab.label}
             </button>
           ))}
+        </div>
 
-          {/* ── Desktop buttons ── */}
-          {isDesktop && <>
-          {[
-            { icon: IC.server, label: "Models",  action: () => { setShowHub(false); setShowMod(true); } },
-            { icon: IC.plug,   label: "Sources", action: () => { setShowHub(false); setShowConn(true); } },
-          ].map(({ icon, label, action }) => (
-            <Btn key={label} onClick={action} style={{ width: "100%", padding: "9px 10px", background: "transparent", border: "none", borderRadius: 8, color: C.t2, fontSize: 12.5, display: "flex", alignItems: "center", gap: 8, textAlign: "left" }}>
-              <Icon d={icon} size={14} stroke={C.t3} />{label}
-            </Btn>
-          ))}
-          <Btn onClick={() => { setShowHub(h => !h); }} style={{
-            width: "100%", padding: "9px 10px", borderRadius: 8, border: "none", textAlign: "left",
-            background: showHub ? "rgba(168,85,247,0.12)" : "transparent",
-            color: showHub ? C.purple : C.t2, fontSize: 12.5, display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <Icon d={IC.hub} size={14} stroke={showHub ? C.purple : C.t3} />
-            Hub
-            <span style={{ marginLeft: "auto", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 10,
-              background: trialDaysLeft === null ? "rgba(168,85,247,0.18)" : trialDaysLeft <= 0 ? "rgba(239,68,68,0.15)" : "rgba(168,85,247,0.18)",
-              color: trialDaysLeft === null ? C.purple : trialDaysLeft <= 0 ? C.red : C.purple,
-              border: `1px solid ${trialDaysLeft !== null && trialDaysLeft <= 0 ? "rgba(239,68,68,0.3)" : "rgba(168,85,247,0.3)"}`,
-            }}>
-              {trialDaysLeft === null ? "5d trial" : trialDaysLeft <= 0 ? "Expired" : `${trialDaysLeft}d left`}
-            </span>
-          </Btn>
-          </> /* end desktop buttons */}
-
-          {/* Model status chip — desktop only */}
-          {isDesktop && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 10px", background: C.bgCard, borderRadius: 8, border: `1px solid ${C.border}`, marginTop: 4 }}>
+        {/* Right: status + logout */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8 }}>
             <Dot color={statusColor} pulse={ms?.status === "loaded" || modelLoading} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, color: statusColor }}>{statusLabel}</div>
-              {activeModel && ms?.status === "loaded" && (
-                <div style={{ fontSize: 10, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{activeModel.label}</div>
-              )}
-            </div>
+            <span style={{ fontSize: 11, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>
+            {activeModel && ms?.status === "loaded" && (
+              <span style={{ fontSize: 10, color: C.t3, marginLeft: 2 }}>· {activeModel.label}</span>
+            )}
           </div>
-          )}
-
-
+          {CLERK_KEY && !CLERK_KEY.startsWith("YOUR_") && <LogoutButton />}
         </div>
       </div>
 
-      {/* ── Main area ── */}
-      <div className="main-area">
-
-        {/* ── Mobile top bar ── */}
-        {!isDesktop && (
-          <div style={{ padding: "0 14px", height: 54, background: C.bgPanel, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, zIndex: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 8, background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Icon d={IC.brain} size={14} stroke="#fff" />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.t1 }}>OfflineAI</div>
-                <div style={{ fontSize: 9, color: statusColor, display: "flex", alignItems: "center", gap: 4 }}>
-                  <Dot color={statusColor} pulse={ms?.status === "loaded"} />
-                  {statusLabel}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {/* WebLLM status / download button */}
-              {wllmStatus === "ready" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 8, padding: "6px 10px" }}>
-                  <Dot color={C.green} pulse />
-                  <span style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>AI Ready</span>
-                </div>
-              ) : wllmStatus === "downloading" || wllmStatus === "loading" ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: "6px 10px" }}>
-                  <Spinner size={10} />
-                  <span style={{ fontSize: 11, color: C.purple, fontWeight: 600 }}>{wllmProgress}%</span>
-                </div>
-              ) : (
-                <button onClick={() => setShowLanSet(s => !s)} style={{ background: lanIP ? "rgba(34,197,94,0.12)" : "rgba(59,130,246,0.12)", border: `1px solid ${lanIP ? "rgba(34,197,94,0.3)" : "rgba(59,130,246,0.3)"}`, borderRadius: 8, color: lanIP ? C.green : C.blue, fontSize: 11, fontWeight: 600, padding: "6px 10px", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-                  {lanIP ? "AI ✓" : "Setup AI"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Mobile AI setup panel */}
-        {!isDesktop && showLanSet && (
-          <div style={{ padding: "14px", background: C.bgPanel, borderBottom: `1px solid ${C.border}` }}>
-            {/* Tab: Offline AI vs Desktop AI */}
-            <div style={{ display: "flex", gap: 0, marginBottom: 12, background: C.bgCard, borderRadius: 8, padding: 3 }}>
-              {[["offline", "📱 Offline AI"], ["lan", "💻 Desktop AI"]].map(([k, lbl]) => (
-                <button key={k} onClick={() => { if (typeof window !== "undefined") window.__aiSetupTab = k; setShowLanSet(true); }}
-                  id={`ai-tab-${k}`}
-                  style={{ flex: 1, padding: "7px 4px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600,
-                    background: "transparent", color: C.t2, WebkitTapHighlightColor: "transparent" }}>
-                  {lbl}
-                </button>
-              ))}
-            </div>
-
-            {/* Offline AI: WebLLM download */}
-            <div id="ai-panel-offline">
-              <div style={{ fontSize: 11, color: C.t3, marginBottom: 10 }}>Downloads once (~390 MB). Works fully offline forever after.</div>
-              <select value={wllmModel} onChange={e => setWllmModel(e.target.value)}
-                style={{ width: "100%", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t1, fontSize: 12, padding: "8px 10px", marginBottom: 10, fontFamily: "inherit" }}>
-                {WLLM_MODELS.map(m => (
-                  <option key={m.id} value={m.id}>{m.label} — {m.size} ({m.note})</option>
-                ))}
-              </select>
-              {(wllmStatus === "downloading" || wllmStatus === "loading") ? (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: C.purple }}>{wllmMsg}</span>
-                    <span style={{ fontSize: 11, color: C.purple }}>{wllmProgress}%</span>
-                  </div>
-                  <div style={{ height: 4, background: C.bgDeep, borderRadius: 4 }}>
-                    <div style={{ height: "100%", width: `${wllmProgress}%`, background: C.purple, borderRadius: 4, transition: "width 0.4s" }} />
-                  </div>
-                </div>
-              ) : wllmStatus === "ready" ? (
-                <div style={{ padding: "8px 12px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 8, fontSize: 12, color: C.green, marginBottom: 10 }}>
-                  ✓ AI ready — fully offline
-                </div>
-              ) : wllmStatus === "error" ? (
-                <div style={{ padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, fontSize: 11, color: C.red, marginBottom: 10 }}>
-                  {wllmMsg}
-                </div>
-              ) : null}
-              {wllmStatus !== "ready" && (
-                <button onClick={() => { initWebLLM(wllmModel); setShowLanSet(false); }}
-                  disabled={wllmStatus === "downloading" || wllmStatus === "loading"}
-                  style={{ width: "100%", padding: "10px", background: C.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", WebkitTapHighlightColor: "transparent", opacity: (wllmStatus === "downloading" || wllmStatus === "loading") ? 0.6 : 1 }}>
-                  {wllmStatus === "downloading" || wllmStatus === "loading" ? "Downloading…" : "Download AI Model"}
-                </button>
-              )}
-            </div>
-
-            {/* LAN AI: desktop IP */}
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 11, color: C.t3, marginBottom: 6 }}>Or connect to your desktop PC on the same Wi-Fi (run <strong style={{ color: C.t2 }}>ipconfig</strong> on PC to find its IP)</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input value={lanIP} onChange={e => setLanIP(e.target.value)} placeholder="e.g. 192.168.1.5"
-                  style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t1, fontSize: 13, padding: "8px 10px", fontFamily: "inherit" }} />
-                <button onClick={() => { localStorage.setItem("lan_ip", lanIP); setShowLanSet(false); }} style={{ padding: "8px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12, fontWeight: 600, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>Save</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Desktop top bar ── */}
-        {isDesktop && <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", background: C.bgPanel }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: C.t1 }}>
-            {showHub ? (
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon d={IC.hub} size={15} stroke={C.purple} />
-                <span style={{ color: C.purple }}>Extension Hub</span>
-                <span style={{ fontSize: 11, color: C.t3, fontWeight: 400 }}>· Desktop Only</span>
-              </span>
-            ) : (activeChat?.title || "Chat")}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {connectors.length > 0 && (
-              <div style={{ fontSize: 11, color: C.cyan, display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", borderRadius: 20 }}>
-                <Icon d={IC.plug} size={10} stroke={C.cyan} />{connectors.length} source{connectors.length !== 1 ? "s" : ""}
-              </div>
-            )}
-          </div>
-        </div>}
-
-        {/* ── Update available banner ── */}
-        {updateAvailable && !updateDismissed && (
-          <div style={{ padding: "9px 20px", borderBottom: `1px solid rgba(34,197,94,0.25)`, background: "rgba(34,197,94,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ fontSize: 12.5, color: C.t1, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 15 }}>🚀</span>
-              <span>
-                <strong style={{ color: C.green }}>Codeforge AI v{updateAvailable.version}</strong> is available!
-                {updateAvailable.notes && <span style={{ color: C.t2, marginLeft: 4 }}>{updateAvailable.notes.split('\n')[0].slice(0, 80)}</span>}
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <Btn onClick={installUpdate} disabled={updateInstalling}
-                style={{ padding: "6px 14px", background: updateInstalling ? C.bgCard : C.green, border: "none", borderRadius: 7, color: "#fff", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", opacity: updateInstalling ? 0.7 : 1 }}>
-                {updateInstalling ? (updateProgress > 0 ? `Downloading… ${updateProgress}%` : "Starting…") : "Install & Restart"}
-              </Btn>
-              <Btn onClick={() => setUpdateDismissed(true)} style={{ padding: "6px 10px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.t3, fontSize: 12 }}>
-                Later
-              </Btn>
-            </div>
-          </div>
-        )}
-
-        {/* Setup banner — desktop only (Tauri) */}
-        {isDesktop && serverReady === false && !setupProgress && (
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(168,85,247,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 12.5, color: C.t2 }}>
-                <strong style={{ color: C.purple }}>One-time setup required.</strong> Download the llama.cpp inference engine (~5 MB) to run AI locally.
-              </div>
-              <Btn onClick={runSetup} style={{ padding: "7px 14px", background: C.purple, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                Setup Now
-              </Btn>
-            </div>
-          </div>
-        )}
-        {isDesktop && setupProgress && setupProgress.step !== "error" && (
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(168,85,247,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Spinner />
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: 12.5, color: C.purple }}>
-                  {setupProgress.step === "downloading"
-                    ? `Downloading llama-server${setupProgress.total > 0 ? ` — ${Math.round((setupProgress.downloaded / setupProgress.total) * 100)}%` : "…"}`
-                    : setupProgress.step === "extracting"
-                    ? "Extracting llama-server.exe…"
-                    : "Setting up…"}
-                </span>
-                {setupProgress.step === "downloading" && setupProgress.total > 0 && (
-                  <div style={{ marginTop: 5, height: 3, background: C.bgDeep, borderRadius: 4 }}>
-                    <div style={{ height: "100%", width: `${Math.round((setupProgress.downloaded / setupProgress.total) * 100)}%`, background: C.purple, borderRadius: 4, transition: "width 0.3s" }} />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        {isDesktop && setupProgress?.step === "error" && (
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(239,68,68,0.05)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ fontSize: 12.5, color: C.red }}>Setup failed: {setupProgress.message}</span>
-            <Btn onClick={runSetup} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: C.red, fontSize: 12 }}>Retry</Btn>
-          </div>
-        )}
-
-        {/* No model banner — desktop only */}
-        {isDesktop && !activeModelId && !modelLoading && (
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(59,130,246,0.05)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontSize: 12.5, color: C.t2 }}>
-                <strong style={{ color: C.blue }}>No model loaded.</strong> Download a model — it connects automatically.
-              </div>
-              <Btn onClick={() => setShowMod(true)} style={{ padding: "7px 14px", background: C.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                Get a Model
-              </Btn>
-            </div>
-          </div>
-        )}
-
-        {/* Model loading banner — desktop only */}
-        {isDesktop && modelLoading && (
-          <div style={{ padding: "10px 20px", borderBottom: `1px solid ${C.border}`, background: "rgba(245,158,11,0.05)", display: "flex", alignItems: "center", gap: 10 }}>
-            <Spinner />
-            <span style={{ fontSize: 12.5, color: C.amber }}>Connecting to model… this may take 10–30 seconds.</span>
-          </div>
-        )}
-
-        {/* Mobile Music Studio */}
-        {!isDesktop && mobileTab === "music" && <MusicStudio />}
-
-        {/* Mobile Games */}
-        {!isDesktop && mobileTab === "games" && <GamesPanel />}
-
-        {/* Mobile AI Setup — WebLLM (runs in browser, no Tauri needed) */}
-        {!isDesktop && mobileTab === "models" && (
-          <div style={{ flex:1, display:"flex", flexDirection:"column", background:C.bgDeep, overflow:"hidden" }}>
-            {/* Header */}
-            <div style={{ padding:"16px", background:C.bgPanel, borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${C.blue},${C.cyan})`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                  <Icon d={IC.brain} size={18} stroke="#fff" />
-                </div>
-                <div>
-                  <div style={{ fontSize:16, fontWeight:700, color:C.t1 }}>AI Setup</div>
-                  <div style={{ fontSize:11, color:C.t3 }}>Download once · runs offline forever on your phone</div>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ flex:1, overflowY:"auto", padding:"14px 12px" }}>
-
-              {/* Current status banner */}
-              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 14px", borderRadius:12, marginBottom:16,
-                background: wllmStatus==="ready" ? "rgba(34,197,94,0.08)" : "rgba(59,130,246,0.06)",
-                border: `1px solid ${wllmStatus==="ready" ? "rgba(34,197,94,0.25)" : C.border}` }}>
-                <Dot color={wllmStatus==="ready" ? C.green : wllmStatus==="downloading"||wllmStatus==="loading" ? C.amber : C.t3}
-                     pulse={wllmStatus==="downloading"||wllmStatus==="loading"||wllmStatus==="ready"} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:12, fontWeight:600,
-                    color: wllmStatus==="ready" ? C.green : wllmStatus==="downloading"||wllmStatus==="loading" ? C.amber : C.t2 }}>
-                    {wllmStatus==="ready"    ? "AI Ready — fully offline ✓"
-                   : wllmStatus==="downloading"||wllmStatus==="loading" ? "Setting up AI…"
-                   : wllmStatus==="error"   ? "Setup failed"
-                   : "No AI model loaded"}
-                  </div>
-                  {wllmStatus==="ready" && <div style={{ fontSize:10, color:C.t3, marginTop:1 }}>{WLLM_MODELS.find(m=>m.id===wllmModel)?.label} · chat is ready</div>}
-                  {wllmStatus==="error" && <div style={{ fontSize:10, color:C.red, marginTop:1 }}>{wllmMsg}</div>}
-                </div>
-                {wllmStatus==="ready" && (
-                  <button onClick={() => setMobileTab("chat")} style={{ padding:"7px 14px", borderRadius:9, border:"none", background:C.green, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
-                    Chat →
-                  </button>
-                )}
-              </div>
-
-              {/* Download progress */}
-              {(wllmStatus==="downloading" || wllmStatus==="loading") && (
-                <div style={{ padding:"14px", background:C.bgCard, borderRadius:12, border:`1px solid ${C.border}`, marginBottom:16 }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
-                    <Spinner />
-                    <span style={{ fontSize:12, color:C.t2, flex:1, minWidth:0, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{wllmMsg || "Loading…"}</span>
-                    <span style={{ fontSize:12, fontWeight:700, color:C.purple, flexShrink:0 }}>{wllmProgress}%</span>
-                  </div>
-                  <div style={{ height:6, background:C.bgDeep, borderRadius:6, overflow:"hidden" }}>
-                    <div style={{ height:"100%", width:`${wllmProgress}%`, background:`linear-gradient(90deg,${C.blue},${C.purple})`, borderRadius:6, transition:"width 0.4s" }} />
-                  </div>
-                  <div style={{ fontSize:10, color:C.t3, marginTop:6 }}>
-                    Model is being cached on your device. Keep this screen open.
-                  </div>
-                </div>
-              )}
-
-              {/* Model selection */}
-              <div style={{ fontSize:11, color:C.t3, fontWeight:600, marginBottom:8 }}>CHOOSE A MODEL</div>
-              {WLLM_MODELS.map(m => {
-                const isActive = wllmModel === m.id;
-                const isLoaded = wllmStatus==="ready" && wllmModel===m.id;
-                return (
-                  <div key={m.id}
-                    onClick={() => { if(wllmStatus!=="downloading"&&wllmStatus!=="loading") setWllmModel(m.id); }}
-                    style={{ background:C.bgCard, borderRadius:12, padding:"14px", marginBottom:10,
-                      border:`2px solid ${isLoaded ? C.green : isActive ? C.blue : C.border}`,
-                      cursor: wllmStatus==="downloading"||wllmStatus==="loading" ? "default" : "pointer" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                      <div style={{ width:38, height:38, borderRadius:9, background: isLoaded ? `${C.green}18` : isActive ? `${C.blue}18` : C.bgPanel,
-                        border:`1px solid ${isLoaded ? C.green : isActive ? C.blue : C.border}`,
-                        display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                        <Icon d={IC.brain} size={16} stroke={isLoaded ? C.green : isActive ? C.blue : C.t3} />
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap", marginBottom:2 }}>
-                          <span style={{ fontSize:13, fontWeight:700, color: isLoaded ? C.green : isActive ? C.blue : C.t1 }}>{m.label}</span>
-                          <span style={{ fontSize:9, padding:"1px 7px", borderRadius:10, background: isLoaded ? `${C.green}18` : `${C.blue}18`, color: isLoaded ? C.green : C.blue, border:`1px solid ${isLoaded ? C.green : C.blue}30` }}>
-                            {isLoaded ? "Active" : m.size}
-                          </span>
-                        </div>
-                        <div style={{ fontSize:11, color:C.t3 }}>{m.note}</div>
-                      </div>
-                      {isActive && !isLoaded && <div style={{ width:18, height:18, borderRadius:"50%", border:`2px solid ${C.blue}`, display:"flex", alignItems:"center", justifyContent:"center" }}><div style={{ width:8, height:8, borderRadius:"50%", background:C.blue }} /></div>}
-                      {isLoaded && <span style={{ fontSize:16 }}>✓</span>}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Action button */}
-              <button
-                onClick={() => { if(wllmStatus!=="downloading"&&wllmStatus!=="loading") initWebLLM(wllmModel); }}
-                disabled={wllmStatus==="downloading"||wllmStatus==="loading"}
-                style={{ width:"100%", padding:"15px", borderRadius:12, border:"none", marginTop:4, marginBottom:16,
-                  cursor: wllmStatus==="downloading"||wllmStatus==="loading" ? "not-allowed" : "pointer",
-                  background: wllmStatus==="ready" ? `${C.green}18` : wllmStatus==="downloading"||wllmStatus==="loading" ? C.bgCard : `linear-gradient(135deg,${C.blue},${C.cyan})`,
-                  border: wllmStatus==="ready" ? `1px solid ${C.green}40` : "none",
-                  color: wllmStatus==="ready" ? C.green : wllmStatus==="downloading"||wllmStatus==="loading" ? C.t3 : "#fff",
-                  fontSize:14, fontWeight:700,
-                  display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-                {wllmStatus==="downloading"||wllmStatus==="loading"
-                  ? <><Spinner />Setting up… {wllmProgress}%</>
-                  : wllmStatus==="ready"
-                  ? "✓ AI Ready — tap to reload"
-                  : <><Icon d={IC.dl} size={16} stroke="#fff" />Download & Setup AI</>}
-              </button>
-
-              <div style={{ fontSize:10, color:C.t3, textAlign:"center", lineHeight:1.7, padding:"0 8px" }}>
-                Model downloads once (~390MB for Qwen 0.5B) and is cached in your browser.{"\n"}
-                After setup, AI works with <strong style={{ color:C.t2 }}>no internet, no laptop needed</strong>.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showHub ? (
+{/* ── Content ── */}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        {activeTab === "hub" ? (
           <HubPanel
             hubClients={hubClients}
             activeHubId={activeHubId}
@@ -4400,148 +3992,105 @@ If no issues found, respond with: []`;
             onShieldProtect={shieldProtect}
             onShieldUnprotect={shieldUnprotect}
           />
-        ) : (!isDesktop && mobileTab !== "chat") ? null : (
-          <>
-        {/* Messages */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", WebkitOverflowScrolling: "touch" }}>
-          {activeChat?.messages.map(msg => <Bubble key={msg.id} msg={msg} />)}
-          <div ref={bottomRef} />
-        </div>
+        ) : (
+          /* ── Model Tab ── */
+          <div style={{ height: "100%", overflowY: "auto", padding: "28px 32px" }}>
+            {/* Status card */}
+            <div style={{ background: C.bgPanel, border: `1px solid ${C.border}`, borderRadius: 14, padding: "18px 22px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: ms?.status === "loaded" ? "rgba(34,197,94,0.12)" : "rgba(100,116,139,0.12)", border: `1px solid ${ms?.status === "loaded" ? "rgba(34,197,94,0.3)" : C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icon d={IC.server} size={20} stroke={statusColor} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.t1, marginBottom: 3 }}>
+                  {ms?.status === "loaded" ? `Running — ${activeModel?.label}` : modelLoading ? "Starting model…" : "No model loaded"}
+                </div>
+                <div style={{ fontSize: 11, color: C.t3 }}>
+                  {ms?.status === "loaded" ? "Accepting requests from all connected tools" : "Load a model below to get started"}
+                </div>
+              </div>
+              {ms?.status === "loaded" && (
+                <Btn onClick={() => { invoke("stop_server").catch(() => {}); }} style={{ padding: "7px 16px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12, fontWeight: 600 }}>
+                  Unload
+                </Btn>
+              )}
+            </div>
 
-        {/* Quick prompts — desktop only */}
-        {isDesktop && (!activeChat?.messages || activeChat.messages.length <= 1) && (
-          <div style={{ padding: "0 24px 10px", display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {quickPrompts.map(p => (
-              <Btn key={p} onClick={() => { setInput(p); inputRef.current?.focus(); }}
-                style={{ padding: "6px 12px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 20, color: C.t2, fontSize: 11.5 }}>
-                {p}
-              </Btn>
-            ))}
-          </div>
-        )}
-
-        {/* Input */}
-        <div style={{ padding: isDesktop ? "10px 20px 16px" : "10px 12px 12px", background: C.bgPanel, borderTop: `1px solid ${C.border}`, position: "relative" }}>
-          {/* Template panel */}
-          {showTemplates && (
-            <TemplatePanel
-              onSelect={prompt => {
-                setInput(prompt);
-                setShowTemplates(false);
-                setTimeout(() => {
-                  if (inputRef.current) {
-                    inputRef.current.focus();
-                    // Select [TOPIC] so user can type immediately
-                    const idx = prompt.indexOf("[TOPIC]");
-                    if (idx !== -1) { inputRef.current.setSelectionRange(idx, idx + 7); }
-                  }
-                }, 50);
-              }}
-              onClose={() => setShowTemplates(false)}
-            />
-          )}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 10, padding: "10px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14 }}>
-            {/* Templates toggle button — desktop only */}
-            {isDesktop && (
-            <Btn onClick={() => setShowTemplates(v => !v)} title="Prompt Templates" style={{
-              flexShrink: 0, padding: "5px 9px", borderRadius: 8, fontSize: 14,
-              background: showTemplates ? C.blue : "transparent",
-              border: `1px solid ${showTemplates ? C.blue : C.border}`,
-              color: showTemplates ? "#fff" : C.t2, lineHeight: 1,
-            }}>⚡</Btn>
-            )}
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-              placeholder={isDesktop ? (activeModelId ? "Ask a research question… (Enter to send, Shift+Enter for newline)" : "Download a model first to start chatting") : (lanIP ? "Ask anything… (AI connected via Wi-Fi)" : "Ask anything… (tap AI IP above to connect AI)")}
-              rows={1}
-              style={{ flex: 1, background: "none", border: "none", color: C.t1, fontSize: 13.5, lineHeight: 1.6, maxHeight: 120, overflowY: "auto", fontFamily: "inherit" }}
-            />
-            {/* Stop button — shown while streaming */}
-            {streaming ? (
-              <Btn onClick={stopGenerate} style={{
-                width: 36, height: 36, borderRadius: 9, border: `1px solid rgba(239,68,68,0.4)`, flexShrink: 0,
-                background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
-                <Icon d={IC.stop} size={14} fill={C.red} stroke="none" />
-              </Btn>
-            ) : (
-              <Btn onClick={send} disabled={!input.trim() || (isDesktop && !activeModelId)} style={{
-                width: 36, height: 36, borderRadius: 9, border: "none", flexShrink: 0,
-                background: input.trim() && (!isDesktop || activeModelId) ? C.blue : C.bgPanel,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: input.trim() && (!isDesktop || activeModelId) ? "#fff" : C.t3,
-              }}>
-                <Icon d={IC.send} size={15} />
-              </Btn>
-            )}
-          </div>
-
-          {/* Language selector + footer — desktop only (takes too much space on mobile) */}
-          {isDesktop && (
-          <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            {/* Left: language pills */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Icon d={IC.globe} size={12} stroke={C.t2} />
-              <span style={{ fontSize: 11, color: C.t2, fontWeight: 500 }}>Language:</span>
-              {LANG_OPTIONS.map(({ id, label }) => {
-                const isActive = selectedLang === id;
-                const showDetected = id === "auto" && isActive && autoDetectedLang !== "en";
-                const displayLabel = showDetected ? `Auto · ${autoDetectedLang.toUpperCase()}` : label;
+            {/* Models list */}
+            <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 600, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase" }}>Available Models</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {MODELS.map(m => {
+                const mState = modelState[m.id] || { status: "not-downloaded" };
+                const isActive = activeModelId === m.id && mState.status === "loaded";
+                const isDownloaded = mState.status === "downloaded" || mState.status === "loaded" || mState.status === "load-error";
+                const isDownloading = mState.status === "downloading";
                 return (
-                  <Btn key={id} onClick={() => {
-                    setSelectedLang(id);
-                    if (id !== "auto") {
-                      setAutoDetectedLang("en");
-                      autoDetectedLangRef.current = "en";
-                    }
-                  }} style={{
-                    padding: "4px 13px",
-                    borderRadius: 20,
-                    background: isActive ? C.blue : C.bgCard,
-                    border: `1px solid ${isActive ? C.blue : C.borderHi}`,
-                    color: isActive ? "#fff" : C.t1,
-                    fontSize: 12,
-                    fontWeight: isActive ? 700 : 500,
-                    letterSpacing: "0.02em",
-                    transition: "all 0.2s",
-                    boxShadow: isActive ? `0 0 0 2px ${C.blue}44` : "none",
-                  }}>
-                    {displayLabel}
-                  </Btn>
+                  <div key={m.id} style={{ background: C.bgPanel, border: `1px solid ${isActive ? C.borderHi : C.border}`, borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14, transition: "border-color 0.2s" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `${m.orgColor}18`, border: `1px solid ${m.orgColor}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14, fontWeight: 700, color: m.orgColor }}>
+                      {m.org[0]}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: C.t1 }}>{m.label}</span>
+                        <span style={{ fontSize: 10, padding: "1px 7px", background: `${m.orgColor}18`, border: `1px solid ${m.orgColor}40`, borderRadius: 20, color: m.orgColor }}>{m.org}</span>
+                        {m.recommended && <span style={{ fontSize: 10, padding: "1px 7px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 20, color: C.green }}>Recommended</span>}
+                        {isActive && <span style={{ fontSize: 10, padding: "1px 7px", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.3)", borderRadius: 20, color: C.cyan }}>Active</span>}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.t3 }}>{m.size} · {m.desc}</div>
+                      {isDownloading && mState.progress && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.t3, marginBottom: 4 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{mState.progress.file}</span>
+                            <span>{mState.progress.total > 0 ? `${Math.round((mState.progress.downloaded / mState.progress.total) * 100)}%` : `${(mState.progress.downloaded / 1048576).toFixed(0)} MB`}</span>
+                          </div>
+                          <div style={{ height: 3, background: C.bgCard, borderRadius: 2, overflow: "hidden" }}>
+                            <div style={{ height: "100%", background: C.cyan, borderRadius: 2, transition: "width 0.3s", width: mState.progress.total > 0 ? `${Math.round((mState.progress.downloaded / mState.progress.total) * 100)}%` : "40%", animation: mState.progress.total === 0 ? "oai-slide-bar 1.5s ease infinite" : "none" }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                      {isDownloading ? (
+                        <Btn onClick={() => cancelDownload(m.id)} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12 }}>Cancel</Btn>
+                      ) : isActive ? (
+                        <Btn onClick={() => invoke("stop_server").catch(() => {})} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12 }}>Unload</Btn>
+                      ) : isDownloaded ? (
+                        <>
+                          <Btn onClick={() => loadModel(m.id)} disabled={modelLoading} style={{ padding: "7px 14px", background: C.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, opacity: modelLoading ? 0.5 : 1 }}>
+                            {modelLoading ? "Loading…" : "Load"}
+                          </Btn>
+                          <Btn onClick={() => deleteModel(m.id)} style={{ padding: "7px 10px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t3, fontSize: 12 }}>Delete</Btn>
+                        </>
+                      ) : (
+                        <Btn onClick={() => downloadModel(m.id)} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12, fontWeight: 500 }}>
+                          Download {m.size}
+                        </Btn>
+                      )}
+                    </div>
+                  </div>
                 );
               })}
             </div>
-            {/* Right: privacy note */}
-            <div style={{ fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>100% on-device · no data sent</div>
+
+            {/* HF token */}
+            <div style={{ marginTop: 20, padding: "14px 18px", background: C.bgPanel, border: `1px solid ${C.border}`, borderRadius: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.t3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Hugging Face Token (optional)</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="password"
+                  value={hfToken}
+                  onChange={e => { setHfToken(e.target.value); localStorage.setItem("hf_token", e.target.value); }}
+                  placeholder="hf_..."
+                  style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t1, fontSize: 12, padding: "8px 12px", fontFamily: "inherit", caretColor: C.cyan, outline: "none" }}
+                />
+                <Btn onClick={resetServer} style={{ padding: "8px 14px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12 }}>Reset</Btn>
+              </div>
+              <div style={{ fontSize: 10, color: C.t3, marginTop: 6 }}>Required only for gated models. Get yours at huggingface.co/settings/tokens</div>
+            </div>
           </div>
-          )}
-          {/* Mobile: compact footer */}
-          {!isDesktop && (
-            <div style={{ marginTop: 6, textAlign: "center", fontSize: 10, color: C.t3 }}>100% on-device · no data sent</div>
-          )}
-        </div>
-          </>
         )}
       </div>
 
-      {/* Modals */}
-      {showMod && (
-        <ModelModal
-          modelState={modelState}
-          activeModelId={activeModelId}
-          hfToken={hfToken}
-          onTokenChange={(t) => { setHfToken(t); localStorage.setItem("hf_token", t); }}
-          onDownload={(id) => downloadModel(id)}
-          onLoad={(id) => { loadModel(id); setShowMod(false); }}
-          onDelete={deleteModel}
-          onCancelDownload={cancelDownload}
-          onResetServer={resetServer}
-          onClose={() => setShowMod(false)}
-        />
-      )}
+      {/* Modals still available if triggered */}
       {showConn && (
         <ConnectorModal
           connectors={connectors}
@@ -4550,52 +4099,6 @@ If no issues found, respond with: []`;
           onUpdate={(id, updates) => setConnectors(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))}
           onClose={() => setShowConn(false)}
         />
-      )}
-
-      {/* Context menu — rendered at root level so nothing clips it */}
-      {contextMenu && (
-        <div
-          style={{
-            position: "fixed", zIndex: 99999,
-            left: contextMenu.x, top: contextMenu.y,
-            background: C.bgCard, border: `1px solid ${C.border}`,
-            borderRadius: 8, padding: "4px 0", minWidth: 130,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
-          }}
-          onClick={e => e.stopPropagation()}
-          onContextMenu={e => e.preventDefault()}
-        >
-          {[
-            { label: "Rename", action: () => {
-              const ch = chats.find(c => c.id === contextMenu.chatId);
-              if (ch) { setRenameVal(ch.title); setRenamingId(ch.id); setActive(ch.id); }
-              setContextMenu(null);
-            }},
-            { label: "Delete", action: () => {
-              const id = contextMenu.chatId;
-              setChats(prev => {
-                const next = prev.filter(c => c.id !== id);
-                if (next.length === 0) {
-                  const newId = Date.now();
-                  setActive(newId);
-                  return [{ id: newId, title: "New Chat", date: "Today", messages: [] }];
-                }
-                if (active === id) setActive(next[0].id);
-                return next;
-              });
-              setContextMenu(null);
-            }, danger: true },
-          ].map(({ label, action, danger }) => (
-            <div key={label} onClick={action} style={{
-              padding: "7px 14px", fontSize: 12.5, cursor: "pointer",
-              color: danger ? "#f87171" : C.t1,
-              transition: "background 0.1s",
-            }}
-              onMouseEnter={e => e.currentTarget.style.background = danger ? "rgba(248,113,113,0.12)" : "rgba(255,255,255,0.06)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-            >{label}</div>
-          ))}
-        </div>
       )}
     </div>
   );

@@ -44,3 +44,14 @@ libomp*
 
 # Cargo local config
 .cargo/
+
+# Signing keys — never commit private keys
+*.key
+*.key.pub
+tauri-signing*
+
+# Release scripts — local use only
+release_v*.ps1
+fix_*.ps1
+reupload_*.ps1
+list_repos.ps1

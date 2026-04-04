@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CodeForge AI</title>
+  <title>CodeForge AI — PowerPoint</title>
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -30,39 +30,43 @@
     .logo { display: flex; align-items: center; gap: 8px; }
     .logo-icon {
       width: 24px; height: 24px;
-      background: linear-gradient(135deg, #3b82f6, #06b6d4);
+      background: #C43E1C;
       border-radius: 6px;
       display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: 700; color: #fff;
     }
     .logo-text { font-size: 13px; font-weight: 700; color: #f1f5f9; }
+    .logo-app  { font-size: 11px; font-weight: 500; color: #64748b; margin-left: 2px; }
     .status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; }
     .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; transition: background 0.3s; }
     .status-dot.connected { background: #22c55e; }
 
-    /* ── Mode Toggle ── */
+    /* ── Mode Toggle — 2 rows ── */
     .mode-toggle {
-      display: flex;
-      padding: 8px 14px;
-      gap: 6px;
+      padding: 8px 14px 6px;
       border-bottom: 1px solid #1e293b;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
+    .mode-row { display: flex; gap: 5px; }
     .mode-btn {
       flex: 1;
       background: transparent;
       border: 1px solid #1e293b;
       border-radius: 7px;
       color: #64748b;
-      font-size: 11.5px;
+      font-size: 11px;
       font-weight: 600;
-      padding: 5px 10px;
+      padding: 5px 6px;
       cursor: pointer;
-      height: auto;
       transition: all 0.15s;
+      white-space: nowrap;
     }
     .mode-btn:hover:not(:disabled) { background: #161b26; color: #94a3b8; }
     .mode-btn.active { background: #1e3a5f; border-color: #3b82f6; color: #93c5fd; }
+    .mode-btn.vba-btn.active { background: #1c2a1c; border-color: #22c55e; color: #86efac; }
 
     /* ── Chat ── */
     .chat {
@@ -118,15 +122,19 @@
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── Insert button (formula mode) ── */
+    /* ── Insert / VBA buttons ── */
     .insert-btn {
       display: block; margin-top: 10px; width: 100%;
       background: #14532d; border: 1px solid #16a34a; border-radius: 7px;
       color: #86efac; font-size: 11.5px; font-weight: 600;
-      padding: 7px 12px; cursor: pointer; height: auto; text-align: center;
+      padding: 7px 12px; cursor: pointer; text-align: center;
       transition: background 0.15s;
     }
     .insert-btn:hover { background: #166534; }
+    .macro-btn {
+      background: #1c2a3a; border-color: #3b82f6; color: #93c5fd;
+    }
+    .macro-btn:hover { background: #1e3a5f; }
 
     /* ── Input area ── */
     .input-area { padding: 10px 14px; border-top: 1px solid #1e293b; flex-shrink: 0; }
@@ -150,39 +158,6 @@
     button:disabled { opacity: 0.45; cursor: not-allowed; }
     .sub-hint { font-size: 10.5px; color: #334155; margin-top: 5px; }
 
-    /* ── Macro overlay ── */
-    .macro-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-      z-index: 999; display: flex; align-items: center; justify-content: center; padding: 16px;
-    }
-    .macro-overlay-box {
-      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
-      padding: 20px; width: 100%; max-width: 300px;
-    }
-    .macro-overlay-title { font-size: 13px; font-weight: 700; color: #f1f5f9; margin-bottom: 12px; }
-    .macro-steps { list-style: none; padding: 0; margin: 0 0 10px; }
-    .macro-steps li {
-      display: flex; align-items: center; gap: 10px;
-      padding: 6px 0; border-bottom: 1px solid #1e293b; font-size: 12px; color: #94a3b8;
-    }
-    .macro-steps li:last-child { border-bottom: none; }
-    .macro-step-num {
-      width: 22px; height: 22px; border-radius: 50%; background: #1D6F42;
-      color: #86efac; font-size: 11px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .macro-key {
-      background: #0f172a; border: 1px solid #334155; border-radius: 4px;
-      padding: 1px 6px; font-size: 11px; font-weight: 600; color: #f1f5f9;
-    }
-    .macro-warn { font-size: 10.5px; color: #475569; margin-top: 8px; }
-    .macro-ok-btn {
-      margin-top: 14px; width: 100%; background: #1D6F42; border: 1px solid #16a34a;
-      border-radius: 8px; color: #86efac; font-size: 12px; font-weight: 600;
-      padding: 8px; cursor: pointer; height: auto;
-    }
-    .macro-ok-btn:hover { background: #166534; }
-
     /* ── Empty state ── */
     .empty {
       flex: 1; display: flex; flex-direction: column;
@@ -198,8 +173,10 @@
 
   <div class="header">
     <div class="logo">
-      <div class="logo-icon">C</div>
-      <div class="logo-text">CodeForge AI</div>
+      <div class="logo-icon">P</div>
+      <div>
+        <div class="logo-text">CodeForge AI <span class="logo-app">· PowerPoint</span></div>
+      </div>
     </div>
     <div class="status">
       <div class="status-dot" id="statusDot"></div>
@@ -208,17 +185,25 @@
   </div>
 
   <div class="mode-toggle">
-    <button class="mode-btn active" id="modeAsk"     onclick="setMode('ask')">📊 Ask</button>
-    <button class="mode-btn"        id="modeFormula" onclick="setMode('formula')">✏️ Formula</button>
-    <button class="mode-btn"        id="modeMacro"   onclick="setMode('macro')">🔧 Macro</button>
+    <!-- Row 1: content modes -->
+    <div class="mode-row">
+      <button class="mode-btn active" id="mode_ask"   onclick="setMode('ask')">📊 Ask</button>
+      <button class="mode-btn"        id="mode_write" onclick="setMode('write')">✍️ Write</button>
+    </div>
+    <!-- Row 2: design/VBA modes -->
+    <div class="mode-row">
+      <button class="mode-btn vba-btn" id="mode_transition" onclick="setMode('transition')">🎬 Transition</button>
+      <button class="mode-btn vba-btn" id="mode_animation"  onclick="setMode('animation')">✨ Animation</button>
+      <button class="mode-btn vba-btn" id="mode_background" onclick="setMode('background')">🎨 Background</button>
+    </div>
   </div>
 
   <div class="chat" id="chat">
     <div class="empty" id="emptyState">
       <div class="empty-icon" id="emptyIcon">📊</div>
-      <div class="empty-title" id="emptyTitle">Ask about your data</div>
+      <div class="empty-title" id="emptyTitle">Ask about this slide</div>
       <div class="empty-sub" id="emptySub">
-        Select cells in Excel, then ask a question below.
+        Ask any question about the current slide content.
       </div>
     </div>
   </div>
@@ -227,14 +212,14 @@
     <div class="input-row">
       <textarea
         id="question"
-        placeholder="e.g. What is revenue for 2023?"
+        placeholder="e.g. Summarize this slide"
         rows="1"
         onkeydown="handleKey(event)"
         oninput="autoResize(this)"
       ></textarea>
       <button id="askBtn" onclick="ask()" disabled>Ask</button>
     </div>
-    <div class="sub-hint" id="subHint">Select cells in Excel, then ask a question</div>
+    <div class="sub-hint" id="subHint">Ask about the current slide</div>
   </div>
 
   <script src="taskpane.js"></script>

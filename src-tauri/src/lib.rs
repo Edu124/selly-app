@@ -870,7 +870,7 @@ async fn load_model(
         .current_dir(exe.parent().unwrap_or(std::path::Path::new(".")))
         .arg("--model").arg(&model_path)
         .arg("--port").arg(SERVER_PORT.to_string())
-        .arg("--ctx-size").arg("8192")
+        .arg("--ctx-size").arg("20480")
         .arg("--threads").arg("4")
         .arg("--batch-size").arg("512")
         .stdout(std::process::Stdio::null())
@@ -935,6 +935,7 @@ async fn generate(
     prompt: String,
     max_tokens: u32,
     temperature: f32,
+    repeat_penalty: Option<f32>,
 ) -> Result<(), String> {
     use futures_util::StreamExt;
 
@@ -952,8 +953,10 @@ async fn generate(
         "temperature": temperature,
         "stream": true,
         "cache_prompt": true,
-        "repeat_penalty": 1.1,
-        "repeat_last_n": 64,
+        "repeat_penalty": repeat_penalty.unwrap_or(1.15),
+        "repeat_last_n": 256,
+        "frequency_penalty": 0.1,
+        "presence_penalty": 0.05,
         "top_k": 40,
         "top_p": 0.95,
     });
@@ -1022,29 +1025,110 @@ async fn generate(
 // Serves the taskpane.html and taskpane.js files on http://localhost:8089
 // so the Office add-in manifest can load them from Excel's task pane.
 
-const ADDIN_HTML: &str = include_str!("../assets/excel-addin/taskpane.html");
-const ADDIN_JS:   &str = include_str!("../assets/excel-addin/taskpane.js");
+const ADDIN_HTML:     &str = include_str!("../assets/excel-addin/taskpane.html");
+const ADDIN_JS:       &str = include_str!("../assets/excel-addin/taskpane.js");
+const WORD_HTML:      &str = include_str!("../assets/word-addin/taskpane.html");
+const WORD_JS:        &str = include_str!("../assets/word-addin/taskpane.js");
+const PPT_HTML:       &str = include_str!("../assets/powerpoint-addin/taskpane.html");
+const PPT_JS:         &str = include_str!("../assets/powerpoint-addin/taskpane.js");
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 async fn handle_addin_http(mut stream: tokio::net::TcpStream) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let mut buf = [0u8; 2048];
-    let n = match stream.read(&mut buf).await { Ok(n) => n, Err(_) => return };
-    let req = String::from_utf8_lossy(&buf[..n]);
+    // Read until end of HTTP headers (\r\n\r\n) to avoid deadlock on large requests
+    let mut buf = vec![0u8; 8192];
+    let mut total = 0;
+    loop {
+        match stream.read(&mut buf[total..]).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                total += n;
+                if buf[..total].windows(4).any(|w| w == b"\r\n\r\n") { break; }
+                if total >= buf.len() { break; }
+            }
+        }
+    }
+    let req = String::from_utf8_lossy(&buf[..total]);
     let first_line = req.lines().next().unwrap_or("");
-
     let (content_type, body): (&str, &str) = if first_line.contains("taskpane.js") {
         ("application/javascript", ADDIN_JS)
     } else {
         ("text/html; charset=utf-8", ADDIN_HTML)
     };
-
-    let resp = format!(
+    let body_bytes = body.as_bytes();
+    let header = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n{body}",
-        body.len()
+         Access-Control-Allow-Origin: *\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        body_bytes.len()
     );
-    let _ = stream.write_all(resp.as_bytes()).await;
+    let _ = stream.write_all(header.as_bytes()).await;
+    let _ = stream.write_all(body_bytes).await;
+}
+
+// ── Word Add-in HTTP server (port 8090) ──────────────────────────────────────
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+async fn handle_word_addin_http(mut stream: tokio::net::TcpStream) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut buf = vec![0u8; 8192];
+    let mut total = 0;
+    loop {
+        match stream.read(&mut buf[total..]).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                total += n;
+                if buf[..total].windows(4).any(|w| w == b"\r\n\r\n") { break; }
+                if total >= buf.len() { break; }
+            }
+        }
+    }
+    let req = String::from_utf8_lossy(&buf[..total]);
+    let first_line = req.lines().next().unwrap_or("");
+    let (content_type, body): (&str, &str) = if first_line.contains("taskpane.js") {
+        ("application/javascript", WORD_JS)
+    } else {
+        ("text/html; charset=utf-8", WORD_HTML)
+    };
+    let body_bytes = body.as_bytes();
+    let header = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\
+         Access-Control-Allow-Origin: *\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        body_bytes.len()
+    );
+    let _ = stream.write_all(header.as_bytes()).await;
+    let _ = stream.write_all(body_bytes).await;
+}
+
+// ── PowerPoint Add-in HTTP server (port 8091) ─────────────────────────────────
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+async fn handle_ppt_addin_http(mut stream: tokio::net::TcpStream) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut buf = vec![0u8; 8192];
+    let mut total = 0;
+    loop {
+        match stream.read(&mut buf[total..]).await {
+            Ok(0) | Err(_) => break,
+            Ok(n) => {
+                total += n;
+                if buf[..total].windows(4).any(|w| w == b"\r\n\r\n") { break; }
+                if total >= buf.len() { break; }
+            }
+        }
+    }
+    let req = String::from_utf8_lossy(&buf[..total]);
+    let first_line = req.lines().next().unwrap_or("");
+    let (content_type, body): (&str, &str) = if first_line.contains("taskpane.js") {
+        ("application/javascript", PPT_JS)
+    } else {
+        ("text/html; charset=utf-8", PPT_HTML)
+    };
+    let body_bytes = body.as_bytes();
+    let header = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\n\
+         Access-Control-Allow-Origin: *\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n",
+        body_bytes.len()
+    );
+    let _ = stream.write_all(header.as_bytes()).await;
+    let _ = stream.write_all(body_bytes).await;
 }
 
 // ── Extension Hub (desktop-only WebSocket server) ────────────────────────────
@@ -1167,10 +1251,11 @@ async fn handle_hub_connection(
                 //   dataStr     — compact human-readable table
                 //   computedStr — pre-calculated result (if found)
                 //   hasComputed — whether JS resolved the answer
-                let question     = val["question"].as_str().unwrap_or("").to_string();
-                let data_str     = val["dataStr"].as_str().unwrap_or("").to_string();
-                let computed_str = val["computedStr"].as_str().unwrap_or("").to_string();
-                let has_computed = val["hasComputed"].as_bool().unwrap_or(false);
+                let question          = val["question"].as_str().unwrap_or("").to_string();
+                let data_str         = val["dataStr"].as_str().unwrap_or("").to_string();
+                let computed_str     = val["computedStr"].as_str().unwrap_or("").to_string();
+                let has_computed     = val["hasComputed"].as_bool().unwrap_or(false);
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(600) as u32;
 
                 // Build prompt differently depending on whether JS already computed the answer
                 let prompt = if has_computed {
@@ -1217,9 +1302,12 @@ QUESTION: {question}\
                     tauri::async_runtime::spawn(async move {
                         use futures_util::StreamExt;
                         let client = reqwest::Client::new();
+                        // Use dynamic token budget sent from JS (estimateTokens),
+                        // capped at 1500 for safety. Minimum 200 to never cut off.
+                        let n_predict = suggested_tokens.max(200).min(1500);
                         let body = serde_json::json!({
                             "prompt": prompt,
-                            "n_predict": 2048,
+                            "n_predict": n_predict,
                             "temperature": 0.5,
                             "stream": true,
                             "repeat_penalty": 1.1,
@@ -1261,6 +1349,987 @@ QUESTION: {question}\
                                         }
                                     } else { break; }
                                 }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            Some("browser_query") => {
+                // Browser extension sends page content + user question
+                let question        = val["question"].as_str().unwrap_or("").to_string();
+                let page_title      = val["pageTitle"].as_str().unwrap_or("").to_string();
+                let page_url        = val["pageUrl"].as_str().unwrap_or("").to_string();
+                let page_content    = val["pageContent"].as_str().unwrap_or("").to_string();
+                let selection       = val["selection"].as_str().unwrap_or("").to_string();
+                let has_context     = val["hasContext"].as_bool().unwrap_or(false);
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(600) as u32;
+
+                let context_block = if !selection.is_empty() {
+                    format!("\nSELECTED TEXT:\n{}\n", selection)
+                } else if has_context && !page_content.is_empty() {
+                    format!("\nPAGE CONTENT:\n{}\n", page_content)
+                } else {
+                    String::new()
+                };
+
+                let page_info = if !page_title.is_empty() {
+                    format!("Page: {} ({})", page_title, page_url)
+                } else {
+                    format!("URL: {}", page_url)
+                };
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a helpful AI assistant integrated into the user's browser via CodeForge.\n\
+Rules:\n\
+- Answer based on the page content provided when available\n\
+- If no page content is provided, answer from your general knowledge\n\
+- Be concise and direct\n\
+- If asked to explain, give a thorough explanation\
+<|im_end|>\n\
+<|im_start|>user\n\
+{page_info}\n\
+{context_block}\n\
+QUESTION: {question}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(200).min(1500);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt,
+                            "n_predict": n_predict,
+                            "temperature": 0.7,
+                            "stream": true,
+                            "repeat_penalty": 1.1,
+                            "top_k": 40,
+                            "top_p": 0.95,
+                        });
+                        let res = match client
+                            .post(format!("http://127.0.0.1:{port}/completion"))
+                            .json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            let json_str = &line["data: ".len()..];
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            Some("excel_formula") => {
+                // Excel add-in (Formula mode): user describes a formula they want inserted.
+                // JS sends the target cell address + surrounding context rows so AI
+                // can generate a correct formula with proper cell references.
+                let request      = val["request"].as_str().unwrap_or("").to_string();
+                let cell_address = val["cellAddress"].as_str().unwrap_or("A1").to_string();
+                let target_range = val["targetRange"].as_str().unwrap_or(&cell_address).to_string();
+                let row_count    = val["rowCount"].as_u64().unwrap_or(1) as usize;
+                let sheet_name   = val["sheetName"].as_str().unwrap_or("Sheet1").to_string();
+                let context      = val["context"].as_str().unwrap_or("").to_string();
+
+                let (system_rule, user_instruction, n_predict) = if row_count > 1 {
+                    (
+                        format!(
+                            "You are an Excel formula expert. Generate {row_count} Excel formulas, one per line.\n\
+Rules:\n\
+- Output ONLY formulas, one per line, no numbering, no explanation\n\
+- Each line must start with =\n\
+- Adjust row numbers for each formula (e.g. row 1 uses J1/K1, row 2 uses J2/K2, etc.)\n\
+- First formula goes in {cell_address}"
+                        ),
+                        format!("Generate {row_count} formulas (one per row) for target range {target_range} to: {request}"),
+                        (row_count as u32) * 40 + 50,
+                    )
+                } else {
+                    (
+                        "You are an Excel formula expert. Generate a valid Excel formula.\n\
+Rules:\n\
+- Reply with ONLY the formula. Start with =\n\
+- No explanation, no markdown — just the formula\n\
+- Use correct cell references from the context\n\
+- Use absolute references ($) for headers/lookups".to_string(),
+                        format!("Generate an Excel formula for cell {cell_address} to: {request}"),
+                        150u32,
+                    )
+                };
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+{system_rule}\
+<|im_end|>\n\
+<|im_start|>user\n\
+Sheet: {sheet_name}\n\
+\n\
+Cell context:\n\
+{context}\n\
+\n\
+{user_instruction}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt,
+                            "n_predict": n_predict,
+                            "temperature": 0.1,
+                            "stream": true,
+                            "repeat_penalty": 1.0,
+                            "stop": ["<|im_end|>"],
+                        });
+                        let res = match client
+                            .post(format!("http://127.0.0.1:{port}/completion"))
+                            .json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        // No pre-filled "=" — the AI outputs the full formula starting with =
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            let json_str = &line["data: ".len()..];
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(json_str) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── VS Code: Generate Unit Tests ──────────────────────────────────
+            Some("test_generate") => {
+                let code      = val["code"].as_str().unwrap_or("").to_string();
+                let language  = val["language"].as_str().unwrap_or("").to_string();
+                let framework = val["framework"].as_str().unwrap_or("Jest").to_string();
+                let file_name = val["fileName"].as_str().unwrap_or("file").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(1200) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a unit test expert integrated into VS Code via CodeForge.\n\
+Generate comprehensive unit tests using {framework}.\n\
+\n\
+Critical rules:\n\
+- Output ONLY raw test code — no markdown fences (no ```), no explanations\n\
+- Import ONLY the specific functions being tested, not the whole module\n\
+- Import path: use './{file_name}' without extension (e.g. import {{ myFn }} from './myFile')\n\
+- Every single test MUST have at least one expect/assert statement — never write empty tests\n\
+- For async functions: use async/await in the test, e.g. it('name', async () => {{ ... }})\n\
+- For error cases: use expect(() => fn()).toThrow() or try/catch\n\
+- Test cases to include for EVERY function:\n\
+  1. Normal input → expected output\n\
+  2. Edge cases: null, undefined, empty string '', 0, negative numbers, empty array []\n\
+  3. Error case: invalid input should throw or return error\n\
+- Never use .toBeTruthy() as the only assertion — use .toBe(), .toEqual(), .toThrow() etc.\n\
+- Group tests with describe('{file_name}', () => {{ ... }})\
+<|im_end|>\n\
+<|im_start|>user\n\
+Language: {language}\n\
+File: {file_name}\n\
+\n\
+CODE TO TEST:\n\
+{code}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(400).min(1500);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt, "n_predict": n_predict,
+                            "temperature": 0.2, "stream": true,
+                            "repeat_penalty": 1.1, "stop": ["<|im_end|>"]
+                        });
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── VS Code: Inline Code Suggestion ───────────────────────────────
+            Some("inline_suggest") => {
+                let context  = val["context"].as_str().unwrap_or("").to_string();
+                let language = val["language"].as_str().unwrap_or("").to_string();
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a code completion AI. Continue the code from exactly where <CURSOR> is.\n\
+Rules:\n\
+- Output ONLY the raw code continuation — no markdown, no ``` fences, no explanations\n\
+- Never repeat code that already exists before <CURSOR>\n\
+- Match indentation exactly — count the spaces/tabs of the surrounding lines\n\
+- Complete the current line first, then add the next 1-2 logical lines if needed\n\
+- Stop after one complete statement or block — do not over-generate\n\
+- If inside a function body, stay inside it — do not close the function unless needed\
+<|im_end|>\n\
+<|im_start|>user\n\
+Language: {language}\n\
+\n\
+{context}<CURSOR>\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt, "n_predict": 200,
+                            "temperature": 0.1, "stream": true,
+                            "repeat_penalty": 1.0, "stop": ["<|im_end|>", "<|im_start|>"]
+                        });
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── VS Code: Smart Debug ───────────────────────────────────────────
+            Some("debug_query") => {
+                let bug_desc       = val["bugDescription"].as_str().unwrap_or("").to_string();
+                let current_file   = val["currentFile"].as_str().unwrap_or("").to_string();
+                let current_code   = val["currentCode"].as_str().unwrap_or("").to_string();
+                let language       = val["language"].as_str().unwrap_or("").to_string();
+                let connected      = val["connectedFiles"].as_array().cloned().unwrap_or_default();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(1500) as u32;
+
+                let mut connected_block = String::new();
+                for cf in &connected {
+                    let name    = cf["name"].as_str().unwrap_or("file");
+                    let content = cf["content"].as_str().unwrap_or("");
+                    connected_block.push_str(&format!("\n--- Connected file: {name} ---\n{content}\n"));
+                }
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are an expert debugger integrated into VS Code via CodeForge.\n\
+Analyze the code, find the bug, and provide a fix.\n\
+\n\
+Your response must follow this EXACT structure — no deviations:\n\
+\n\
+PART 1 — one short paragraph explaining the root cause (2-4 sentences)\n\
+\n\
+PART 2 — the code changes block, EXACTLY as shown:\n\
+<CHANGES>\n\
+[{{\"file\":\"FILENAME\",\"description\":\"WHAT IS FIXED\",\"oldCode\":\"EXACT ORIGINAL CODE\",\"newCode\":\"FIXED CODE\"}}]\n\
+</CHANGES>\n\
+\n\
+Rules for the CHANGES block:\n\
+- oldCode: copy the EXACT lines from the file — same whitespace, same quotes, nothing changed\n\
+- newCode: the corrected replacement for those exact lines\n\
+- Only include files that actually need changes\n\
+- Minimal changes only — do not refactor unrelated code\n\
+- Use single quotes inside the JSON strings, not double quotes, to avoid breaking JSON\n\
+- If no code change needed (e.g. config/env issue), write <CHANGES>[]</CHANGES>\
+<|im_end|>\n\
+<|im_start|>user\n\
+BUG DESCRIPTION: {bug_desc}\n\
+\n\
+MAIN FILE: {current_file}\n\
+```{language}\n\
+{current_code}\n\
+```\n\
+{connected_block}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(500).min(1500);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt, "n_predict": n_predict,
+                            "temperature": 0.2, "stream": true,
+                            "repeat_penalty": 1.1, "stop": ["<|im_end|>"]
+                        });
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── VS Code: Terminal Error Explainer ─────────────────────────────
+            Some("terminal_error") => {
+                let error_text   = val["errorText"].as_str().unwrap_or("").to_string();
+                let current_file = val["currentFile"].as_str().unwrap_or("").to_string();
+                let current_code = val["currentCode"].as_str().unwrap_or("").to_string();
+                let language     = val["language"].as_str().unwrap_or("").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a debugging expert integrated into VS Code via CodeForge.\n\
+Diagnose the terminal error and give a clear, actionable fix.\n\
+\n\
+Step 1 — Identify error type:\n\
+- MODULE NOT FOUND / Cannot find module / ModuleNotFoundError → dependency issue\n\
+- SyntaxError / TypeError / ReferenceError / undefined is not a function → code bug\n\
+- Permission denied / EACCES → permissions issue\n\
+- Port already in use / EADDRINUSE → process conflict\n\
+\n\
+Step 2 — Respond based on type:\n\
+\n\
+For DEPENDENCY errors: explain which package is missing and give the exact install command (npm install X / pip install X). Do NOT output a FIX block.\n\
+\n\
+For CODE bugs: explain the cause in 2-3 sentences, then output:\n\
+<FIX>\n\
+[{{\"file\":\"FILENAME\",\"description\":\"WHAT IS FIXED\",\"oldCode\":\"EXACT ORIGINAL CODE\",\"newCode\":\"FIXED CODE\"}}]\n\
+</FIX>\n\
+\n\
+For PERMISSION / PORT errors: explain the cause and the exact terminal command to resolve it. No FIX block needed.\n\
+\n\
+Rules for FIX block:\n\
+- oldCode: exact verbatim lines from the file — same spacing, same quotes\n\
+- newCode: minimal corrected replacement\n\
+- Use single quotes inside JSON strings to avoid breaking JSON\n\
+- If no code change needed, write <FIX>[]</FIX>\
+<|im_end|>\n\
+<|im_start|>user\n\
+TERMINAL ERROR:\n\
+{error_text}\n\
+\n\
+CURRENT FILE: {current_file}\n\
+```{language}\n\
+{current_code}\n\
+```\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = {
+                    let lock = clients.lock().await;
+                    lock.get(&id).map(|c| c.tx.clone())
+                };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(300).min(1000);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt, "n_predict": n_predict,
+                            "temperature": 0.3, "stream": true,
+                            "repeat_penalty": 1.1, "stop": ["<|im_end|>"]
+                        });
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── Excel: Generate VBA Macro ─────────────────────────────────────
+            Some("macro_query") => {
+                let idea    = val["idea"].as_str().unwrap_or("").to_string();
+                let history = val["history"].as_array().cloned().unwrap_or_default();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(1000) as u32;
+
+                // Build conversation history block for multi-turn refinement
+                let mut history_block = String::new();
+                for turn in &history {
+                    let role    = turn["role"].as_str().unwrap_or("user");
+                    let content = turn["content"].as_str().unwrap_or("");
+                    let tag     = if role == "assistant" { "assistant" } else { "user" };
+                    history_block.push_str(&format!("<|im_start|>{tag}\n{content}<|im_end|>\n"));
+                }
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are an Excel VBA macro expert integrated into Microsoft Excel via CodeForge.\n\
+\n\
+When given a macro idea, follow this exact two-step process:\n\
+\n\
+STEP 1 — ANALYZE: Think about what the user wants. Identify any missing details that would \
+affect how the macro works (e.g. which range, what threshold, what condition, whether to \
+overwrite existing data, whether to run on selection or whole sheet, etc.)\n\
+\n\
+STEP 2 — DECIDE:\n\
+- If 1 or more important details are MISSING or AMBIGUOUS: Do NOT write code yet. \
+Start your reply with \"Before I build this macro, I need to clarify:\" then list \
+2-3 specific numbered questions.\n\
+- If the idea is CLEAR AND COMPLETE (or this is a follow-up with answers): Generate \
+the full VBA macro immediately. Start with one sentence describing what the macro does, \
+then write the complete Sub...End Sub block.\n\
+\n\
+VBA code rules:\n\
+- Always add comments above each logical section\n\
+- Use On Error GoTo ErrHandler with a proper error label\n\
+- Use meaningful variable names (not x, y, i unless for loops)\n\
+- Default to working on Selection unless user specifies otherwise\n\
+- End with a MsgBox telling the user the macro completed\n\
+- Never use .Select or .Activate — work directly with range objects\n\
+- HIGHLIGHTING: to color a cell background use cell.Interior.Color = RGB(r,g,b) NEVER write text like \"Yellow\" into cells\n\
+- CLEARING color: use cell.Interior.ColorIndex = xlNone\n\
+- Common colors: Yellow=RGB(255,255,0), Green=RGB(0,255,0), Red=RGB(255,0,0), Orange=RGB(255,165,0), Blue=RGB(0,112,192)\n\
+- CONDITIONAL FORMATTING via VBA: use cell.Interior.Color, not .FormatConditions, unless user specifically asks for Excel conditional formatting rules\n\
+- Loop over ranges with: For Each cell In rng ... Next cell\
+<|im_end|>\n\
+{history_block}\
+<|im_start|>user\n\
+{idea}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(400).min(1200);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.2,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── Word: Ask about document ──────────────────────────────────────
+            Some("word_query") => {
+                let question       = val["question"].as_str().unwrap_or("").to_string();
+                let doc_text       = val["docText"].as_str().unwrap_or("").to_string();
+                let context_label  = val["contextLabel"].as_str().unwrap_or("Document").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(600) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are an expert writing assistant and grammar checker integrated into Microsoft Word via CodeForge.\n\
+\n\
+When answering questions about the document:\n\
+- Be accurate and critical — never say text is correct if it has errors\n\
+- For grammar/spelling checks: list EVERY error found with the correction. If no errors exist, say \"No errors found.\"\n\
+- For grammar errors look for: subject-verb agreement, missing articles (a/an/the), wrong tense, capitalization, missing plurals, wrong prepositions\n\
+- For summarize/explain tasks: be concise and structured\n\
+- For rewrite/improve tasks: fix all grammar and make it professional\n\
+- Never skip errors to be polite — the user needs accurate feedback\
+<|im_end|>\n\
+<|im_start|>user\n\
+{context_label}:\n{doc_text}\n\nQUESTION: {question}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(400).min(2000);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.2,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── Word: Rewrite selected text ───────────────────────────────────
+            Some("word_rewrite") => {
+                let instruction    = val["instruction"].as_str().unwrap_or("").to_string();
+                let selected_text  = val["selectedText"].as_str().unwrap_or("").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a writing assistant integrated into Microsoft Word via CodeForge.\n\
+Rules:\n\
+- Rewrite the provided text according to the instruction\n\
+- Return ONLY the rewritten text, no explanations or commentary\n\
+- Preserve the meaning and key points unless instructed otherwise\
+<|im_end|>\n\
+<|im_start|>user\n\
+ORIGINAL TEXT:\n{selected_text}\n\nINSTRUCTION: {instruction}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(200).min(1500);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.4,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── PowerPoint: Ask about slide ───────────────────────────────────
+            Some("ppt_query") => {
+                let question     = val["question"].as_str().unwrap_or("").to_string();
+                let slide_text   = val["slideText"].as_str().unwrap_or("").to_string();
+                let slide_index  = val["slideIndex"].as_u64().unwrap_or(1);
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(600) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are an expert presentation analyst integrated into Microsoft PowerPoint via CodeForge.\n\
+Rules:\n\
+- Be accurate and critical — never say content is fine if it has issues\n\
+- For consistency checks: compare all numbers/data points and flag any contradictions\n\
+- For improvement suggestions: give specific, actionable changes\n\
+- For content questions: answer only from what is in the slide — do not invent data\n\
+- For grammar/clarity: list every issue found — do not skip errors to be polite\n\
+- Keep answers structured with clear points\
+<|im_end|>\n\
+<|im_start|>user\n\
+SLIDE {slide_index} CONTENT:\n{slide_text}\n\nQUESTION: {question}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(200).min(1500);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.4,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── PowerPoint: Write slide content (paragraphs / bullets) ──────────
+            Some("ppt_write") => {
+                let request      = val["request"].as_str().unwrap_or("").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(600) as u32;
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a professional presentation content writer integrated into Microsoft PowerPoint via CodeForge.\n\
+Write exactly what the user requests — paragraph, bullet points, intro, conclusion, or list.\n\
+\n\
+Rules:\n\
+- Write ONLY the requested content — no explanations, no \"Here is your content:\", no commentary\n\
+- If the user asks for bullet points: start each with • and keep each to one clear line\n\
+- If the user asks for a paragraph: write flowing, professional prose\n\
+- If the user asks for a list: number each item clearly\n\
+- Match the tone to the topic (professional for business, simple for general topics)\n\
+- Do NOT use markdown formatting (no **, no ##, no ```)\n\
+- Stop after the content is complete — no closing remarks\
+<|im_end|>\n\
+<|im_start|>user\n\
+{request}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(200).min(800);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.5,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── PowerPoint: VBA macro for transition / animation / background ──
+            Some("ppt_macro") => {
+                let request    = val["request"].as_str().unwrap_or("").to_string();
+                let macro_mode = val["macroMode"].as_str().unwrap_or("transition").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
+
+                let (context_rule, examples) = match macro_mode.as_str() {
+                    "transition" => (
+                        "Generate a PowerPoint VBA macro that applies slide TRANSITIONS.\n\
+Common transition types: ppEffectFade, ppEffectWipe, ppEffectFly, ppEffectDissolve, ppEffectPush, ppEffectReveal, ppEffectZoom.\n\
+Apply to all slides: For Each sld In ActivePresentation.Slides ... sld.SlideShowTransition.EntryEffect = ppEffectFade ... Next\n\
+Apply to active slide: ActivePresentation.Slides(SlideShowWindow.View.CurrentShowPosition).SlideShowTransition.EntryEffect = ppEffectFade\n\
+Set transition speed: sld.SlideShowTransition.Speed = ppTransitionSpeedMedium",
+                        "e.g. 'Fade transition on all slides' or 'Wipe from left on current slide'"
+                    ),
+                    "animation" => (
+                        "Generate a PowerPoint VBA macro that applies shape ANIMATIONS using the TimeLine API.\n\
+Add animation: slide.TimeLine.MainSequence.AddEffect(shape, msoAnimEffectFly, , msoAnimTriggerOnPageClick)\n\
+Common effects: msoAnimEffectFly, msoAnimEffectAppear, msoAnimEffectFade, msoAnimEffectZoom, msoAnimEffectSpin, msoAnimEffectWipe.\n\
+Get shapes: Dim shp As Shape: For Each shp In ActivePresentation.Slides(1).Shapes\n\
+Remove existing animations first: slide.TimeLine.MainSequence.Clear",
+                        "e.g. 'Fly in from left on all title shapes' or 'Appear animation on each shape one by one'"
+                    ),
+                    _ => (
+                        "Generate a PowerPoint VBA macro that changes slide BACKGROUND colors.\n\
+Set solid color: sld.Background.Fill.ForeColor.RGB = RGB(r,g,b)\n\
+Set gradient: sld.Background.Fill.TwoColorGradient msoGradientHorizontal, 1 then set colors\n\
+Apply to all slides: For Each sld In ActivePresentation.Slides ... Next\n\
+Apply to active: ActivePresentation.Slides(ActiveWindow.View.Slide.SlideIndex).Background.Fill...\n\
+Common colors — dark navy: RGB(13,27,42), white: RGB(255,255,255), light gray: RGB(240,240,240), dark charcoal: RGB(30,30,30)",
+                        "e.g. 'Dark navy blue background on all slides' or 'White background on current slide'"
+                    ),
+                };
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+You are a PowerPoint VBA expert integrated into Microsoft PowerPoint via CodeForge.\n\
+{context_rule}\n\
+\n\
+VBA rules:\n\
+- Generate a complete Sub...End Sub block that runs immediately\n\
+- Add On Error GoTo ErrHandler with ErrHandler: MsgBox Err.Description label at the end\n\
+- Add a comment above each logical section\n\
+- End with MsgBox \"Done!\" before the error handler\n\
+- Never use .Select or .Activate — work directly with objects\n\
+- Output ONLY the VBA code — no explanations before or after it\n\
+\n\
+Examples of what users ask: {examples}\
+<|im_end|>\n\
+<|im_start|>user\n\
+{request}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(400).min(1000);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.15,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
                             }
                         }
                         let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
@@ -1652,51 +2721,6 @@ fn obfuscate_code(text: &str, _file_type: &str) -> String {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /// Fetch the latest version JSON from a URL (GitHub raw or any host).
-/// Returns the JSON object so the frontend can compare versions and show a banner.
-#[tauri::command]
-async fn check_for_update(url: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("OfflineAI-UpdateCheck/1.0")
-        .build()
-        .map_err(|e| e.to_string())?;
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Network error: {e}"))?;
-    let json = resp
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|e| format!("Parse error: {e}"))?;
-    Ok(json)
-}
-
-/// Download and install a pending update, then restart the app.
-#[tauri::command]
-async fn install_update(app: AppHandle) -> Result<(), String> {
-    use tauri_plugin_updater::UpdaterExt;
-    let update = app
-        .updater()
-        .map_err(|e| e.to_string())?
-        .check()
-        .await
-        .map_err(|e| format!("Update check failed: {e}"))?;
-    if let Some(upd) = update {
-        let app2 = app.clone();
-        upd.download_and_install(
-            |downloaded, total| {
-                let pct = total.map(|t| (downloaded as u64) * 100 / t).unwrap_or(0);
-                let _ = app2.emit("update-progress", pct);
-            },
-            || {},
-        )
-        .await
-        .map_err(|e| format!("Install failed: {e}"))?;
-        app.restart();
-    }
-    Ok(())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -1704,7 +2728,6 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ServerState::new())
         .manage(HubState::new())
         .manage(ShieldState::default())
@@ -1738,14 +2761,42 @@ pub fn run() {
             // Start Excel add-in HTTP server on port 8089
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             tauri::async_runtime::spawn(async move {
-                let listener = match tokio::net::TcpListener::bind("127.0.0.1:8089").await {
+                let listener = match tokio::net::TcpListener::bind("0.0.0.0:8089").await {
                     Ok(l) => l,
                     Err(e) => { eprintln!("[addin] Failed to bind port 8089: {e}"); return; }
                 };
-                eprintln!("[addin] Serving Excel add-in on http://127.0.0.1:8089");
+                eprintln!("[addin] Serving Excel add-in on http://0.0.0.0:8089");
                 loop {
                     if let Ok((stream, _)) = listener.accept().await {
                         tokio::spawn(handle_addin_http(stream));
+                    }
+                }
+            });
+            // Start Word add-in HTTP server on port 8090
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            tauri::async_runtime::spawn(async move {
+                let listener = match tokio::net::TcpListener::bind("0.0.0.0:8090").await {
+                    Ok(l) => l,
+                    Err(e) => { eprintln!("[word-addin] Failed to bind port 8090: {e}"); return; }
+                };
+                eprintln!("[word-addin] Serving Word add-in on http://0.0.0.0:8090");
+                loop {
+                    if let Ok((stream, _)) = listener.accept().await {
+                        tokio::spawn(handle_word_addin_http(stream));
+                    }
+                }
+            });
+            // Start PowerPoint add-in HTTP server on port 8091
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            tauri::async_runtime::spawn(async move {
+                let listener = match tokio::net::TcpListener::bind("0.0.0.0:8091").await {
+                    Ok(l) => l,
+                    Err(e) => { eprintln!("[ppt-addin] Failed to bind port 8091: {e}"); return; }
+                };
+                eprintln!("[ppt-addin] Serving PowerPoint add-in on http://0.0.0.0:8091");
+                loop {
+                    if let Ok((stream, _)) = listener.accept().await {
+                        tokio::spawn(handle_ppt_addin_http(stream));
                     }
                 }
             });
@@ -1851,8 +2902,6 @@ pub fn run() {
             read_pdf,
             read_docx,
             pubmed_search,
-            check_for_update,
-            install_update,
             shield_protect,
             shield_unprotect,
             shield_get_log,
