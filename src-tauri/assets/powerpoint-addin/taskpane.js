@@ -105,7 +105,18 @@ function finishAiMessage() {
     }
 
     if (mode === "transition" || mode === "animation" || mode === "background") {
-      const text = currentAiEl.textContent.trim();
+      let text = currentAiEl.textContent.trim();
+
+      // The Rust prompt pre-fills "Sub " so the model output starts from the
+      // macro name — prepend it back so the extracted VBA is complete.
+      if (!text.match(/^\s*Sub\s+\w/i) && !text.match(/^\s*Function\s+\w/i)) {
+        text = "Sub " + text;
+      }
+
+      // Strip any markdown fences the model may have added despite instructions
+      text = text.replace(/^```[\w]*\n?/gm, "").replace(/^```\s*$/gm, "").trim();
+
+      // Extract the first complete Sub...End Sub (or Function...End Function)
       const vbaMatch = text.match(/(?:Sub|Function)\s+\w[\s\S]*?End\s+(?:Sub|Function)/i);
       if (vbaMatch) {
         pendingMacro = vbaMatch[0].trim();

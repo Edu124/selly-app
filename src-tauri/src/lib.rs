@@ -2330,62 +2330,154 @@ Rules:\n\
                 let macro_mode = val["macroMode"].as_str().unwrap_or("transition").to_string();
                 let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
 
-                let (context_rule, examples) = match macro_mode.as_str() {
-                    "transition" => (
-                        "Generate a PowerPoint VBA macro that applies slide TRANSITIONS.\n\
-Common transition types: ppEffectFade, ppEffectWipe, ppEffectFly, ppEffectDissolve, ppEffectPush, ppEffectReveal, ppEffectZoom.\n\
-Apply to all slides: For Each sld In ActivePresentation.Slides ... sld.SlideShowTransition.EntryEffect = ppEffectFade ... Next\n\
-Apply to active slide: ActivePresentation.Slides(SlideShowWindow.View.CurrentShowPosition).SlideShowTransition.EntryEffect = ppEffectFade\n\
-Set transition speed: sld.SlideShowTransition.Speed = ppTransitionSpeedMedium",
-                        "e.g. 'Fade transition on all slides' or 'Wipe from left on current slide'"
-                    ),
-                    "animation" => (
-                        "Generate a PowerPoint VBA macro that applies shape ANIMATIONS using the TimeLine API.\n\
-Add animation: slide.TimeLine.MainSequence.AddEffect(shape, msoAnimEffectFly, , msoAnimTriggerOnPageClick)\n\
-Common effects: msoAnimEffectFly, msoAnimEffectAppear, msoAnimEffectFade, msoAnimEffectZoom, msoAnimEffectSpin, msoAnimEffectWipe.\n\
-Get shapes: Dim shp As Shape: For Each shp In ActivePresentation.Slides(1).Shapes\n\
-Remove existing animations first: slide.TimeLine.MainSequence.Clear",
-                        "e.g. 'Fly in from left on all title shapes' or 'Appear animation on each shape one by one'"
-                    ),
-                    _ => (
-                        "Generate a PowerPoint VBA macro that changes slide BACKGROUND colors.\n\
-Set solid color: sld.Background.Fill.ForeColor.RGB = RGB(r,g,b)\n\
-Set gradient: sld.Background.Fill.TwoColorGradient msoGradientHorizontal, 1 then set colors\n\
-Apply to all slides: For Each sld In ActivePresentation.Slides ... Next\n\
-Apply to active: ActivePresentation.Slides(ActiveWindow.View.Slide.SlideIndex).Background.Fill...\n\
-Common colors — dark navy: RGB(13,27,42), white: RGB(255,255,255), light gray: RGB(240,240,240), dark charcoal: RGB(30,30,30)",
-                        "e.g. 'Dark navy blue background on all slides' or 'White background on current slide'"
-                    ),
+                let context_rule = match macro_mode.as_str() {
+                    "transition" => "\
+Generate a PowerPoint VBA macro that applies slide TRANSITIONS.\n\
+\n\
+TRANSITION REFERENCE:\n\
+EntryEffect constants: ppEffectFade, ppEffectWipe, ppEffectDissolve, ppEffectPush,\n\
+  ppEffectReveal, ppEffectZoom, ppEffectCover, ppEffectUncover, ppEffectCut, ppEffectRandom.\n\
+Speed: ppTransitionSpeedSlow, ppTransitionSpeedMedium, ppTransitionSpeedFast\n\
+AdvanceOnTime (auto-advance): .AdvanceOnTime = True / .AdvanceTime = 3 (seconds)\n\
+\n\
+APPLY TO ALL SLIDES:\n\
+  Dim sld As Slide\n\
+  For Each sld In ActivePresentation.Slides\n\
+      sld.SlideShowTransition.EntryEffect = ppEffectFade\n\
+      sld.SlideShowTransition.Speed = ppTransitionSpeedMedium\n\
+  Next sld\n\
+\n\
+APPLY TO CURRENT SLIDE ONLY:\n\
+  Dim sld As Slide\n\
+  Set sld = ActivePresentation.Slides(ActiveWindow.View.Slide.SlideIndex)\n\
+  sld.SlideShowTransition.EntryEffect = ppEffectFade\n\
+  sld.SlideShowTransition.Speed = ppTransitionSpeedMedium",
+                    "animation" => "\
+Generate a PowerPoint VBA macro that applies shape ANIMATIONS using the TimeLine API.\n\
+\n\
+CRITICAL — CORRECT AddEffect SIGNATURE:\n\
+  Dim eff As Effect\n\
+  Set eff = sld.TimeLine.MainSequence.AddEffect( _\n\
+      Shape:=shp, _\n\
+      effectId:=msoAnimEffectFly, _\n\
+      trigger:=msoAnimTriggerOnPageClick)\n\
+\n\
+SET DIRECTION (after AddEffect — this is required for Fly/Wipe/etc.):\n\
+  eff.EffectParameters.Direction = msoAnimDirectionLeft\n\
+Direction constants: msoAnimDirectionLeft, msoAnimDirectionRight, msoAnimDirectionTop,\n\
+  msoAnimDirectionBottom, msoAnimDirectionTopLeft, msoAnimDirectionTopRight,\n\
+  msoAnimDirectionBottomLeft, msoAnimDirectionBottomRight\n\
+\n\
+SET TIMING:\n\
+  eff.Timing.Duration = 1.0            ' seconds\n\
+  eff.Timing.TriggerType = msoAnimTriggerOnPageClick\n\
+  ' or: msoAnimTriggerAfterPrevious, msoAnimTriggerWithPrevious\n\
+  eff.Timing.TriggerDelayTime = 0.5    ' delay after trigger\n\
+\n\
+EFFECT CONSTANTS:\n\
+  msoAnimEffectAppear, msoAnimEffectFade, msoAnimEffectFly, msoAnimEffectZoom,\n\
+  msoAnimEffectSpin, msoAnimEffectWipe, msoAnimEffectBlinds, msoAnimEffectBox,\n\
+  msoAnimEffectCheckerboard, msoAnimEffectPeek, msoAnimEffectStretch, msoAnimEffectSwivel\n\
+\n\
+LOOP OVER SHAPES:\n\
+  Dim sld As Slide\n\
+  Dim shp As Shape\n\
+  Dim eff As Effect\n\
+  ' Clear existing animations first:\n\
+  sld.TimeLine.MainSequence.Clear\n\
+  For Each shp In sld.Shapes\n\
+      Set eff = sld.TimeLine.MainSequence.AddEffect( _\n\
+          Shape:=shp, effectId:=msoAnimEffectFly, _\n\
+          trigger:=msoAnimTriggerAfterPrevious)\n\
+      eff.EffectParameters.Direction = msoAnimDirectionLeft\n\
+      eff.Timing.Duration = 0.8\n\
+  Next shp\n\
+\n\
+TARGET SPECIFIC SHAPES:\n\
+  ' Title shape (type 13 = msoPlaceholder title):\n\
+  If shp.PlaceholderFormat.Type = ppPlaceholderTitle Then ...\n\
+  ' By name: If shp.Name = \"Title 1\" Then ...\n\
+  ' By type: If shp.Type = msoTextBox Then ...\n\
+\n\
+APPLY TO ALL SLIDES vs CURRENT SLIDE:\n\
+  ' All slides: For Each sld In ActivePresentation.Slides ... Next sld\n\
+  ' Current only: Set sld = ActivePresentation.Slides(ActiveWindow.View.Slide.SlideIndex)",
+                    _ => "\
+Generate a PowerPoint VBA macro that changes slide BACKGROUND.\n\
+\n\
+SOLID COLOR BACKGROUND:\n\
+  sld.Background.Fill.Solid\n\
+  sld.Background.Fill.ForeColor.RGB = RGB(13, 27, 42)   ' dark navy\n\
+\n\
+TWO-COLOR GRADIENT:\n\
+  sld.Background.Fill.TwoColorGradient msoGradientHorizontal, 1\n\
+  sld.Background.Fill.ForeColor.RGB = RGB(13, 27, 42)\n\
+  sld.Background.Fill.BackColor.RGB = RGB(30, 60, 90)\n\
+\n\
+PRESET GRADIENT:\n\
+  sld.Background.Fill.PresetGradient msoGradientHorizontal, 1, msoGradientDaybreak\n\
+\n\
+APPLY TO ALL SLIDES:\n\
+  For Each sld In ActivePresentation.Slides\n\
+      sld.Background.Fill.Solid\n\
+      sld.Background.Fill.ForeColor.RGB = RGB(13, 27, 42)\n\
+      sld.FollowMasterBackground = msoFalse\n\
+  Next sld\n\
+\n\
+APPLY TO CURRENT SLIDE ONLY:\n\
+  Dim sld As Slide\n\
+  Set sld = ActivePresentation.Slides(ActiveWindow.View.Slide.SlideIndex)\n\
+  sld.Background.Fill.Solid\n\
+  sld.Background.Fill.ForeColor.RGB = RGB(13, 27, 42)\n\
+  sld.FollowMasterBackground = msoFalse\n\
+\n\
+COMMON COLORS: dark navy=RGB(13,27,42), white=RGB(255,255,255),\n\
+  light gray=RGB(240,240,240), charcoal=RGB(30,30,30),\n\
+  dark blue=RGB(0,32,96), forest green=RGB(0,68,27), deep red=RGB(120,0,0)",
                 };
 
                 let prompt = format!(
                     "<|im_start|>system\n\
-You are a PowerPoint VBA expert integrated into Microsoft PowerPoint via CodeForge.\n\
+You are a PowerPoint VBA expert. Generate ONE complete, working VBA macro.\n\
+\n\
 {context_rule}\n\
 \n\
-VBA rules:\n\
-- Generate a complete Sub...End Sub block that runs immediately\n\
-- Add On Error GoTo ErrHandler with ErrHandler: MsgBox Err.Description label at the end\n\
-- Add a comment above each logical section\n\
-- End with MsgBox \"Done!\" before the error handler\n\
-- Never use .Select or .Activate — work directly with objects\n\
-- Output ONLY the VBA code — no explanations before or after it\n\
-\n\
-Examples of what users ask: {examples}\
+OUTPUT RULES — FOLLOW EXACTLY:\n\
+- Output ONE Sub...End Sub block only — nothing before Sub, nothing after End Sub\n\
+- No explanations, no markdown, no ``` fences — raw VBA only\n\
+- Start with: Sub MacroName()\n\
+- Second line: On Error GoTo ErrHandler\n\
+- Add a short comment above each logical section\n\
+- Second-to-last line before End Sub: MsgBox \"Done!\"\n\
+- Last section before End Sub:\n\
+  ErrHandler:\n\
+      If Err.Number <> 0 Then MsgBox \"Error: \" & Err.Description\n\
+- End with: End Sub\n\
+- STOP after End Sub — do not repeat or generate another Sub\
 <|im_end|>\n\
 <|im_start|>user\n\
 {request}\
 <|im_end|>\n\
-<|im_start|>assistant\n"
+<|im_start|>assistant\n\
+Sub "
                 );
                 let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
                 if let Some(tx) = tx_opt {
                     let port = SERVER_PORT;
-                    let n_predict = suggested_tokens.max(400).min(1000);
+                    let n_predict = suggested_tokens.max(300).min(700);
                     tauri::async_runtime::spawn(async move {
                         use futures_util::StreamExt;
                         let client = reqwest::Client::new();
-                        let body = serde_json::json!({"prompt":prompt,"n_predict":n_predict,"temperature":0.15,"stream":true,"repeat_penalty":1.1,"stop":["<|im_end|>","<|im_start|>"]});
+                        // Pre-fill "Sub " so response starts directly with the macro name.
+                        // Stop tokens: End Sub / End Function prevent repetition after the macro ends.
+                        let body = serde_json::json!({
+                            "prompt": prompt,
+                            "n_predict": n_predict,
+                            "temperature": 0.15,
+                            "stream": true,
+                            "repeat_penalty": 1.15,
+                            "stop": ["<|im_end|>", "<|im_start|>", "\nSub ", "\nEnd Sub\n\nSub "]
+                        });
                         let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
                             Ok(r) => r,
                             Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
