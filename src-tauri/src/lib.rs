@@ -2336,6 +2336,116 @@ Examples of what users ask: {examples}\
                     });
                 }
             }
+            // ── VS Code: hub_chat — explain / refactor / fix / comment ───────
+            Some("hub_chat") => {
+                let verb             = val["verb"].as_str().unwrap_or("Explain").to_string();
+                let code             = val["code"].as_str().unwrap_or("").to_string();
+                let language         = val["language"].as_str().unwrap_or("code").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
+
+                // Choose system prompt and response style based on verb
+                let (system_instructions, user_instruction) = if verb.to_lowercase().contains("explain") {
+                    (
+                        "You are a code explainer. Explain what the selected code does clearly and concisely.\n\
+Rules:\n\
+- Start with a one-sentence summary of what the code does\n\
+- Then explain each logical section in plain English\n\
+- Point out any edge cases, potential bugs, or notable patterns\n\
+- Do NOT rewrite or modify the code — only explain it\n\
+- Use bullet points for clarity. Max 200 words.",
+                        format!("Explain this {language} code:\n```{language}\n{code}\n```")
+                    )
+                } else if verb.to_lowercase().contains("refactor") {
+                    (
+                        "You are a code refactoring expert. Rewrite the selected code to be cleaner and more efficient.\n\
+Rules:\n\
+- Output ONLY the refactored code — no markdown fences, no explanation before/after\n\
+- Preserve the exact same logic and behavior — do not change what the code does\n\
+- Improve: readability, naming, remove duplication, simplify conditionals\n\
+- Keep the same language and framework\n\
+- Maintain same indentation style as the input",
+                        format!("Refactor this {language} code:\n```{language}\n{code}\n```")
+                    )
+                } else if verb.to_lowercase().contains("fix") || verb.to_lowercase().contains("bug") {
+                    (
+                        "You are a bug-fixing expert. Find and fix any bugs in the selected code.\n\
+Rules:\n\
+- First write 1-2 sentences explaining what the bug is\n\
+- Then output the fixed code (no markdown fences, just the raw code)\n\
+- Make ONLY the minimal changes needed to fix the bug\n\
+- If no bug found, say so briefly and return the original code unchanged",
+                        format!("Find and fix bugs in this {language} code:\n```{language}\n{code}\n```")
+                    )
+                } else if verb.to_lowercase().contains("comment") {
+                    (
+                        "You are a code documentation expert. Add clear, helpful comments to the selected code.\n\
+Rules:\n\
+- Output ONLY the commented code — no markdown fences, no preamble\n\
+- Add inline comments for complex logic (not obvious lines)\n\
+- Add a JSDoc/docstring at the top of each function explaining params and return value\n\
+- Keep comments concise — one line each unless truly complex\n\
+- Do NOT change any code logic — only add comments",
+                        format!("Add comments to this {language} code:\n```{language}\n{code}\n```")
+                    )
+                } else {
+                    // Generic fallback
+                    (
+                        "You are a code assistant integrated into VS Code via CodeForge. Help the user with their code task concisely and accurately.",
+                        format!("{verb}:\n```{language}\n{code}\n```")
+                    )
+                };
+
+                let prompt = format!(
+                    "<|im_start|>system\n\
+{system_instructions}\
+<|im_end|>\n\
+<|im_start|>user\n\
+{user_instruction}\
+<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(200).min(1200);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt": prompt,
+                            "n_predict": n_predict,
+                            "temperature": 0.3,
+                            "stream": true,
+                            "repeat_penalty": 1.1,
+                            "stop": ["<|im_end|>"]
+                        });
+                        let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream(); let mut buf = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string(); buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() { if !tok.is_empty() { let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string()); } }
+                                                if j["stop"].as_bool().unwrap_or(false) { let _ = tx.send(serde_json::json!({"type":"done"}).to_string()); break 'stream; }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
             Some("pong") => {} // keepalive — ignore
             _ => {}
         }

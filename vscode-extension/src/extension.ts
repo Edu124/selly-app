@@ -98,6 +98,7 @@ async function handleOperationComplete(): Promise<void> {
     case "test_generate":    await handleTestResult(result, meta);        break;
     case "debug_query":      await handleDebugResult(result, meta);       break;
     case "terminal_error":   await handleTerminalFixResult(result, meta); break;
+    case "hub_chat":         await handleHubChatResult(result, meta);     break;
     case "inline_suggest":
       if (pendingInlineResolve) { pendingInlineResolve(result); pendingInlineResolve = null; }
       break;
@@ -462,17 +463,75 @@ async function applyChanges(
   await vscode.workspace.applyEdit(edit);
 }
 
-// ── Context menu helper (existing commands) ────────────────────────────────────
+// ── Context menu helper (explain / refactor / fix / comment) ──────────────────
 
 function sendCommand(verb: string): void {
   const editor = vscode.window.activeTextEditor;
-  if (!editor)      { vscode.window.showWarningMessage("CodeForge AI: No active editor.");          return; }
-  if (!isConnected) { vscode.window.showWarningMessage("CodeForge AI: Not connected to Hub.");      return; }
+  if (!editor)      { vscode.window.showWarningMessage("CodeForge AI: No active editor.");       return; }
+  if (!isConnected) { vscode.window.showWarningMessage("CodeForge AI: Not connected to Hub.");   return; }
   const selected = editor.document.getText(editor.selection);
-  if (!selected)    { vscode.window.showWarningMessage("CodeForge AI: Select some code first.");    return; }
-  sendContextUpdate();
-  send({ type: "message", text: `${verb}:\n\`\`\`${editor.document.languageId}\n${selected}\n\`\`\`` });
-  vscode.window.showInformationMessage(`CodeForge AI: Sent "${verb}" — check the CodeForge Hub panel.`);
+  if (!selected)    { vscode.window.showWarningMessage("CodeForge AI: Select some code first."); return; }
+
+  const language = editor.document.languageId;
+
+  // Token budget: explain needs fewer tokens, refactor/comment need more
+  const verbLower = verb.toLowerCase();
+  const suggestedTokens =
+    verbLower.includes("explain") ? 400 :
+    verbLower.includes("comment") ? 600 :
+    800;  // refactor, fix, generic
+
+  currentOperation = "hub_chat";
+  currentOpMeta    = { verb, selected, language, canApply: !verbLower.includes("explain") };
+  responseBuffer   = "";
+
+  send({ type: "hub_chat", verb, code: selected, language, suggestedTokens });
+  vscode.window.showInformationMessage(`CodeForge AI: Running "${verb}"…`);
+}
+
+// ── hub_chat result handler ────────────────────────────────────────────────────
+
+async function handleHubChatResult(result: string, meta: Record<string, any>): Promise<void> {
+  const verb     = meta.verb  as string || "Result";
+  const canApply = meta.canApply as boolean;
+  const selected = meta.selected as string || "";
+
+  const ch = getOutputChannel();
+  ch.appendLine(`\n═══ CodeForge AI — ${verb} ═══`);
+  ch.appendLine(result.trim());
+  ch.show(true);
+
+  // For refactor / fix / comment — offer to replace the selection with the AI output
+  if (canApply) {
+    // Strip markdown code fences if the model wrapped the output
+    const fenceMatch = result.match(/```[\w]*\n?([\s\S]+?)```/);
+    const cleanCode  = fenceMatch ? fenceMatch[1].trimEnd() : result.trim();
+
+    // Only offer to apply if the output looks like code (not a pure explanation)
+    const looksLikeCode = cleanCode.includes("\n") || /[{(;=]/.test(cleanCode);
+    if (looksLikeCode && cleanCode !== selected.trim()) {
+      const choice = await vscode.window.showInformationMessage(
+        `CodeForge AI finished "${verb}"`,
+        { modal: false },
+        "Apply to Selection", "Show in Panel", "Dismiss"
+      );
+
+      if (choice === "Apply to Selection") {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor) {
+          await activeEditor.edit(eb => { eb.replace(activeEditor.selection, cleanCode); });
+          vscode.window.showInformationMessage("✅ CodeForge AI: Code applied!");
+        }
+      } else if (choice === "Show in Panel") {
+        ch.show();
+      }
+    } else {
+      vscode.window.showInformationMessage(`CodeForge AI: "${verb}" complete — see CodeForge AI output panel.`);
+    }
+  } else {
+    // Explain — just notify
+    vscode.window.showInformationMessage(`CodeForge AI: "${verb}" complete — see CodeForge AI output panel.`);
+  }
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
