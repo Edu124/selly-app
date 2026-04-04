@@ -30,7 +30,7 @@ function setMode(m) {
   document.getElementById("modeMacro").classList.toggle("active",   m === "macro");
 
   if (m === "ask")     { $askBtn().textContent = "Ask";      $question().placeholder = "e.g. What is revenue for 2023?"; }
-  if (m === "formula") { $askBtn().textContent = "Generate"; $question().placeholder = "e.g. Sum all rows above this cell"; }
+  if (m === "formula") { $askBtn().textContent = "Generate"; $question().placeholder = "e.g. VLOOKUP employee name from Sheet2 using ID in column A"; }
   if (m === "macro")   { $askBtn().textContent = "Generate Macro"; $question().placeholder = "e.g. Highlight all cells above 1000 in red"; }
 
   const icon  = document.getElementById("emptyIcon");
@@ -43,7 +43,7 @@ function setMode(m) {
   } else if (m === "formula") {
     icon.textContent  = "✏️";
     title.textContent = "Generate a formula";
-    sub.textContent   = "Select the target cell or data range, then describe the formula.";
+    sub.textContent   = "Select the target cell or range. AI sees all sheets — works with VLOOKUP, XLOOKUP, cross-sheet references.";
   } else {
     icon.textContent  = "🔧";
     title.textContent = "Generate a VBA Macro";
@@ -65,7 +65,7 @@ function updateAskBtn() {
   if (!isConnected)           $subHint().textContent = "⚠️ Open CodeForge app first";
   else if (isStreaming)       $subHint().textContent = mode === "macro" ? "Thinking…" : "Answering…";
   else if (mode === "ask")    $subHint().textContent = "Select cells in Excel, then ask a question";
-  else if (mode === "formula")$subHint().textContent = "Select a cell or range, then describe the formula";
+  else if (mode === "formula")$subHint().textContent = "Select target cell(s), then describe the formula — can reference other sheets";
   else                        $subHint().textContent = macroHistory.length ? "Answer the questions above, then click Generate Macro" : "Describe your macro idea";
 }
 function hideEmpty() { const e = $empty(); if (e) e.remove(); }
@@ -441,6 +441,67 @@ async function askQuestion() {
   }
 }
 
+// ── Gather schema from all sheets (for cross-sheet formula context) ───────────
+async function gatherSheetsSchema(context) {
+  const sheets = context.workbook.worksheets;
+  const wb     = context.workbook;
+  sheets.load("items/name");
+  wb.load("name");
+  await context.sync();
+
+  const activeSheet = context.workbook.worksheets.getActiveWorksheet();
+  activeSheet.load("name");
+  await context.sync();
+  const activeSheetName = activeSheet.name;
+
+  const schema = [];
+  // Cap at 8 sheets to avoid timeout
+  for (const sheet of sheets.items.slice(0, 8)) {
+    try {
+      const usedRange = sheet.getUsedRangeOrNullObject();
+      usedRange.load(["rowCount", "columnCount"]);
+      await context.sync();
+      if (usedRange.isNullObject) continue;
+
+      const rowCount = usedRange.rowCount;
+      const colCount = Math.min(usedRange.columnCount, 16);
+
+      // Header rows (first 2 rows) — enough to detect multi-row headers
+      const headerRange = sheet.getRangeByIndexes(0, 0, Math.min(2, rowCount), colCount);
+      headerRange.load("values");
+      // First column sample keys (rows 2–21) for lookup key identification
+      const keyRange = sheet.getRangeByIndexes(1, 0, Math.min(20, Math.max(rowCount - 1, 1)), 1);
+      keyRange.load("values");
+      await context.sync();
+
+      // Use whichever row has more non-empty text values as the header row
+      const r0NonEmpty = headerRange.values[0].filter(v => String(v ?? "").trim() !== "").length;
+      const r1NonEmpty = headerRange.values[1]
+        ? headerRange.values[1].filter(v => String(v ?? "").trim() !== "").length : 0;
+      const hdrRow = r1NonEmpty > r0NonEmpty ? headerRange.values[1] : headerRange.values[0];
+
+      const headers = hdrRow
+        .map((h, i) => ({ col: colLetter(i), header: String(h ?? "").trim() }))
+        .filter(h => h.header !== "");
+
+      const sampleKeys = keyRange.values
+        .map(r => String(r[0] ?? "").trim())
+        .filter(v => v !== "")
+        .slice(0, 8);
+
+      schema.push({
+        name:     sheet.name,
+        isActive: sheet.name === activeSheetName,
+        rowCount,
+        headers,
+        sampleKeys,
+      });
+    } catch { /* skip unreadable sheet */ }
+  }
+
+  return { schema, workbookName: wb.name || "Workbook.xlsx" };
+}
+
 // ── Formula mode ──────────────────────────────────────────────────────────────
 async function askFormula() {
   const request = $question().value.trim();
@@ -450,24 +511,25 @@ async function askFormula() {
     await Excel.run(async (context) => {
       const range = context.workbook.getSelectedRange();
       const sheet = context.workbook.worksheets.getActiveWorksheet();
-      range.load(["address","rowIndex","columnIndex","rowCount","columnCount","values"]);
+      range.load(["address","rowIndex","columnIndex","rowCount","columnCount"]);
       sheet.load("name");
       await context.sync();
 
       const selRowIdx = range.rowIndex, selColIdx = range.columnIndex;
-      const selRows   = range.rowCount,  selCols  = range.columnCount;
-      const isSingle  = selRows === 1 && selCols === 1;
+      const selRows   = range.rowCount;
 
-      // The selected range IS the target — always insert into what the user selected.
-      // Read surrounding data as context (columns to the left, rows above).
       const targetRowIdx   = selRowIdx;
       const targetColIdx   = selColIdx;
       const targetRowCount = selRows;
 
-      // Build context: read up to 10 cols to the left + the rows spanning the selection
+      // ── Gather ALL sheets schema (cross-sheet / cross-workbook awareness) ──
+      const { schema: sheetsSchema, workbookName } = await gatherSheetsSchema(context);
+
+      // ── Build local context: up to 10 cols left of target + header row above ──
       const ctxStartCol = Math.max(0, selColIdx - 10);
-      const ctxCols     = selColIdx - ctxStartCol; // exclude the target col itself
-      let contextStr = `Target range: ${range.address}\n`;
+      const ctxCols     = selColIdx - ctxStartCol;
+      let contextStr = `Target range: ${range.address} on sheet "${sheet.name}"\n`;
+
       if (ctxCols > 0) {
         const ctxRange = sheet.getRangeByIndexes(selRowIdx, ctxStartCol, selRows, ctxCols);
         ctxRange.load(["values"]);
@@ -475,9 +537,20 @@ async function askFormula() {
         ctxRange.values.forEach((row, ri) => {
           const absRow = selRowIdx + ri + 1;
           contextStr  += row.map((v, ci) =>
-            `${colLetter(ctxStartCol+ci)}${absRow}=${v===""||v===null?"(empty)":v}`
+            `${colLetter(ctxStartCol + ci)}${absRow}=${v === "" || v === null ? "(empty)" : v}`
           ).join(" | ") + "\n";
         });
+      }
+
+      // Also read the first row of the target column (header) if not row 1
+      if (selRowIdx > 0) {
+        const hdrRange = sheet.getRangeByIndexes(0, selColIdx, 1, 1);
+        hdrRange.load("values");
+        await context.sync();
+        const hdr = hdrRange.values[0][0];
+        if (hdr !== "" && hdr !== null) {
+          contextStr += `Column header for target: "${hdr}"\n`;
+        }
       }
 
       const targetCell  = `${colLetter(targetColIdx)}${targetRowIdx + 1}`;
@@ -486,9 +559,13 @@ async function askFormula() {
         : targetCell;
       pendingRange = targetRange;
 
-      addMessage(`📍 Target: ${targetRange}`, "status-msg");
+      const otherSheets = sheetsSchema.filter(s => !s.isActive);
+      const sheetHint   = otherSheets.length
+        ? ` · ${sheetsSchema.length} sheets visible`
+        : "";
+      addMessage(`📍 Target: ${targetRange}${sheetHint}`, "status-msg");
       addMessage(request, "user");
-      $question().value = "";
+      $question().value      = "";
       $question().style.height = "";
       updateAskBtn();
       isStreaming = true;
@@ -496,12 +573,15 @@ async function askFormula() {
       startAiMessage();
 
       ws.send(JSON.stringify({
-        type: "excel_formula", request,
-        cellAddress: targetCell,
+        type:         "excel_formula",
+        request,
+        cellAddress:  targetCell,
         targetRange,
-        rowCount:    targetRowCount,
-        sheetName:   sheet.name,
-        context:     contextStr,
+        rowCount:     targetRowCount,
+        sheetName:    sheet.name,
+        workbookName,
+        context:      contextStr,
+        sheetsSchema,
       }));
     });
   } catch (err) {

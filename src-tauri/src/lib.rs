@@ -1459,49 +1459,106 @@ QUESTION: {question}\
             }
             Some("excel_formula") => {
                 // Excel add-in (Formula mode): user describes a formula they want inserted.
-                // JS sends the target cell address + surrounding context rows so AI
-                // can generate a correct formula with proper cell references.
-                let request      = val["request"].as_str().unwrap_or("").to_string();
-                let cell_address = val["cellAddress"].as_str().unwrap_or("A1").to_string();
-                let target_range = val["targetRange"].as_str().unwrap_or(&cell_address).to_string();
-                let row_count    = val["rowCount"].as_u64().unwrap_or(1) as usize;
-                let sheet_name   = val["sheetName"].as_str().unwrap_or("Sheet1").to_string();
-                let context      = val["context"].as_str().unwrap_or("").to_string();
+                // JS sends target cell, surrounding context, AND a full schema of all
+                // sheets so the AI can generate cross-sheet / cross-workbook formulas.
+                let request       = val["request"].as_str().unwrap_or("").to_string();
+                let cell_address  = val["cellAddress"].as_str().unwrap_or("A1").to_string();
+                let target_range  = val["targetRange"].as_str().unwrap_or(&cell_address).to_string();
+                let row_count     = val["rowCount"].as_u64().unwrap_or(1) as usize;
+                let _sheet_name   = val["sheetName"].as_str().unwrap_or("Sheet1").to_string();
+                let workbook_name = val["workbookName"].as_str().unwrap_or("Workbook.xlsx").to_string();
+                let context       = val["context"].as_str().unwrap_or("").to_string();
+                let sheets_schema = val["sheetsSchema"].as_array().cloned().unwrap_or_default();
 
-                let (system_rule, user_instruction, n_predict) = if row_count > 1 {
+                // ── Build workbook structure block ────────────────────────────
+                let mut wb_block = String::new();
+                if !sheets_schema.is_empty() {
+                    wb_block.push_str(&format!("WORKBOOK: \"{workbook_name}\"\n"));
+                    wb_block.push_str("SHEETS AVAILABLE:\n");
+                    for s in &sheets_schema {
+                        let sname    = s["name"].as_str().unwrap_or("Sheet");
+                        let rows     = s["rowCount"].as_u64().unwrap_or(0);
+                        let is_active = s["isActive"].as_bool().unwrap_or(false);
+                        let active_mark = if is_active { " ← ACTIVE (this is where the formula goes)" } else { "" };
+                        // Format sheet name for formula use: quote if it contains spaces/special chars
+                        let needs_quote = sname.contains(' ') || sname.contains('-') || sname.contains('.');
+                        let formula_ref = if needs_quote { format!("'{sname}'!") } else { format!("{sname}!") };
+                        wb_block.push_str(&format!("  [{formula_ref}]  \"{sname}\"{active_mark}  ({rows} rows)\n"));
+                        if let Some(headers) = s["headers"].as_array() {
+                            let hlist: Vec<String> = headers.iter().filter_map(|h| {
+                                let col = h["col"].as_str()?;
+                                let hdr = h["header"].as_str()?;
+                                if hdr.is_empty() { return None; }
+                                Some(format!("{col}: \"{hdr}\""))
+                            }).collect();
+                            if !hlist.is_empty() {
+                                wb_block.push_str(&format!("    Columns → {}\n", hlist.join(", ")));
+                            }
+                        }
+                        if let Some(keys) = s["sampleKeys"].as_array() {
+                            let klist: Vec<&str> = keys.iter().filter_map(|k| k.as_str()).take(5).collect();
+                            if !klist.is_empty() {
+                                wb_block.push_str(&format!("    Sample keys (col A): {}\n", klist.join(", ")));
+                            }
+                        }
+                    }
+                }
+
+                // ── Cross-sheet / cross-workbook reference guide ──────────────
+                let ref_guide = "\
+FORMULA REFERENCE RULES:\n\
+Same sheet:       =A1  or  =SUM(A1:A10)\n\
+Another sheet:    =SheetName!A1  or  =SUM(SheetName!A1:A10)\n\
+Sheet with spaces:'My Sheet'!A1  (always quote sheet names containing spaces)\n\
+VLOOKUP cross-sheet:  =VLOOKUP(A2, Employees!A:C, 2, FALSE)\n\
+XLOOKUP cross-sheet:  =XLOOKUP(A2, Employees!A:A, Employees!C:C, \"Not found\")\n\
+INDEX/MATCH cross-sheet: =INDEX(Employees!C:C, MATCH(A2, Employees!A:A, 0))\n\
+Cross-workbook (must be open): =VLOOKUP(A2, '[OtherBook.xlsx]Sheet1'!A:C, 2, FALSE)\n\
+Absolute column in lookup: use $A:$C to lock the lookup range (preferred)\n\
+WHEN TO USE WHICH:\n\
+- XLOOKUP  → preferred for Excel 365/2021 (more flexible, no column number)\n\
+- VLOOKUP  → use when user asks for it, or for older Excel compatibility\n\
+- INDEX/MATCH → use for leftward lookups or when match column is not the first\n\
+- SUMIF/SUMIFS → aggregation across sheets: =SUMIF(Sheet2!A:A, A2, Sheet2!B:B)";
+
+                let (output_rule, user_instruction, n_predict) = if row_count > 1 {
                     (
                         format!(
                             "You are an Excel formula expert. Generate {row_count} Excel formulas, one per line.\n\
-Rules:\n\
+Output rules:\n\
 - Output ONLY formulas, one per line, no numbering, no explanation\n\
 - Each line must start with =\n\
-- Adjust row numbers for each formula (e.g. row 1 uses J1/K1, row 2 uses J2/K2, etc.)\n\
-- First formula goes in {cell_address}"
+- Adjust row numbers per row (row 1 uses references at row 1, row 2 at row 2, etc.)\n\
+- First formula goes in {cell_address}\n\
+- Quote sheet names that contain spaces: 'My Sheet'!A1"
                         ),
                         format!("Generate {row_count} formulas (one per row) for target range {target_range} to: {request}"),
-                        (row_count as u32) * 40 + 50,
+                        (row_count as u32) * 50 + 80,
                     )
                 } else {
                     (
-                        "You are an Excel formula expert. Generate a valid Excel formula.\n\
-Rules:\n\
-- Reply with ONLY the formula. Start with =\n\
-- No explanation, no markdown — just the formula\n\
-- Use correct cell references from the context\n\
-- Use absolute references ($) for headers/lookups".to_string(),
+                        "You are an Excel formula expert. Generate a single valid Excel formula.\n\
+Output rules:\n\
+- Reply with ONLY the formula — start with =\n\
+- No explanation, no markdown, no code fences — just the formula on one line\n\
+- Use exact column letters and row numbers from the context provided\n\
+- Use absolute references ($) for lookup arrays and headers\n\
+- Quote sheet names that contain spaces: 'My Sheet'!A1\n\
+- Choose the best function (XLOOKUP preferred over VLOOKUP for Excel 365)".to_string(),
                         format!("Generate an Excel formula for cell {cell_address} to: {request}"),
-                        150u32,
+                        200u32,
                     )
                 };
 
                 let prompt = format!(
                     "<|im_start|>system\n\
-{system_rule}\
+{output_rule}\n\
+\n\
+{ref_guide}\
 <|im_end|>\n\
 <|im_start|>user\n\
-Sheet: {sheet_name}\n\
-\n\
-Cell context:\n\
+{wb_block}\n\
+ACTIVE SHEET CELL CONTEXT:\n\
 {context}\n\
 \n\
 {user_instruction}\
