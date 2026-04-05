@@ -513,14 +513,14 @@ function sendCommand(verb: string): void {
   const selected = editor.document.getText(editor.selection);
   if (!selected)    { vscode.window.showWarningMessage("CodeForge AI: Select some code first."); return; }
 
-  const language = editor.document.languageId;
-
-  // Token budget: explain needs fewer tokens, refactor/comment need more
+  const language  = editor.document.languageId;
   const verbLower = verb.toLowerCase();
+
+  // Token budgets tuned per command type
   const suggestedTokens =
-    verbLower.includes("explain") ? 400 :
-    verbLower.includes("comment") ? 600 :
-    800;  // refactor, fix, generic
+    verbLower.includes("explain") ? 600  :   // explanation prose
+    verbLower.includes("comment") ? 900  :   // full code + added comments
+    900;                                      // refactor, fix
 
   currentOperation = "hub_chat";
   currentOpMeta    = { verb, selected, language, canApply: !verbLower.includes("explain") };
@@ -533,46 +533,72 @@ function sendCommand(verb: string): void {
 // ── hub_chat result handler ────────────────────────────────────────────────────
 
 async function handleHubChatResult(result: string, meta: Record<string, any>): Promise<void> {
-  const verb     = meta.verb  as string || "Result";
-  const canApply = meta.canApply as boolean;
-  const selected = meta.selected as string || "";
+  const verb     = (meta.verb    as string)  || "Result";
+  const canApply = (meta.canApply as boolean);
+  const selected = (meta.selected as string) || "";
+
+  // Strip any markdown the model output despite instructions
+  const cleanResult = stripMarkdown(result.trim());
 
   const ch = getOutputChannel();
   ch.appendLine(`\n═══ CodeForge AI — ${verb} ═══`);
-  ch.appendLine(result.trim());
-  ch.show(true);
+  ch.appendLine(cleanResult);
 
-  // For refactor / fix / comment — offer to replace the selection with the AI output
   if (canApply) {
-    // Strip markdown code fences if the model wrapped the output
-    const fenceMatch = result.match(/```[\w]*\n?([\s\S]+?)```/);
-    const cleanCode  = fenceMatch ? fenceMatch[1].trimEnd() : result.trim();
+    // Refactor / Fix / Comment — show panel but keep editor focused
+    ch.show(true);
 
-    // Only offer to apply if the output looks like code (not a pure explanation)
-    const looksLikeCode = cleanCode.includes("\n") || /[{(;=]/.test(cleanCode);
-    if (looksLikeCode && cleanCode !== selected.trim()) {
+    // Strip code fences if model wrapped the output
+    const fenceMatch = cleanResult.match(/```[\w]*\n?([\s\S]+?)```/);
+    const cleanCode  = fenceMatch ? fenceMatch[1].trimEnd() : cleanResult;
+
+    const looksLikeCode = cleanCode.includes("\n") || /[{(;=:#]/.test(cleanCode);
+    if (looksLikeCode && cleanCode.trim() !== selected.trim()) {
       const choice = await vscode.window.showInformationMessage(
-        `CodeForge AI finished "${verb}"`,
+        `CodeForge AI: "${verb}" ready`,
         { modal: false },
         "Apply to Selection", "Show in Panel", "Dismiss"
       );
-
       if (choice === "Apply to Selection") {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor) {
           await activeEditor.edit(eb => { eb.replace(activeEditor.selection, cleanCode); });
-          vscode.window.showInformationMessage("✅ CodeForge AI: Code applied!");
+          vscode.window.showInformationMessage("✅ CodeForge AI: Applied to selection!");
         }
       } else if (choice === "Show in Panel") {
-        ch.show();
+        ch.show(false); // focus panel
       }
     } else {
       vscode.window.showInformationMessage(`CodeForge AI: "${verb}" complete — see CodeForge AI output panel.`);
     }
   } else {
-    // Explain — just notify
-    vscode.window.showInformationMessage(`CodeForge AI: "${verb}" complete — see CodeForge AI output panel.`);
+    // Explain — focus the output panel so the user actually sees it
+    ch.show(false);
+    // Also show a preview in the notification so it's impossible to miss
+    const preview = cleanResult.replace(/\n+/g, " ").slice(0, 120);
+    vscode.window.showInformationMessage(
+      `CodeForge: ${preview}${cleanResult.length > 120 ? "…" : ""}`,
+      "Show Full Output"
+    ).then(choice => { if (choice === "Show Full Output") ch.show(false); });
   }
+}
+
+/**
+ * Strip common markdown formatting that the model outputs despite instructions.
+ * Converts **bold**, *italic*, ## Headers, ``` fences to plain text equivalents.
+ */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/^#{1,6}\s+/gm, "")          // ## Headings → plain
+    .replace(/\*\*(.+?)\*\*/g, "$1")       // **bold** → plain
+    .replace(/\*(.+?)\*/g, "$1")           // *italic* → plain
+    .replace(/__(.+?)__/g, "$1")           // __bold__ → plain
+    .replace(/_(.+?)_/g, "$1")             // _italic_ → plain
+    .replace(/`{3}[\w]*\n?([\s\S]*?)`{3}/g, "$1")  // ```code``` → code only
+    .replace(/`([^`]+)`/g, "$1")           // `inline code` → plain
+    .replace(/^\s*[-*]\s+/gm, "- ")        // normalise bullet chars
+    .replace(/\n{3,}/g, "\n\n")            // collapse extra blank lines
+    .trim();
 }
 
 // ── WebSocket ──────────────────────────────────────────────────────────────────
@@ -675,11 +701,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register inline suggester
   registerInlineSuggester(context);
 
-  // Context change listeners
+  // Send context update on file save only (selection/active-editor listeners removed —
+  // those caused the "shield" auto-scan behaviour on every click/keystroke)
   context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection(() => scheduleContextUpdate()),
-    vscode.window.onDidChangeActiveTextEditor(()    => scheduleContextUpdate()),
-    vscode.workspace.onDidSaveTextDocument(()       => scheduleContextUpdate()),
+    vscode.workspace.onDidSaveTextDocument(() => scheduleContextUpdate()),
   );
 }
 

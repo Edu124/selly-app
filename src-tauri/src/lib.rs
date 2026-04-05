@@ -2622,46 +2622,54 @@ Rules:\n\
 - Then explain each logical section in plain English\n\
 - Point out any edge cases, potential bugs, or notable patterns\n\
 - Do NOT rewrite or modify the code — only explain it\n\
-- Use bullet points for clarity. Max 200 words.",
-                        format!("Explain this {language} code:\n```{language}\n{code}\n```")
+- Use plain text only. Do NOT use markdown formatting, asterisks (*), pound signs (#), backticks, or bold/italic markers\n\
+- Use simple dashes (-) for bullet points if needed. Max 200 words.",
+                        format!("Explain this {language} code:\n{code}")
                     )
                 } else if verb.to_lowercase().contains("refactor") {
                     (
                         "You are a code refactoring expert. Rewrite the selected code to be cleaner and more efficient.\n\
 Rules:\n\
-- Output ONLY the refactored code — no markdown fences, no explanation before/after\n\
+- Output ONLY the refactored code — raw code with NO markdown fences, no backtick blocks, no explanation before or after\n\
+- Never wrap output in ``` or ```language blocks. Output the code directly\n\
+- Never use asterisks (*), pound signs (#), or any markdown formatting\n\
 - Preserve the exact same logic and behavior — do not change what the code does\n\
 - Improve: readability, naming, remove duplication, simplify conditionals\n\
 - Keep the same language and framework\n\
 - Maintain same indentation style as the input",
-                        format!("Refactor this {language} code:\n```{language}\n{code}\n```")
+                        format!("Refactor this {language} code:\n{code}")
                     )
                 } else if verb.to_lowercase().contains("fix") || verb.to_lowercase().contains("bug") {
                     (
                         "You are a bug-fixing expert. Find and fix any bugs in the selected code.\n\
 Rules:\n\
-- First write 1-2 sentences explaining what the bug is\n\
-- Then output the fixed code (no markdown fences, just the raw code)\n\
+- First write 1-2 plain-text sentences explaining what the bug is (no markdown, no asterisks, no # headers)\n\
+- Then output the fixed code directly — no markdown fences, no backtick blocks, just raw code\n\
+- Never use ``` or ```language code blocks\n\
 - Make ONLY the minimal changes needed to fix the bug\n\
 - If no bug found, say so briefly and return the original code unchanged",
-                        format!("Find and fix bugs in this {language} code:\n```{language}\n{code}\n```")
+                        format!("Find and fix bugs in this {language} code:\n{code}")
                     )
                 } else if verb.to_lowercase().contains("comment") {
                     (
                         "You are a code documentation expert. Add clear, helpful comments to the selected code.\n\
 Rules:\n\
-- Output ONLY the commented code — no markdown fences, no preamble\n\
-- Add inline comments for complex logic (not obvious lines)\n\
+- Output ONLY the commented code — raw code with NO markdown fences, no backtick blocks, no preamble or closing remarks\n\
+- Never wrap output in ``` or ```language blocks. Output the code directly\n\
+- Never use asterisks (*), pound signs (#), or markdown formatting of any kind\n\
+- Use only native code comment syntax: // for JS/TS/C, # for Python, -- for SQL, etc.\n\
+- Add inline comments for complex logic (skip obvious lines)\n\
 - Add a JSDoc/docstring at the top of each function explaining params and return value\n\
 - Keep comments concise — one line each unless truly complex\n\
 - Do NOT change any code logic — only add comments",
-                        format!("Add comments to this {language} code:\n```{language}\n{code}\n```")
+                        format!("Add comments to this {language} code:\n{code}")
                     )
                 } else {
                     // Generic fallback
                     (
-                        "You are a code assistant integrated into VS Code via CodeForge. Help the user with their code task concisely and accurately.",
-                        format!("{verb}:\n```{language}\n{code}\n```")
+                        "You are a code assistant integrated into VS Code via CodeForge. Help the user with their code task concisely and accurately.\n\
+- Plain text only. No markdown asterisks, pound signs, or backtick fences.",
+                        format!("{verb}:\n{code}")
                     )
                 };
 
