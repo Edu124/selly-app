@@ -1838,6 +1838,119 @@ USER REQUEST: {request}"
                     });
                 }
             }
+            // ── VS Code: Quantum Rewrite ⚛ ───────────────────────────────────
+            // Finds the exact function / logic block that needs changing,
+            // returns structured XML so the extension can show a quantum diff panel.
+            Some("quantum_rewrite") => {
+                let change_desc      = val["changeDesc"].as_str().unwrap_or("").to_string();
+                let current_file     = val["currentFile"].as_str().unwrap_or("file").to_string();
+                let current_code     = val["currentCode"].as_str().unwrap_or("").to_string();
+                let language         = val["language"].as_str().unwrap_or("code").to_string();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(900) as u32;
+                let entangled_files  = val["entangledFiles"].as_array().cloned().unwrap_or_default();
+
+                // Build entangled files block so AI has full context
+                let mut entangled_block = String::new();
+                for ef in &entangled_files {
+                    let name    = ef["name"].as_str().unwrap_or("file");
+                    let content = ef["content"].as_str().unwrap_or("");
+                    entangled_block.push_str(&format!(
+                        "\n--- Entangled file: {name} ---\n{content}\n"
+                    ));
+                }
+
+                let system_prompt =
+"You are a quantum code analyzer embedded in CodeForge AI.\n\
+Your mission: find the EXACT function or logic block that must change to fulfill the user's request,\n\
+then write the improved version.\n\
+\n\
+Respond using ONLY these XML tags — no preamble, no explanation outside the tags:\n\
+\n\
+<QR_FILE>filename.ext</QR_FILE>\n\
+<QR_OLD>\n\
+[EXACT verbatim code to replace — must be a literal substring of the file]\n\
+</QR_OLD>\n\
+<QR_NEW>\n\
+[the replacement code]\n\
+</QR_NEW>\n\
+<QR_WHY>[one concise sentence: what changed and why]</QR_WHY>\n\
+\n\
+Rules:\n\
+- QR_OLD must be copied VERBATIM from the source — it will be used as a find-and-replace target\n\
+- QR_NEW replaces QR_OLD completely in-place, preserving surrounding indentation style\n\
+- Make the MINIMUM change needed — only touch the function or block that is directly relevant\n\
+- If changes span multiple functions, pick the single most impactful one\n\
+- Output NOTHING outside the four XML tags";
+
+                let user_msg = format!(
+                    "CHANGE REQUEST: {change_desc}\n\
+\n\
+--- Primary file: {current_file} ({language}) ---\n\
+{current_code}\
+{entangled_block}"
+                );
+
+                let prompt = format!(
+                    "<|im_start|>system\n{system_prompt}\n<|im_end|>\n\
+<|im_start|>user\n{user_msg}\n<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    let n_predict = suggested_tokens.max(400).min(1400);
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt":         prompt,
+                            "n_predict":      n_predict,
+                            "temperature":    0.2,
+                            "stream":         true,
+                            "repeat_penalty": 1.05,
+                            "stop":           ["<|im_end|>"],
+                        });
+                        let res = match client
+                            .post(format!("http://127.0.0.1:{port}/completion"))
+                            .json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => {
+                                let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string());
+                                return;
+                            }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf    = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
             // ── VS Code: Generate Unit Tests ──────────────────────────────────
             Some("test_generate") => {
                 let code      = val["code"].as_str().unwrap_or("").to_string();

@@ -18,6 +18,7 @@
       { "command": "codeforgeai.generateTests",        "title": "CodeForge AI: Generate Unit Tests" },
       { "command": "codeforgeai.debugWithAI",          "title": "CodeForge AI: Debug with AI" },
       { "command": "codeforgeai.explainTerminalError", "title": "CodeForge AI: Explain Terminal Error" },
+      { "command": "codeforgeai.quantumRewrite",       "title": "CodeForge AI: ⚛ Quantum Rewrite" },
       { "command": "codeforgeai.connect",              "title": "CodeForge AI: Reconnect to Hub" }
     ],
 
@@ -28,7 +29,8 @@
         { "command": "codeforgeai.fix",           "when": "editorHasSelection", "group": "codeforgeai@3" },
         { "command": "codeforgeai.comment",       "when": "editorHasSelection", "group": "codeforgeai@4" },
         { "command": "codeforgeai.generateTests", "when": "editorHasSelection", "group": "codeforgeai@5" },
-        { "command": "codeforgeai.debugWithAI",   "when": "editorIsOpen",       "group": "codeforgeai@6" }
+        { "command": "codeforgeai.debugWithAI",    "when": "editorIsOpen",       "group": "codeforgeai@6" },
+        { "command": "codeforgeai.quantumRewrite", "when": "editorIsOpen",       "group": "codeforgeai@7" }
       ],
       "terminal/context": [
         { "command": "codeforgeai.explainTerminalError", "group": "codeforgeai@1" }
@@ -63,6 +65,12 @@
         "command": "codeforgeai.generateTests",
         "key": "ctrl+shift+t",
         "mac": "cmd+shift+t",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "codeforgeai.quantumRewrite",
+        "key": "ctrl+shift+q",
+        "mac": "cmd+shift+q",
         "when": "editorTextFocus"
       }
     ]

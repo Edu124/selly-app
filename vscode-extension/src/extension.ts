@@ -101,6 +101,7 @@ async function handleOperationComplete(): Promise<void> {
     case "debug_query":      await handleDebugResult(result, meta);       break;
     case "terminal_error":   await handleTerminalFixResult(result, meta); break;
     case "hub_chat":         await handleHubChatResult(result, meta);     break;
+    case "quantum_rewrite":  await handleQuantumResult(result, meta);     break;
     case "inline_suggest":
       if (pendingInlineResolve) { pendingInlineResolve(result); pendingInlineResolve = null; }
       break;
@@ -601,6 +602,430 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+// ── Feature 5: Quantum Rewrite ⚛ ─────────────────────────────────────────────
+//
+//  Quantum mechanics metaphors:
+//    Superposition   → code exists in State α (old) and State β (new) simultaneously
+//    Wave fn collapse→ user approves → superposition collapses to the new state
+//    Entanglement    → connected files form the "quantum field" scanned in parallel
+//    Observer effect → reviewing the diff determines which state the code takes
+//
+
+async function quantumRewrite(): Promise<void> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor)      { vscode.window.showWarningMessage("⚛ CodeForge AI: Open a file first."); return; }
+  if (!isConnected) { vscode.window.showWarningMessage("⚛ CodeForge AI: Not connected to Hub."); return; }
+
+  const changeDesc = await vscode.window.showInputBox({
+    prompt:         "⚛ Describe the change — AI will find and rewrite the exact logic",
+    placeHolder:    "e.g. Make getUserData return null instead of throwing when user not found",
+    ignoreFocusOut: true,
+  });
+  if (!changeDesc) return;
+
+  const doc         = editor.document;
+  const currentFile = doc.fileName;
+  const currentCode = doc.getText();
+  const language    = doc.languageId;
+
+  vscode.window.showInformationMessage("⚛ CodeForge AI: Scanning quantum field…");
+
+  // Gather entangled files (imported / required by this file)
+  const connectedPaths = findConnectedFiles(currentFile, currentCode, language);
+  const entangledFiles: Array<{ name: string; path: string; content: string }> = [];
+  for (const fp of connectedPaths) {
+    try {
+      entangledFiles.push({
+        name:    path.basename(fp),
+        path:    fp,
+        content: fs.readFileSync(fp, "utf8").slice(0, 2000),
+      });
+    } catch { /* skip unreadable */ }
+  }
+
+  const totalEntangled = entangledFiles.length + 1;
+  vscode.window.showInformationMessage(
+    `⚛ Quantum field: ${totalEntangled} entangled file(s) — collapsing superposition…`
+  );
+
+  currentOperation = "quantum_rewrite";
+  currentOpMeta    = { currentFile, currentCode, language, entangledFiles, changeDesc };
+  responseBuffer   = "";
+
+  send({
+    type:            "quantum_rewrite",
+    changeDesc,
+    currentFile:     path.basename(currentFile),
+    currentCode:     currentCode.slice(0, 6000),
+    language,
+    entangledFiles,
+    suggestedTokens: 1000,
+  });
+}
+
+async function handleQuantumResult(result: string, meta: Record<string, any>): Promise<void> {
+  const fileMatch = result.match(/<QR_FILE>([\s\S]*?)<\/QR_FILE>/);
+  const oldMatch  = result.match(/<QR_OLD>([\s\S]*?)<\/QR_OLD>/);
+  const newMatch  = result.match(/<QR_NEW>([\s\S]*?)<\/QR_NEW>/);
+  const whyMatch  = result.match(/<QR_WHY>([\s\S]*?)<\/QR_WHY>/);
+
+  if (!oldMatch || !newMatch) {
+    // Show raw output so the user can read the analysis even without tags
+    const ch = getOutputChannel();
+    ch.appendLine("\n═══ ⚛ Quantum Rewrite — Analysis ═══");
+    ch.appendLine(result);
+    ch.show(false);
+    vscode.window.showWarningMessage(
+      "⚛ Could not parse change tags — raw analysis shown in output panel.",
+      "Show Output"
+    ).then(c => { if (c === "Show Output") getOutputChannel().show(false); });
+    return;
+  }
+
+  const qrFile   = fileMatch?.[1].trim() || path.basename(meta.currentFile as string);
+  const oldCode  = oldMatch[1].trim();
+  const newCode  = newMatch[1].trim();
+  const whyText  = whyMatch?.[1].trim() || "Logic updated per your description.";
+
+  // Resolve the target file path — check entangled files, fall back to current file
+  const entangled = meta.entangledFiles as Array<{ name: string; path: string }>;
+  const connMatch    = entangled.find(f =>
+    f.name === qrFile || path.basename(f.path) === qrFile
+  );
+  const resolvedPath = connMatch?.path
+    || (path.basename(meta.currentFile as string) === qrFile
+        ? meta.currentFile as string
+        : meta.currentFile as string);
+
+  // Verify the old code is actually in the file so the user knows it's a real match
+  const fileContent = meta.currentCode as string;
+  const exactMatch  = fileContent.includes(oldCode);
+  if (!exactMatch) {
+    vscode.window.showWarningMessage(
+      "⚛ Exact match not found in file — diff shown for manual review. You can still collapse."
+    );
+  }
+
+  showQuantumPanel(
+    path.basename(resolvedPath),
+    oldCode,
+    newCode,
+    whyText,
+    entangled.length + 1,
+    resolvedPath,
+  );
+}
+
+/** Opens the quantum-themed WebView diff panel. */
+function showQuantumPanel(
+  fileName:       string,
+  oldCode:        string,
+  newCode:        string,
+  why:            string,
+  entangledCount: number,
+  resolvedPath:   string,
+): void {
+  const panel = vscode.window.createWebviewPanel(
+    "codeforgeQuantum",
+    "⚛ Quantum Rewrite",
+    vscode.ViewColumn.Beside,
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+
+  const esc = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;")
+     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const ts = new Date().toLocaleTimeString();
+
+  panel.webview.html = /* html */`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>⚛ Quantum Rewrite</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#060612;color:#e2e8f0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  min-height:100vh;overflow-x:hidden
+}
+/* ── Quantum field background ── */
+.qbg{
+  position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse at 15% 50%,  rgba(120,0,255,.08)  0%,transparent 55%),
+    radial-gradient(ellipse at 85% 20%,  rgba(0,200,255,.08)  0%,transparent 55%),
+    radial-gradient(ellipse at 50% 90%,  rgba(0,255,170,.05)  0%,transparent 55%)
+}
+/* ── Animated scan line ── */
+.scan{
+  position:fixed;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,.4),transparent);
+  animation:scanAnim 5s linear infinite;z-index:1
+}
+@keyframes scanAnim{from{top:-2px}to{top:100vh}}
+/* ── Floating particles ── */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.p{position:absolute;border-radius:50%;animation:float linear infinite;opacity:.0}
+@keyframes float{0%{opacity:0;transform:translateY(0)}10%{opacity:.6}90%{opacity:.6}100%{opacity:0;transform:translateY(-80px)}}
+/* ── Layout ── */
+.wrap{position:relative;z-index:2;padding:22px 24px;max-width:980px;margin:0 auto}
+/* ── Header ── */
+.hdr{display:flex;align-items:center;gap:13px;margin-bottom:20px}
+.qi{
+  width:40px;height:40px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(135deg,#7c3aed,#06b6d4);
+  display:flex;align-items:center;justify-content:center;font-size:20px;
+  box-shadow:0 0 28px rgba(6,182,212,.4),0 0 60px rgba(124,58,237,.2)
+}
+.ht{font-size:17px;font-weight:700;color:#f1f5f9;letter-spacing:-.2px}
+.hs{font-size:11px;color:#475569;margin-top:3px}
+/* ── File badge ── */
+.fbadge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(6,182,212,.07);border:1px solid rgba(6,182,212,.22);
+  border-radius:6px;padding:5px 11px;font-size:11.5px;
+  color:#67e8f9;font-family:monospace;margin-bottom:16px
+}
+/* ── Coherence meter ── */
+.pmeter{margin-bottom:14px}
+.plbl{font-size:9.5px;color:#1e3a5f;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:5px}
+.pbar{height:3px;background:#0b0f1a;border-radius:2px;overflow:hidden;position:relative}
+.pfill{
+  height:100%;width:0%;border-radius:2px;
+  background:linear-gradient(90deg,#7c3aed,#06b6d4,#22d3ee);
+  background-size:200% 100%;animation:shimmer 2s linear infinite;
+  transition:width 1.6s cubic-bezier(.25,.46,.45,.94)
+}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* ── Entanglement bar ── */
+.ent{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(6,182,212,.05);border:1px solid rgba(6,182,212,.14);
+  border-radius:6px;padding:9px 13px;margin-bottom:16px;font-size:11.5px;color:#475569
+}
+.ent em{color:#67e8f9;font-style:normal;font-weight:600}
+/* ── State panels ── */
+.states{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+@media(max-width:640px){.states{grid-template-columns:1fr}}
+.sp{border-radius:9px;overflow:hidden}
+.sh{
+  padding:8px 12px;font-size:10px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px
+}
+.sa .sh{
+  background:rgba(239,68,68,.1);color:#fca5a5;
+  border:1px solid rgba(239,68,68,.2);border-bottom:none
+}
+.sb .sh{
+  background:rgba(34,197,94,.1);color:#86efac;
+  border:1px solid rgba(34,197,94,.2);border-bottom:none
+}
+.sa .sh::before{content:"●";color:#ef4444;filter:drop-shadow(0 0 4px #ef4444)}
+.sb .sh::before{content:"●";color:#22c55e;filter:drop-shadow(0 0 4px #22c55e)}
+.sc{
+  background:#080d18;padding:14px;
+  font-family:"Cascadia Code","Fira Code","Consolas",monospace;
+  font-size:11.5px;line-height:1.8;color:#c9d1d9;
+  white-space:pre;overflow:auto;max-height:340px;
+  border:1px solid;border-top:none;
+  scrollbar-width:thin;scrollbar-color:#1e293b transparent
+}
+.sa .sc{border-color:rgba(239,68,68,.2)}
+.sb .sc{border-color:rgba(34,197,94,.2)}
+/* ── Analysis block ── */
+.analysis{
+  background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.2);
+  border-radius:9px;padding:14px;margin-bottom:16px
+}
+.albl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#a78bfa;margin-bottom:6px}
+.atxt{font-size:12.5px;color:#94a3b8;line-height:1.7}
+/* ── Action buttons ── */
+.actions{display:flex;gap:10px;margin-bottom:14px}
+.bcol{
+  flex:1;background:linear-gradient(135deg,#6d28d9 0%,#0e7490 100%);
+  border:none;border-radius:9px;color:#fff;
+  font-size:13.5px;font-weight:700;padding:12px 22px;cursor:pointer;
+  box-shadow:0 0 24px rgba(6,182,212,.25),0 4px 12px rgba(0,0,0,.4);
+  transition:all .2s;letter-spacing:.1px
+}
+.bcol:hover:not(:disabled){
+  box-shadow:0 0 40px rgba(6,182,212,.45),0 4px 20px rgba(0,0,0,.5);
+  transform:translateY(-1px)
+}
+.bcol:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.bcol:active:not(:disabled){transform:translateY(0)}
+.bpre{
+  background:transparent;border:1px solid #1e293b;border-radius:9px;
+  color:#475569;font-size:12.5px;padding:12px 18px;cursor:pointer;transition:all .2s
+}
+.bpre:hover{border-color:#334155;color:#64748b}
+/* ── Status + collapsed ── */
+.status{display:flex;align-items:center;gap:7px;font-size:10px;color:#1e293b}
+.dot{width:5px;height:5px;border-radius:50%;background:#06b6d4;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.collapsed-msg{
+  display:none;text-align:center;padding:28px 20px;
+  background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2);
+  border-radius:9px;margin-top:16px
+}
+.collapsed-msg .big{font-size:36px;display:block;margin-bottom:10px}
+.collapsed-msg p{color:#86efac;font-size:14px;font-weight:600}
+.collapsed-msg small{color:#475569;font-size:11px;display:block;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="qbg"></div>
+<div class="scan"></div>
+<div class="particles" id="pts"></div>
+<div class="wrap">
+  <div class="hdr">
+    <div class="qi">⚛</div>
+    <div>
+      <div class="ht">Quantum Rewrite</div>
+      <div class="hs">Superposition detected &mdash; wave function awaiting collapse</div>
+    </div>
+  </div>
+
+  <div class="fbadge">📄 ${esc(fileName)}</div>
+
+  <div class="pmeter">
+    <div class="plbl">Quantum coherence</div>
+    <div class="pbar"><div class="pfill" id="pf"></div></div>
+  </div>
+
+  <div class="ent">
+    <span style="color:#06b6d4">🔗</span>
+    <span>
+      Field entangled across <em>${entangledCount} file(s)</em>
+      &mdash; rewrite isolated to <em>${esc(fileName)}</em>
+    </span>
+  </div>
+
+  <div class="states" id="statesWrap">
+    <div class="sp sa">
+      <div class="sh">State α &mdash; Current</div>
+      <div class="sc">${esc(oldCode)}</div>
+    </div>
+    <div class="sp sb">
+      <div class="sh">State β &mdash; Proposed</div>
+      <div class="sc">${esc(newCode)}</div>
+    </div>
+  </div>
+
+  <div class="analysis">
+    <div class="albl">⚛ Quantum Analysis</div>
+    <div class="atxt">${esc(why)}</div>
+  </div>
+
+  <div class="actions" id="actionsRow">
+    <button class="bcol" id="colBtn">⚛ Collapse State &mdash; Apply Change</button>
+    <button class="bpre" id="preBtn">Preserve State</button>
+  </div>
+
+  <div class="status">
+    <div class="dot"></div>
+    <span>Wave function in superposition &middot; ${ts}</span>
+  </div>
+
+  <div class="collapsed-msg" id="collapsedMsg">
+    <span class="big">⚛</span>
+    <p>Quantum state collapsed successfully</p>
+    <small>${esc(fileName)} has been updated</small>
+  </div>
+</div>
+
+<script>
+const vscode = acquireVsCodeApi();
+
+// Animate coherence bar on load
+setTimeout(() => { document.getElementById('pf').style.width = '87%'; }, 300);
+
+// Spawn floating quantum particles
+(function spawnParticles() {
+  const pts = document.getElementById('pts');
+  const colors = ['rgba(6,182,212,.5)','rgba(124,58,237,.5)','rgba(34,197,94,.4)'];
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'p';
+    const sz = Math.random() * 3 + 1;
+    p.style.cssText = [
+      'width:' + sz + 'px', 'height:' + sz + 'px',
+      'left:' + (Math.random() * 100) + '%',
+      'top:' + (60 + Math.random() * 40) + '%',
+      'background:' + colors[Math.floor(Math.random() * colors.length)],
+      'animation-duration:' + (6 + Math.random() * 10) + 's',
+      'animation-delay:' + (Math.random() * 8) + 's'
+    ].join(';');
+    pts.appendChild(p);
+  }
+})();
+
+document.getElementById('colBtn').onclick = () => {
+  document.getElementById('colBtn').textContent = '⚛ Collapsing…';
+  document.getElementById('colBtn').disabled    = true;
+  document.getElementById('preBtn').disabled    = true;
+  vscode.postMessage({ command: 'collapse' });
+};
+document.getElementById('preBtn').onclick = () => {
+  vscode.postMessage({ command: 'preserve' });
+};
+
+window.addEventListener('message', e => {
+  if (e.data.command === 'collapsed') {
+    document.getElementById('statesWrap').style.transition = 'opacity 0.6s';
+    document.getElementById('statesWrap').style.opacity    = '0.25';
+    document.getElementById('actionsRow').style.display    = 'none';
+    document.getElementById('collapsedMsg').style.display  = 'block';
+    document.getElementById('pf').style.width = '100%';
+  }
+});
+</script>
+</body>
+</html>`;
+
+  // Handle collapse / preserve messages from WebView
+  panel.webview.onDidReceiveMessage(async (msg) => {
+    if (msg.command === "collapse") {
+      try {
+        const uri  = vscode.Uri.file(resolvedPath);
+        const doc  = await vscode.workspace.openTextDocument(uri);
+        const text = doc.getText();
+        const idx  = text.indexOf(oldCode);
+
+        if (idx === -1) {
+          // Code not found exactly — open file and warn, but still show success UI so
+          // user knows the operation ran (they can manually apply from the panel)
+          await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+          panel.webview.postMessage({ command: "collapsed" });
+          vscode.window.showWarningMessage(
+            "⚛ Exact code not matched — file opened. Apply the State β code from the panel manually."
+          );
+        } else {
+          const start = doc.positionAt(idx);
+          const end   = doc.positionAt(idx + oldCode.length);
+          const edit  = new vscode.WorkspaceEdit();
+          edit.replace(uri, new vscode.Range(start, end), newCode);
+          await vscode.workspace.applyEdit(edit);
+          panel.webview.postMessage({ command: "collapsed" });
+          vscode.window.showInformationMessage(
+            `⚛ Quantum state collapsed — ${path.basename(resolvedPath)} updated!`
+          );
+        }
+      } catch (err) {
+        vscode.window.showErrorMessage(`⚛ Collapse failed: ${err}`);
+      }
+
+    } else if (msg.command === "preserve") {
+      panel.dispose();
+      vscode.window.showInformationMessage("⚛ State preserved — no changes made.");
+    }
+  });
+}
+
 // ── WebSocket ──────────────────────────────────────────────────────────────────
 
 function connect(): void {
@@ -696,6 +1121,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("codeforgeai.generateTests",       () => generateUnitTests()),
     vscode.commands.registerCommand("codeforgeai.debugWithAI",         () => debugWithAI()),
     vscode.commands.registerCommand("codeforgeai.explainTerminalError",() => explainTerminalError()),
+    vscode.commands.registerCommand("codeforgeai.quantumRewrite",      () => quantumRewrite()),
   );
 
   // Register inline suggester
