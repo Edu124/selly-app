@@ -2836,72 +2836,83 @@ Sub "
                 let language         = val["language"].as_str().unwrap_or("code").to_string();
                 let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(800) as u32;
 
-                // Choose system prompt and response style based on verb
-                let (system_instructions, user_instruction) = if verb.to_lowercase().contains("explain") {
+                // ── Per-verb prompt, token budget, and temperature ────────────
+                // Temperature 0.1 for all code tasks — deterministic, no hallucination.
+                // Token budgets are tight to prevent rambling / over-generation.
+                let (system_instructions, user_instruction, n_predict, temperature) =
+                if verb.to_lowercase().contains("explain") {
                     (
-                        "You are a code explainer. Explain what the selected code does clearly and concisely.\n\
+                        "You are a code explainer. Explain what the selected code does.\n\
 Rules:\n\
-- Start with a one-sentence summary of what the code does\n\
-- Then explain each logical section in plain English\n\
-- Point out any edge cases, potential bugs, or notable patterns\n\
-- Do NOT rewrite or modify the code — only explain it\n\
-- Use plain text only. Do NOT use markdown formatting, asterisks (*), pound signs (#), backticks, or bold/italic markers\n\
-- Use simple dashes (-) for bullet points if needed. Max 200 words.",
-                        format!("Explain this {language} code:\n{code}")
+- Write a 1-sentence summary first\n\
+- Then list key points using plain dashes (-)\n\
+- Maximum 120 words total — be concise\n\
+- Plain text only. No markdown asterisks (*), pound signs (#), backticks, or bold markers\n\
+- Do NOT rewrite or modify the code — only explain it",
+                        format!("Explain this {language} code:\n{code}"),
+                        280u32,   // ~120 words
+                        0.1f32,
                     )
                 } else if verb.to_lowercase().contains("refactor") {
                     (
-                        "You are a code refactoring expert. Rewrite the selected code to be cleaner and more efficient.\n\
-Rules:\n\
-- Output ONLY the refactored code — raw code with NO markdown fences, no backtick blocks, no explanation before or after\n\
-- Never wrap output in ``` or ```language blocks. Output the code directly\n\
-- Never use asterisks (*), pound signs (#), or any markdown formatting\n\
-- Preserve the exact same logic and behavior — do not change what the code does\n\
-- Improve: readability, naming, remove duplication, simplify conditionals\n\
-- Keep the same language and framework\n\
-- Maintain same indentation style as the input",
-                        format!("Refactor this {language} code:\n{code}")
+                        "You are a code refactoring expert. Your ONLY job is to make the code cleaner.\n\
+STRICT Rules:\n\
+- Output ONLY the refactored code — nothing else before or after\n\
+- KEEP EVERY LINE OF LOGIC — do not remove any functionality, variables, returns, or branches\n\
+- Only rename variables for clarity, simplify obvious duplication, or clean formatting\n\
+- If unsure whether a line is needed — KEEP IT\n\
+- No markdown fences (no ``` blocks), no asterisks, no explanation text\n\
+- Same language, same framework, same indentation style as input\n\
+- Output must be the same length or longer than the input — never shorter",
+                        format!("Refactor this {language} code:\n{code}"),
+                        // give enough tokens to reproduce the full code + small changes
+                        (code.len() / 3 + 200).min(1200) as u32,
+                        0.1f32,
                     )
                 } else if verb.to_lowercase().contains("fix") || verb.to_lowercase().contains("bug") {
                     (
-                        "You are a bug-fixing expert. Find and fix any bugs in the selected code.\n\
+                        "You are a bug-fixing expert.\n\
 Rules:\n\
-- First write 1-2 plain-text sentences explaining what the bug is (no markdown, no asterisks, no # headers)\n\
-- Then output the fixed code directly — no markdown fences, no backtick blocks, just raw code\n\
-- Never use ``` or ```language code blocks\n\
-- Make ONLY the minimal changes needed to fix the bug\n\
-- If no bug found, say so briefly and return the original code unchanged",
-                        format!("Find and fix bugs in this {language} code:\n{code}")
+- Line 1: one plain-text sentence naming the bug (no markdown, no asterisks)\n\
+- Then output the COMPLETE fixed code — every original line must be present\n\
+- Make ONLY the minimal change to fix the bug — do not restructure unrelated code\n\
+- If no bug found, say 'No bug found.' and output the original code unchanged\n\
+- No markdown fences, no ``` blocks, no asterisks, no extra explanation",
+                        format!("Find and fix bugs in this {language} code:\n{code}"),
+                        (code.len() / 3 + 250).min(1200) as u32,
+                        0.1f32,
                     )
                 } else if verb.to_lowercase().contains("comment") {
                     (
-                        "You are a code documentation expert. Add clear, helpful comments to the selected code.\n\
+                        "You are a code documentation expert.\n\
 Rules:\n\
-- Output ONLY the commented code — raw code with NO markdown fences, no backtick blocks, no preamble or closing remarks\n\
-- Never wrap output in ``` or ```language blocks. Output the code directly\n\
-- Never use asterisks (*), pound signs (#), or markdown formatting of any kind\n\
-- Use only native code comment syntax: // for JS/TS/C, # for Python, -- for SQL, etc.\n\
-- Add inline comments for complex logic (skip obvious lines)\n\
-- Add a JSDoc/docstring at the top of each function explaining params and return value\n\
-- Keep comments concise — one line each unless truly complex\n\
-- Do NOT change any code logic — only add comments",
-                        format!("Add comments to this {language} code:\n{code}")
+- Output the COMPLETE code with comments added — every original line must be present\n\
+- Add a JSDoc/docstring above each function (params + return)\n\
+- Add short inline comments only on non-obvious lines\n\
+- NEVER remove, rename, or restructure any code — only add comment lines\n\
+- Use native comment syntax only: // for JS/TS/C/Java, # for Python/Ruby, -- for SQL\n\
+- No markdown fences, no ``` blocks, no asterisks, no preamble text before the code",
+                        format!("Add comments to this {language} code:\n{code}"),
+                        (code.len() / 3 + 400).min(1400) as u32,
+                        0.1f32,
                     )
                 } else {
                     // Generic fallback
                     (
-                        "You are a code assistant integrated into VS Code via CodeForge. Help the user with their code task concisely and accurately.\n\
-- Plain text only. No markdown asterisks, pound signs, or backtick fences.",
-                        format!("{verb}:\n{code}")
+                        "You are a code assistant in VS Code via CodeForge. Be concise and accurate.\n\
+- Plain text only. No asterisks, pound signs, or backtick fences. Max 150 words.",
+                        format!("{verb}:\n{code}"),
+                        300u32,
+                        0.1f32,
                     )
                 };
 
                 let prompt = format!(
                     "<|im_start|>system\n\
-{system_instructions}\
+{system_instructions}\n\
 <|im_end|>\n\
 <|im_start|>user\n\
-{user_instruction}\
+{user_instruction}\n\
 <|im_end|>\n\
 <|im_start|>assistant\n"
                 );
@@ -2909,17 +2920,19 @@ Rules:\n\
                 let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
                 if let Some(tx) = tx_opt {
                     let port = SERVER_PORT;
-                    let n_predict = suggested_tokens.max(200).min(1200);
+                    // n_predict is now computed per-verb above; clamp to sane range
+                    let n_predict = n_predict.max(150).min(1400);
+                    let _ = suggested_tokens; // consumed above per-verb
                     tauri::async_runtime::spawn(async move {
                         use futures_util::StreamExt;
                         let client = reqwest::Client::new();
                         let body = serde_json::json!({
-                            "prompt": prompt,
-                            "n_predict": n_predict,
-                            "temperature": 0.3,
-                            "stream": true,
-                            "repeat_penalty": 1.1,
-                            "stop": ["<|im_end|>"]
+                            "prompt":         prompt,
+                            "n_predict":      n_predict,
+                            "temperature":    temperature,
+                            "stream":         true,
+                            "repeat_penalty": 1.15,
+                            "stop":           ["<|im_end|>"]
                         });
                         let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
                             Ok(r) => r,

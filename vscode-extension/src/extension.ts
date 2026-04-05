@@ -534,31 +534,36 @@ function sendCommand(verb: string): void {
 // ── hub_chat result handler ────────────────────────────────────────────────────
 
 async function handleHubChatResult(result: string, meta: Record<string, any>): Promise<void> {
-  const verb     = (meta.verb    as string)  || "Result";
+  const verb     = (meta.verb     as string)  || "Result";
   const canApply = (meta.canApply as boolean);
-  const selected = (meta.selected as string) || "";
+  const selected = (meta.selected as string)  || "";
 
   // Strip any markdown the model output despite instructions
   const cleanResult = stripMarkdown(result.trim());
 
-  const ch = getOutputChannel();
-  ch.appendLine(`\n═══ CodeForge AI — ${verb} ═══`);
-  ch.appendLine(cleanResult);
-
   if (canApply) {
-    // Refactor / Fix / Comment — show panel but keep editor focused
-    ch.show(true);
+    // ── Refactor / Fix / Comment ──────────────────────────────────────────────
+    // Show in a scrollable read-only document (virtual file) — user can scroll freely,
+    // select text, and copy. Also offer "Apply to Selection" for code output.
 
-    // Strip code fences if model wrapped the output
+    // Strip code fences if the model wrapped output anyway
     const fenceMatch = cleanResult.match(/```[\w]*\n?([\s\S]+?)```/);
     const cleanCode  = fenceMatch ? fenceMatch[1].trimEnd() : cleanResult;
+
+    // Open result as a virtual document beside the editor
+    const docContent = `// CodeForge AI — ${verb}\n// ${new Date().toLocaleTimeString()}\n\n${cleanCode}`;
+    const doc = await vscode.workspace.openTextDocument({
+      content:  docContent,
+      language: meta.language as string || "plaintext",
+    });
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true, preview: true });
 
     const looksLikeCode = cleanCode.includes("\n") || /[{(;=:#]/.test(cleanCode);
     if (looksLikeCode && cleanCode.trim() !== selected.trim()) {
       const choice = await vscode.window.showInformationMessage(
-        `CodeForge AI: "${verb}" ready`,
+        `CodeForge AI: "${verb}" ready — result opened beside your file`,
         { modal: false },
-        "Apply to Selection", "Show in Panel", "Dismiss"
+        "Apply to Selection", "Dismiss"
       );
       if (choice === "Apply to Selection") {
         const activeEditor = vscode.window.activeTextEditor;
@@ -566,21 +571,18 @@ async function handleHubChatResult(result: string, meta: Record<string, any>): P
           await activeEditor.edit(eb => { eb.replace(activeEditor.selection, cleanCode); });
           vscode.window.showInformationMessage("✅ CodeForge AI: Applied to selection!");
         }
-      } else if (choice === "Show in Panel") {
-        ch.show(false); // focus panel
       }
-    } else {
-      vscode.window.showInformationMessage(`CodeForge AI: "${verb}" complete — see CodeForge AI output panel.`);
     }
+
   } else {
-    // Explain — focus the output panel so the user actually sees it
-    ch.show(false);
-    // Also show a preview in the notification so it's impossible to miss
-    const preview = cleanResult.replace(/\n+/g, " ").slice(0, 120);
-    vscode.window.showInformationMessage(
-      `CodeForge: ${preview}${cleanResult.length > 120 ? "…" : ""}`,
-      "Show Full Output"
-    ).then(choice => { if (choice === "Show Full Output") ch.show(false); });
+    // ── Explain ───────────────────────────────────────────────────────────────
+    // Open as a Markdown document so the user can scroll up and read at their own pace
+    const docContent = `CodeForge AI — Explain\n${"=".repeat(40)}\n\n${cleanResult}`;
+    const doc = await vscode.workspace.openTextDocument({
+      content:  docContent,
+      language: "plaintext",
+    });
+    await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.Beside, preserveFocus: false, preview: true });
   }
 }
 

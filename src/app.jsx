@@ -2029,26 +2029,6 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
         </div>
       )}
 
-      {/* ── Tab bar ── */}
-      <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, background: C.bgPanel }}>
-        {[["chat", "💬 Chat"], ["shield", "🛡️ Shield"]].map(([id, label]) => (
-          <Btn key={id} onClick={() => setHubTab(id)} style={{
-            padding: "9px 18px", fontSize: 12, fontWeight: hubTab === id ? 700 : 400,
-            color: hubTab === id ? C.t1 : C.t2, border: "none", borderBottom: `2px solid ${hubTab === id ? C.purple : "transparent"}`,
-            background: "transparent", borderRadius: 0,
-          }}>{label}</Btn>
-        ))}
-      </div>
-
-      {hubTab === "shield" ? (
-        <SecurityShieldPanel
-          shieldedFiles={shieldedFiles || {}}
-          securityLog={securityLog || []}
-          onProtect={onShieldProtect}
-          onUnprotect={onShieldUnprotect}
-          hubClients={hubClients}
-        />
-      ) : (
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
       {/* ── Left panel: editor list ── */}
@@ -2245,7 +2225,6 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
         )}
       </div>
     </div>
-      )}
     </div>
   );
 }
