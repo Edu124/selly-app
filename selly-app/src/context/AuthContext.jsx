@@ -148,6 +148,22 @@ export function AuthProvider({ children }) {
     return { ok: true };
   }
 
+  // ── Update WhatsApp number ─────────────────────────────────────────────────
+  async function updateWhatsappNumber(number) {
+    if (!user) return { ok: false, error: "Not logged in" };
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ whatsapp_number: number })
+        .eq("id", user.id);
+      if (error) return { ok: false, error: error.message };
+      setProfile(prev => prev ? { ...prev, whatsapp_number: number } : prev);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -158,6 +174,7 @@ export function AuthProvider({ children }) {
       signUp,
       signOut,
       resetPassword,
+      updateWhatsappNumber,
       refreshProfile: () => user && loadProfile(user.id),
     }}>
       {children}

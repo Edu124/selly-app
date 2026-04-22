@@ -4,7 +4,7 @@
 
 import React from "react";
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator,
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput,
 } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -114,24 +114,35 @@ import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 
 function ProfileScreen() {
-  const { user, profile, signOut } = useAuth();
-  const [copiedId,      setCopiedId]      = useState(false);
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const { user, profile, signOut, updateWhatsappNumber } = useAuth();
+  const [copiedId,    setCopiedId]    = useState(false);
+  const [waNumber,    setWaNumber]    = useState(profile?.whatsapp_number || "");
+  const [saving,      setSaving]      = useState(false);
+  const [savedMsg,    setSavedMsg]    = useState(null);
 
-  const businessId  = profile?.business_id || "—";
-  const webhookUrl  = `https://instagram-bot-production-ef01.up.railway.app/webhook/buyer?bid=${businessId}`;
-  const daysLeft    = profile?.trial_days_left ?? 14;
-  const isActive    = profile?.plan === "pro" || profile?.plan === "team";
+  const businessId = profile?.business_id || "—";
+  const daysLeft   = profile?.trial_days_left ?? 14;
+  const isActive   = profile?.plan === "pro" || profile?.plan === "team";
+  const hasNumber  = !!(profile?.whatsapp_number);
 
   async function copyId() {
     await Clipboard.setStringAsync(businessId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   }
-  async function copyWebhook() {
-    await Clipboard.setStringAsync(webhookUrl);
-    setCopiedWebhook(true);
-    setTimeout(() => setCopiedWebhook(false), 2000);
+
+  async function saveNumber() {
+    if (!waNumber.trim()) return;
+    setSaving(true);
+    setSavedMsg(null);
+    const result = await updateWhatsappNumber(waNumber.trim());
+    setSaving(false);
+    if (result.ok) {
+      setSavedMsg("✅ Number saved! We'll activate your WhatsApp within 24 hours.");
+      setTimeout(() => setSavedMsg(null), 4000);
+    } else {
+      setSavedMsg("⚠️ Failed to save. Try again.");
+    }
   }
 
   return (
@@ -151,9 +162,60 @@ function ProfileScreen() {
           isActive ? styles.planBadgeActive : styles.planBadgeTrial,
         ]}>
           <Text style={isActive ? styles.planTextActive : styles.planTextTrial}>
-            {isActive ? `✓ ${(profile?.plan||"pro").toUpperCase()}` : `⏱ TRIAL — ${daysLeft} days left`}
+            {isActive ? `✓ ${(profile?.plan||"pro").toUpperCase()} — Active` : `⏱ TRIAL — ${daysLeft} days left`}
           </Text>
         </View>
+      </View>
+
+      {/* WhatsApp Connection Status */}
+      {isActive ? (
+        <View style={styles.connectedBox}>
+          <Text style={styles.connectedIcon}>✅</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.connectedTitle}>WhatsApp Connected</Text>
+            <Text style={styles.connectedNumber}>{profile?.whatsapp_number || "—"}</Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.activationBox}>
+          <Text style={styles.activationIcon}>⏳</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.activationTitle}>Activation Pending</Text>
+            <Text style={styles.activationDesc}>
+              Your account is being set up. We'll connect your WhatsApp number within 24 hours and notify you.
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* WhatsApp Number Input */}
+      <View style={styles.credBox}>
+        <Text style={styles.credLabel}>YOUR WHATSAPP BUSINESS NUMBER</Text>
+        <Text style={styles.credHint} style={{ color: Colors.textSecondary, fontSize: 12, marginBottom: 10 }}>
+          Enter the phone number you want your bot to run on (with country code, e.g. +919876543210)
+        </Text>
+        <View style={styles.credRow}>
+          <TextInput
+            style={[styles.input, { flex: 1, marginBottom: 0, padding: 10, fontSize: 14 }]}
+            placeholder="+91 98765 43210"
+            placeholderTextColor={Colors.textMuted}
+            value={waNumber}
+            onChangeText={setWaNumber}
+            keyboardType="phone-pad"
+          />
+          <TouchableOpacity
+            style={[styles.copyBtn, saving && { opacity: 0.6 }]}
+            onPress={saveNumber}
+            disabled={saving}
+          >
+            <Text style={styles.copyBtnText}>{saving ? "..." : "Save"}</Text>
+          </TouchableOpacity>
+        </View>
+        {savedMsg ? (
+          <Text style={{ color: savedMsg.startsWith("✅") ? "#22c55e" : "#ef4444", fontSize: 12, marginTop: 8 }}>
+            {savedMsg}
+          </Text>
+        ) : null}
       </View>
 
       {/* Business ID */}
@@ -168,36 +230,18 @@ function ProfileScreen() {
             <Text style={styles.copyBtnText}>{copiedId ? "Copied ✓" : "Copy"}</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.credHint}>
-          Enter this ID when setting up the WhatsApp webhook.
-        </Text>
+        <Text style={styles.credHint}>Your unique identifier for this business account.</Text>
       </View>
 
-      {/* Webhook URL */}
-      <View style={styles.credBox}>
-        <Text style={styles.credLabel}>WHATSAPP WEBHOOK URL</Text>
-        <View style={styles.credRow}>
-          <Text style={styles.credValueSm} numberOfLines={2}>{webhookUrl}</Text>
-          <TouchableOpacity
-            style={[styles.copyBtn, copiedWebhook && styles.copyBtnDone]}
-            onPress={copyWebhook}
-          >
-            <Text style={styles.copyBtnText}>{copiedWebhook ? "Copied ✓" : "Copy"}</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.credHint}>
-          Paste this in Meta WhatsApp → Webhooks configuration.
-        </Text>
-      </View>
-
-      {/* Upgrade prompt */}
+      {/* How it works box */}
       {!isActive && (
-        <View style={styles.upgradeBox}>
-          <Text style={styles.upgradeTitle}>⚡ Upgrade to Pro</Text>
-          <Text style={styles.upgradeDesc}>
-            ₹3,000/month · Unlimited products · Advanced analytics · Priority support
-          </Text>
-          <Text style={styles.upgradeContact}>Contact hello@selly.in to upgrade</Text>
+        <View style={styles.howBox}>
+          <Text style={styles.howTitle}>🚀 How it works</Text>
+          <Text style={styles.howStep}>1️⃣  Register & enter your WhatsApp number above</Text>
+          <Text style={styles.howStep}>2️⃣  Our team connects your number (within 24 hrs)</Text>
+          <Text style={styles.howStep}>3️⃣  Add your products in the Catalog tab</Text>
+          <Text style={styles.howStep}>4️⃣  Customers order directly via WhatsApp — bot handles everything!</Text>
+          <Text style={styles.howContact}>Questions? hello@selly.in</Text>
         </View>
       )}
 
@@ -332,11 +376,26 @@ const styles = StyleSheet.create({
   copyBtnDone: { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "rgba(34,197,94,0.3)" },
   copyBtnText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
 
-  // Upgrade
-  upgradeBox    : { backgroundColor: "rgba(108,71,255,0.08)", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.primary + "44" },
-  upgradeTitle  : { color: Colors.primary, fontSize: 15, fontWeight: "800", marginBottom: 6 },
-  upgradeDesc   : { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  upgradeContact: { color: Colors.primary, fontSize: 12, marginTop: 8, fontWeight: "600" },
+  // WhatsApp connected
+  connectedBox   : { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(34,197,94,0.08)", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(34,197,94,0.25)", gap: 12 },
+  connectedIcon  : { fontSize: 28 },
+  connectedTitle : { color: "#22c55e", fontSize: 14, fontWeight: "800" },
+  connectedNumber: { color: Colors.textPrimary, fontSize: 16, fontWeight: "700", marginTop: 2 },
+
+  // Activation pending
+  activationBox  : { flexDirection: "row", alignItems: "flex-start", backgroundColor: "rgba(234,179,8,0.08)", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(234,179,8,0.25)", gap: 12 },
+  activationIcon : { fontSize: 26 },
+  activationTitle: { color: "#eab308", fontSize: 14, fontWeight: "800", marginBottom: 4 },
+  activationDesc : { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+
+  // How it works
+  howBox    : { backgroundColor: "rgba(108,71,255,0.08)", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.primary + "44" },
+  howTitle  : { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: 10 },
+  howStep   : { color: Colors.textSecondary, fontSize: 13, lineHeight: 22 },
+  howContact: { color: Colors.primary, fontSize: 12, marginTop: 10, fontWeight: "600" },
+
+  // Input (shared with LoginScreen style)
+  input: { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15 },
 
   // Sign out
   signOutBtn : { backgroundColor: "rgba(239,68,68,0.1)", borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 1, borderColor: "rgba(239,68,68,0.25)", marginTop: 4 },
