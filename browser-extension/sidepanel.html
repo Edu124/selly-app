@@ -98,6 +98,146 @@
       height: auto; white-space: nowrap; transition: all 0.15s;
     }
     .ctx-toggle.active { background: #1e3a5f; border-color: #3b82f6; color: #93c5fd; }
+
+    /* ── Nav tabs ── */
+    .nav-tabs {
+      display: flex; border-bottom: 1px solid #1e293b; flex-shrink: 0; background: #0d0d0d;
+    }
+    .nav-tab {
+      flex: 1; background: transparent; border: none; border-bottom: 2px solid transparent;
+      color: #475569; font-size: 11px; font-weight: 600; padding: 8px 4px;
+      cursor: pointer; transition: all .15s; white-space: nowrap;
+    }
+    .nav-tab:hover  { color: #94a3b8; background: #161b26; }
+    .nav-tab.active { color: #7eb3f7; border-bottom-color: #3b82f6; background: transparent; }
+
+    /* ── Automate Panel ── */
+    .auto-panel {
+      flex: 1; overflow-y: auto; padding: 12px 14px;
+      display: none; flex-direction: column; gap: 10px;
+    }
+    .auto-panel.visible { display: flex; }
+    .auto-panel::-webkit-scrollbar { width: 4px; }
+    .auto-panel::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+
+    /* Workflow card */
+    .wf-card {
+      background: #161b26; border: 1px solid #1e293b; border-radius: 10px; padding: 12px 14px;
+    }
+    .wf-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .wf-name { font-size: 13px; font-weight: 700; color: #f1f5f9; }
+    .wf-meta { font-size: 10.5px; color: #475569; }
+    .wf-btns { display: flex; gap: 5px; margin-top: 8px; }
+    .wf-btn {
+      flex: 1; border-radius: 7px; font-size: 11px; font-weight: 600; padding: 6px 8px;
+      cursor: pointer; border: 1px solid; transition: all .15s; text-align: center; background: transparent;
+    }
+    .wf-btn.run   { border-color: #22c55e; color: #86efac; }
+    .wf-btn.run:hover   { background: rgba(34,197,94,.1); }
+    .wf-btn.del   { border-color: #ef4444; color: #fca5a5; }
+    .wf-btn.del:hover   { background: rgba(239,68,68,.1); }
+    .wf-btn.view  { border-color: #3b82f6; color: #93c5fd; }
+    .wf-btn.view:hover  { background: rgba(59,130,246,.1); }
+
+    /* Record controls */
+    .rec-area { background: #0d0d0d; border: 1px solid #1e293b; border-radius: 10px; padding: 14px; }
+    .rec-title { font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 10px; display:flex; align-items:center; gap:6px; }
+    .rec-input {
+      width: 100%; background: #161b26; border: 1px solid #1e293b; border-radius: 7px;
+      color: #e2e8f0; font-size: 12px; padding: 7px 10px; margin-bottom: 8px; outline: none;
+      font-family: inherit;
+    }
+    .rec-input:focus { border-color: #3b82f6; }
+    .rec-btns { display: flex; gap: 6px; }
+    .rec-btn {
+      flex: 1; border-radius: 7px; font-size: 11.5px; font-weight: 600; padding: 7px 10px;
+      cursor: pointer; border: none; transition: all .15s; text-align: center;
+    }
+    .rec-btn.start   { background: #14532d; border: 1px solid #16a34a; color: #86efac; }
+    .rec-btn.start:hover { background: #166534; }
+    .rec-btn.stop    { background: #7f1d1d; border: 1px solid #ef4444; color: #fca5a5; }
+    .rec-btn.stop:hover  { background: #991b1b; }
+    .rec-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Steps preview */
+    .steps-list {
+      display: flex; flex-direction: column; gap: 3px; max-height: 130px; overflow-y: auto;
+      background: #0a0a0a; border: 1px solid #1e293b; border-radius: 7px; padding: 7px 9px;
+    }
+    .step-item { font-size: 10.5px; color: #64748b; display: flex; align-items: center; gap: 5px; }
+    .step-item .sn { color: #334155; min-width: 16px; font-size: 10px; }
+    .step-icon { font-size: 10px; }
+
+    /* Run log */
+    .run-log { font-size: 10.5px; color: #64748b; background: #0a0a0a; border: 1px solid #1e293b; border-radius:7px; padding:8px 10px; max-height:120px; overflow-y:auto; }
+    .log-ok   { color: #86efac; }
+    .log-skip { color: #fbbf24; }
+    .log-err  { color: #fca5a5; }
+
+    /* Status chip */
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px;
+    }
+    .chip.rec  { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+    .chip.run  { background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.3); color: #93c5fd; }
+    .chip.idle { background: rgba(100,116,139,.1); border: 1px solid rgba(100,116,139,.3); color: #64748b; }
+
+    /* Empty auto */
+    .auto-empty { display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:30px 20px;color:#334155;text-align:center; }
+    .auto-empty-icon  { font-size:32px; }
+    .auto-empty-title { font-size:13px;font-weight:600;color:#475569; }
+    .auto-empty-sub   { font-size:11px;line-height:1.6; }
+
+    /* Section label */
+    .sec-label { font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#334155; padding:2px 0; }
+
+    /* Trigger badge on workflow card */
+    .trig-badge {
+      display:inline-flex;align-items:center;gap:3px;
+      font-size:9.5px;font-weight:600;padding:2px 7px;border-radius:10px;margin-top:4px;
+    }
+    .trig-badge.url      { background:rgba(34,197,94,.1); border:1px solid rgba(34,197,94,.3); color:#86efac; }
+    .trig-badge.element  { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.3); color:#fbbf24; }
+    .trig-badge.schedule { background:rgba(139,92,246,.1); border:1px solid rgba(139,92,246,.3); color:#c4b5fd; }
+    .trig-badge.manual   { background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b; }
+    .trig-badge.off      { background:rgba(239,68,68,.1);  border:1px solid rgba(239,68,68,.3); color:#fca5a5; }
+
+    /* Trigger config panel (inline expand) */
+    .trig-panel {
+      background:#0a0a0a;border:1px solid #1e293b;border-radius:8px;
+      padding:11px 12px;margin-top:7px;display:none;flex-direction:column;gap:8px;
+    }
+    .trig-panel.open { display:flex; }
+    .trig-type-row { display:flex;gap:4px;flex-wrap:wrap; }
+    .trig-type-btn {
+      flex:1;min-width:60px;border-radius:6px;font-size:10.5px;font-weight:600;
+      padding:5px 6px;cursor:pointer;border:1px solid #1e293b;background:#161b26;
+      color:#64748b;transition:all .15s;text-align:center;
+    }
+    .trig-type-btn:hover  { border-color:#334155;color:#94a3b8; }
+    .trig-type-btn.active { background:#1e3a5f;border-color:#3b82f6;color:#93c5fd; }
+    .trig-field {
+      display:none;flex-direction:column;gap:5px;
+    }
+    .trig-field.visible { display:flex; }
+    .trig-input {
+      background:#161b26;border:1px solid #1e293b;border-radius:6px;
+      color:#e2e8f0;font-size:11.5px;padding:6px 9px;outline:none;font-family:inherit;width:100%;
+    }
+    .trig-input:focus { border-color:#3b82f6; }
+    .trig-hint { font-size:10px;color:#334155;line-height:1.5; }
+    .trig-save-btn {
+      background:#14532d;border:1px solid #16a34a;border-radius:7px;
+      color:#86efac;font-size:11px;font-weight:600;padding:6px;cursor:pointer;transition:background .15s;
+    }
+    .trig-save-btn:hover { background:#166534; }
+    .trig-toggle-row { display:flex;align-items:center;justify-content:space-between; }
+    .trig-toggle-label { font-size:10.5px;color:#64748b; }
+    .trig-toggle { width:30px;height:16px;border-radius:8px;border:1px solid #334155;background:#1e293b;cursor:pointer;position:relative;transition:background .2s; }
+    .trig-toggle.on { background:#16a34a;border-color:#22c55e; }
+    .trig-toggle::after { content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:left .2s; }
+    .trig-toggle.on::after { left:16px; }
   </style>
 </head>
 <body>
@@ -118,6 +258,13 @@
     <span class="page-title" id="pageTitle">Loading page info…</span>
   </div>
 
+  <!-- Nav tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tabAsk">💬 Ask</button>
+    <button class="nav-tab"        id="tabAutomate">⚡ Automate</button>
+  </div>
+
+  <!-- ── ASK PANEL ── -->
   <div class="chat" id="chat">
     <div class="empty" id="emptyState">
       <div class="empty-icon">🌐</div>
@@ -126,7 +273,7 @@
     </div>
   </div>
 
-  <div class="input-area">
+  <div class="input-area" id="askInputArea">
     <div class="ctx-row">
       <span class="ctx-label" id="ctxLabel">📄 Page context: off</span>
       <button class="ctx-toggle" id="ctxToggle">Use Page</button>
@@ -142,6 +289,54 @@
     <div class="sub-hint" id="subHint">Open CodeForge app first</div>
   </div>
 
+  <!-- ── AUTOMATE PANEL ── -->
+  <div class="auto-panel" id="autoPanel">
+
+    <!-- Status chip -->
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="chip idle" id="autoChip">
+        <span id="autoChipDot">○</span> <span id="autoChipText">Idle</span>
+      </div>
+      <span id="autoStepCount" style="font-size:10.5px;color:#334155;"></span>
+    </div>
+
+    <!-- Record new workflow -->
+    <div class="rec-area">
+      <div class="rec-title">🔴 Record New Workflow</div>
+      <input class="rec-input" id="wfName" placeholder="Workflow name (e.g. Process New Order)" maxlength="60"/>
+      <div class="rec-btns">
+        <button class="rec-btn start" id="recStartBtn">⏺ Start Recording</button>
+        <button class="rec-btn stop"  id="recStopBtn"  disabled>■ Stop & Save</button>
+      </div>
+    </div>
+
+    <!-- Live steps preview (shown during recording) -->
+    <div id="stepsPreviewWrap" style="display:none;">
+      <div class="sec-label">Recorded steps</div>
+      <div class="steps-list" id="stepsList"></div>
+    </div>
+
+    <!-- Saved workflows -->
+    <div id="workflowsWrap">
+      <div class="sec-label">Saved Workflows</div>
+      <div id="workflowsList">
+        <div class="auto-empty">
+          <div class="auto-empty-icon">⚡</div>
+          <div class="auto-empty-title">No workflows yet</div>
+          <div class="auto-empty-sub">Record a workflow once.<br>The agent will run it for you every time.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run log (shown after run) -->
+    <div id="runLogWrap" style="display:none;">
+      <div class="sec-label">Last run log</div>
+      <div class="run-log" id="runLog"></div>
+    </div>
+
+  </div>
+
   <script src="sidepanel.js"></script>
+  <script src="automation-panel.js"></script>
 </body>
 </html>

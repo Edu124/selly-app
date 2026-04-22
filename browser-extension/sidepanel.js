@@ -372,6 +372,20 @@ function autoResize(el) {
   updateAskBtn();
 }
 
+// ── Tab switching ─────────────────────────────────────────────────────────────
+window.switchTab = function switchTab(tab) {
+  const isAsk = tab === "ask";
+  document.getElementById("tabAsk").classList.toggle("active", isAsk);
+  document.getElementById("tabAutomate").classList.toggle("active", !isAsk);
+  // hide/show ask panel
+  const chat = document.getElementById("chat");
+  const inputArea = document.getElementById("askInputArea");
+  const autoPanel = document.getElementById("autoPanel");
+  if (chat)      chat.style.display      = isAsk ? "" : "none";
+  if (inputArea) inputArea.style.display = isAsk ? "" : "none";
+  if (autoPanel) autoPanel.classList.toggle("visible", !isAsk);
+};
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   connect();
@@ -380,6 +394,9 @@ document.addEventListener("DOMContentLoaded", () => {
   $question().addEventListener("keydown", handleKey);
   $askBtn().addEventListener("click", ask);
   $ctxToggle().addEventListener("click", toggleContext);
-  $ctxToggle().addEventListener("error", () => {}, true); // suppress favicon errors
   document.getElementById("pageFavicon").addEventListener("error", function() { this.style.display = "none"; });
+
+  // Tab switching — no inline onclick (blocked by CSP)
+  document.getElementById("tabAsk").addEventListener("click",      () => window.switchTab("ask"));
+  document.getElementById("tabAutomate").addEventListener("click",  () => window.switchTab("automate"));
 });

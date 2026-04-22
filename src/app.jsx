@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+
 import { runExcelAgent, buildExcelSchema } from "./excelAgent.js";
+import ConvertPanel from "./ConvertPanel.jsx";
 import QRCode from "qrcode";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -1948,7 +1950,27 @@ function SecurityShieldPanel({ shieldedFiles, securityLog, onProtect, onUnprotec
 
 function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSendHub, onApply, activeModelId, trialDaysLeft, bugReports, onBugScan, shieldedFiles, securityLog, onShieldProtect, onShieldUnprotect }) {
   const [hubInput, setHubInput] = useState("");
+  const [hubListening, setHubListening] = useState(false);
+  const hubRecRef   = useRef(null);
   const hubInputRef = useRef(null);
+
+  const startHubVoice = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Speech recognition not supported in this browser."); return; }
+    const rec = new SR();
+    rec.continuous = false; rec.interimResults = false; rec.lang = "en-US";
+    rec.onresult = e => {
+      const t = e.results[0][0].transcript;
+      setHubInput(prev => prev ? prev + " " + t : t);
+      setHubListening(false);
+    };
+    rec.onerror = () => setHubListening(false);
+    rec.onend   = () => setHubListening(false);
+    hubRecRef.current = rec;
+    rec.start();
+    setHubListening(true);
+  };
+  const stopHubVoice = () => { hubRecRef.current?.stop(); setHubListening(false); };
   const hubBottomRef = useRef(null);
   const [hubTab, setHubTab] = useState("chat"); // "chat" | "shield"
 
@@ -2208,6 +2230,15 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
                   rows={1}
                   style={{ flex: 1, background: "none", border: "none", color: C.t1, fontSize: 13, lineHeight: 1.6, maxHeight: 100, overflowY: "auto", fontFamily: "inherit" }}
                 />
+                <Btn onClick={hubListening ? stopHubVoice : startHubVoice} title={hubListening ? "Stop listening" : "Voice input"} style={{
+                  width: 32, height: 32, borderRadius: 8, border: "none", flexShrink: 0,
+                  background: hubListening ? "rgba(239,68,68,0.15)" : "transparent",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: hubListening ? "#ef4444" : C.t3, fontSize: 15,
+                  animation: hubListening ? "oai-pulse 1s infinite" : "none",
+                }}>
+                  🎙
+                </Btn>
                 <Btn onClick={sendHub} disabled={!hubInput.trim() || !activeModelId || hubStreaming} style={{
                   width: 32, height: 32, borderRadius: 8, border: "none", flexShrink: 0,
                   background: hubInput.trim() && activeModelId && !hubStreaming ? C.purple : C.bgPanel,
@@ -2979,7 +3010,7 @@ function OfflineAIApp() {
   // ── Extension Hub state (desktop only) ────────────────────────────────────
   // hubClients: { [id]: { id, editor, file, language, selectedCode, cursorLine, messages: [] } }
   const [showHub, setShowHub] = useState(false);
-  const [activeTab, setActiveTab] = useState("model"); // "model" | "hub"
+  const [activeTab, setActiveTab] = useState("model"); // "model" | "hub" | "convert"
   const [hubClients, setHubClients] = useState({});
   const [activeHubId, setActiveHubId] = useState(null);
   const [hubStreaming, setHubStreaming] = useState(false);
@@ -3289,6 +3320,7 @@ function OfflineAIApp() {
       unlisteners.forEach(fn => fn());
     };
   }, []);
+
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chats, active]);
   // Persist to localStorage (fast, session-safe)
@@ -3891,6 +3923,7 @@ If no issues found, respond with: []`;
   const statusLabel = ms?.status === "loaded" ? "Ready" : modelLoading ? "Connecting…" : "No model loaded";
 
 
+
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bgDeep, fontFamily: "'DM Sans',-apple-system,sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
@@ -3921,8 +3954,9 @@ If no issues found, respond with: []`;
         {/* Tab bar */}
         <div style={{ display: "flex", gap: 3, background: C.bgCard, borderRadius: 11, padding: "4px", border: `1px solid ${C.border}` }}>
           {[
-            { id: "model", label: "Model", icon: IC.server },
-            { id: "hub",   label: "Hub",   icon: IC.hub   },
+            { id: "model",     label: "Model",     icon: IC.server },
+            { id: "hub",       label: "Hub",       icon: IC.hub   },
+            { id: "convert",   label: "✨ Convert", icon: null     },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
               display: "flex", alignItems: "center", gap: 7,
@@ -3933,14 +3967,14 @@ If no issues found, respond with: []`;
               boxShadow: activeTab === tab.id ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
               transition: "all 0.15s",
             }}>
-              <Icon d={tab.icon} size={13} stroke={activeTab === tab.id ? C.t1 : C.t3} />
+              {tab.icon && <Icon d={tab.icon} size={13} stroke={activeTab === tab.id ? C.t1 : C.t3} />}
               {tab.label}
             </button>
           ))}
         </div>
 
         {/* Right: status + logout */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8 }}>
             <Dot color={statusColor} pulse={ms?.status === "loaded" || modelLoading} />
             <span style={{ fontSize: 11, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>
@@ -3954,7 +3988,9 @@ If no issues found, respond with: []`;
 
 {/* ── Content ── */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        {activeTab === "hub" ? (
+        {activeTab === "convert" ? (
+          <ConvertPanel />
+        ) : activeTab === "hub" ? (
           <HubPanel
             hubClients={hubClients}
             activeHubId={activeHubId}

@@ -3,7 +3,7 @@
   "name": "CodeForge AI",
   "version": "1.0.0",
   "description": "AI assistant for your browser — powered by CodeForge",
-  "permissions": ["sidePanel", "activeTab", "scripting", "tabs"],
+  "permissions": ["sidePanel", "activeTab", "scripting", "tabs", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
   "side_panel": {
     "default_path": "sidepanel.html"
@@ -22,7 +22,12 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["content.js", "automation-recorder.js", "bot.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://app.powerbi.com/*"],
+      "js": ["powerbi-content.js"],
       "run_at": "document_idle"
     }
   ],

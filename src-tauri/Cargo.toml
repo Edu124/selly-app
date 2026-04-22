@@ -1,6 +1,6 @@
 [package]
 name = "offlineai"
-version = "0.3.4"
+version = "0.4.0"
 description = "OfflineAI Desktop"
 edition = "2021"
 
@@ -30,6 +30,7 @@ uuid = { version = "1", features = ["v4"] }
 rand = "0.8"
 rust_xlsxwriter = "0.78"
 regex = "1"
+
 
 [profile.release]
 panic = "abort"

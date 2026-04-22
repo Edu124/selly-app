@@ -1,0 +1,218 @@
+// ── Selly API Client ───────────────────────────────────────────────────────────
+// Talks to the instagram-bot Express backend on Railway
+// Attaches business_id to every request so the server knows which tenant
+// ─────────────────────────────────────────────────────────────────────────────
+
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const DEFAULT_URL = "https://instagram-bot-production-ef01.up.railway.app";
+const KEY_URL     = "@selly_server_url";
+const KEY_BID     = "@selly_business_id";
+
+// ── Base URL ──────────────────────────────────────────────────────────────────
+async function getBaseUrl() {
+  try {
+    const saved = await AsyncStorage.getItem(KEY_URL);
+    if (!saved || saved.includes("localhost") || saved.includes("127.0.0.1")) {
+      await AsyncStorage.setItem(KEY_URL, DEFAULT_URL);
+      return DEFAULT_URL;
+    }
+    return saved;
+  } catch {
+    return DEFAULT_URL;
+  }
+}
+
+// ── Business ID ───────────────────────────────────────────────────────────────
+async function getBusinessId() {
+  try {
+    return (await AsyncStorage.getItem(KEY_BID)) || "default";
+  } catch {
+    return "default";
+  }
+}
+
+// ── Axios instance with business_id injected ──────────────────────────────────
+async function client() {
+  const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
+  return axios.create({
+    baseURL : base,
+    timeout : 10000,
+    headers : {
+      "Content-Type"  : "application/json",
+      "X-Business-ID" : bid,          // header for server middleware
+    },
+    params  : { bid },                 // also as query param for GET requests
+  });
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+export async function fetchDashboard() {
+  const c = await client();
+  const [ordersRes, customersRes] = await Promise.all([
+    c.get("/api/orders?limit=5"),
+    c.get("/api/customers"),
+  ]);
+  return {
+    stats    : ordersRes.data.stats     || {},
+    recent   : ordersRes.data.orders    || [],
+    customers: customersRes.data.customers || [],
+  };
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+export async function fetchOrders({ status, page = 1 } = {}) {
+  const c = await client();
+  const params = { page, limit: 20 };
+  if (status) params.status = status;
+  const r = await c.get("/api/orders", { params });
+  return r.data;
+}
+
+export async function updateOrderStatus(orderId, status, extra = {}) {
+  const c = await client();
+  const r = await c.post(`/api/orders/${orderId}/status`, { status, ...extra });
+  return r.data;
+}
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+export async function fetchCatalog() {
+  const c = await client();
+  const r = await c.get("/api/catalog");
+  return r.data;
+}
+
+export async function addProduct(product) {
+  const c = await client();
+  const r = await c.post("/api/catalog/add", product);
+  return r.data;
+}
+
+export async function updateProduct(id, changes) {
+  const c = await client();
+  const r = await c.put(`/api/catalog/${id}`, changes);
+  return r.data;
+}
+
+export async function toggleStock(id, inStock) {
+  const c = await client();
+  const r = await c.post("/api/catalog/stock", { productId: id, inStock });
+  return r.data;
+}
+
+export async function deleteProduct(id) {
+  const c = await client();
+  const r = await c.delete(`/api/catalog/${id}`);
+  return r.data;
+}
+
+export async function fetchInstaPost(url) {
+  const c = await client();
+  const r = await c.post("/api/insta/fetch", { url });
+  return r.data;
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+export async function fetchCustomers() {
+  const c = await client();
+  const r = await c.get("/api/customers");
+  return r.data;
+}
+
+export async function fetchCustomer(id) {
+  const c = await client();
+  const r = await c.get(`/api/customers/${id}`);
+  return r.data;
+}
+
+// ── Promotions ────────────────────────────────────────────────────────────────
+export async function sendFlashSale(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/flash", payload);
+  return r.data;
+}
+
+export async function sendNewArrival(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/newarrival", payload);
+  return r.data;
+}
+
+export async function sendAbandonedCart() {
+  const c = await client();
+  const r = await c.post("/api/promote/abandoned", {});
+  return r.data;
+}
+
+export async function sendFestivalCampaign(festivalName, discount, businessName) {
+  const c = await client();
+  const r = await c.post("/api/promote/festival", { festivalName, discount, businessName });
+  return r.data;
+}
+
+// ── Loyalty ───────────────────────────────────────────────────────────────────
+export async function fetchLoyaltyLeaderboard() {
+  const c = await client();
+  const r = await c.get("/api/loyalty/leaderboard");
+  return r.data;
+}
+
+// ── Festivals ─────────────────────────────────────────────────────────────────
+export async function fetchUpcomingFestivals(days = 14) {
+  const c = await client();
+  const r = await c.get(`/api/festivals/upcoming?days=${days}`);
+  return r.data;
+}
+
+export async function fetchFestivalAlerts() {
+  const c = await client();
+  const r = await c.get("/api/festivals/alerts");
+  return r.data;
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+export async function logStatus(caption, productId, productName, imageUrl) {
+  const c = await client();
+  const r = await c.post("/api/status/log", { caption, productId, productName, imageUrl });
+  return r.data;
+}
+
+// ── Billing ───────────────────────────────────────────────────────────────────
+export async function fetchSubscription() {
+  const c = await client();
+  const r = await c.get("/api/billing/subscription");
+  return r.data;
+}
+
+export async function fetchBillingSummary() {
+  const c = await client();
+  const r = await c.get("/api/billing/summary");
+  return r.data;
+}
+
+export async function fetchCommissions() {
+  const c = await client();
+  const r = await c.get("/api/billing/commissions");
+  return r.data;
+}
+
+export async function recordPayment(payload) {
+  const c = await client();
+  const r = await c.post("/api/billing/payment", payload);
+  return r.data;
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+export async function saveServerUrl(url) {
+  await AsyncStorage.setItem(KEY_URL, url);
+}
+
+export async function getServerUrl() {
+  return (await AsyncStorage.getItem(KEY_URL)) || DEFAULT_URL;
+}
+
+export async function resetServerUrl() {
+  await AsyncStorage.setItem(KEY_URL, DEFAULT_URL);
+  return DEFAULT_URL;
+}

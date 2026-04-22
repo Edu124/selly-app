@@ -1740,17 +1740,28 @@ ACTIVE SHEET CELL CONTEXT:\n\
                 let system_prompt = "You are an Excel automation expert integrated into CodeForge AI.\n\
 Your job is to convert a natural language request into a JSON action list for Office.js.\n\
 \n\
-Output ONLY a valid JSON object: {\"actions\":[...]}   — no markdown fences, no explanation, nothing else.\n\
+Output ONLY a valid JSON object: {\"actions\":[...]}  — no markdown fences, no explanation, nothing else.\n\
 \n\
-Available operations (use only these):\n\
+── TABLES & FILTERS ──\n\
 - create_table:            { range?:\"auto\", hasHeaders?:bool, style?:\"TableStyleMedium9\"|\"TableStyleLight1\"|\"TableStyleDark11\", name?:string }\n\
 - add_total_row:           { enabled?:true }\n\
-- apply_filter:            { range?:\"auto\", columnIndex?:0, column?:\"A\", value?:string }\n\
+- apply_filter:            { range?:\"auto\", column?:\"A\", columnIndex?:0, value?:string }\n\
 - clear_filters:           {}\n\
-- sort:                    { range?:\"auto\", column?:\"A\", columnIndex?:0, ascending?:bool }\n\
+- sort:                    { range?:\"auto\", column?:\"A\", ascending?:bool }\n\
+- set_values:              { range:\"A1:C3\", values:[[v,v],[v,v]] }\n\
+- find_replace:            { find:\"old\", replaceWith:\"new\", completeMatch?:bool, matchCase?:bool }\n\
+\n\
+── PIVOT TABLES ──\n\
+- create_pivot_table:      { name?:\"PivotTable1\", sourceRange?:\"auto\", destRange:\"F1\", rowFields:[\"Field\"], columnFields?:[\"Field\"], dataFields:[{\"field\":\"Sales\",\"function\":\"sum\"|\"count\"|\"average\"|\"max\"|\"min\"}], filterFields?:[\"Field\"] }\n\
+\n\
+── DATA VALIDATION ──\n\
+- add_data_validation:     { range:\"A2:A100\", validationType:\"list\"|\"whole_number\"|\"decimal\"|\"date\"|\"text_length\"|\"custom\", values?:[\"Yes\",\"No\"], min?:0, max?:100, startDate?:\"2020-01-01\", endDate?:\"2025-12-31\", formula?:\"=A1>0\", operator?:\"between\"|\"greater_than\"|\"less_than\"|\"equal\", promptTitle?:string, promptMessage?:string, errorMessage?:string, dropdown?:true }\n\
+- clear_data_validation:   { range?:\"auto\" }\n\
+\n\
+── FORMATTING ──\n\
 - format_header:           { bold?:bool, bgColor?:\"#hex\", textColor?:\"#hex\", fontSize?:number, italic?:bool }\n\
 - format_range:            { range?:\"auto\", bold?:bool, bgColor?:\"#hex\", textColor?:\"#hex\", fontSize?:number, numberFormat?:string, wrapText?:bool, hAlign?:\"Left\"|\"Center\"|\"Right\" }\n\
-- number_format:           { range?:\"auto\", format:string }  (e.g. \"#,##0.00\", \"$#,##0\", \"0%\", \"dd/mm/yyyy\")\n\
+- number_format:           { range?:\"auto\", format:string }  e.g. \"#,##0.00\" \"$#,##0\" \"0%\" \"dd/mm/yyyy\"\n\
 - conditional_format:      { range?:\"auto\", rule:\"greater_than\"|\"less_than\"|\"equal\"|\"between\"|\"not_equal\"|\"greater_or_equal\"|\"less_or_equal\", value:number, value2?:number, bgColor?:\"#hex\", textColor?:\"#hex\", bold?:bool }\n\
 - clear_conditional_formats:{ range?:\"auto\" }\n\
 - auto_fit_columns:        { range?:\"auto\" }\n\
@@ -1759,17 +1770,46 @@ Available operations (use only these):\n\
 - set_row_height:          { range?:\"auto\", height:number }\n\
 - set_border:              { range?:\"auto\", style?:\"thin\"|\"medium\"|\"thick\"|\"dashed\"|\"dotted\"|\"none\", color?:\"#hex\" }\n\
 - clear_formatting:        { range?:\"auto\" }\n\
-- freeze_panes:            { rows?:1, cols?:0 }\n\
-- unfreeze_panes:          {}\n\
-- insert_chart:            { type:\"column\"|\"bar\"|\"line\"|\"pie\"|\"area\"|\"scatter\"|\"doughnut\", range?:\"auto\", title?:string, width?:480, height?:300 }\n\
 - merge_cells:             { range?:\"auto\", across?:bool }\n\
 - unmerge_cells:           { range?:\"auto\" }\n\
+\n\
+── ROWS & COLUMNS ──\n\
+- insert_rows:             { range:\"5:7\" }        — inserts above, pushes rows down\n\
+- delete_rows:             { range:\"5:7\" }\n\
+- insert_columns:          { range:\"C:D\" }        — inserts left, pushes cols right\n\
+- delete_columns:          { range:\"C:D\" }\n\
+- hide_rows:               { range:\"3:5\" }\n\
+- unhide_rows:             { range:\"3:5\" }\n\
+- hide_columns:            { range:\"C:E\" }\n\
+- unhide_columns:          { range:\"C:E\" }\n\
+- group_rows:              { range:\"3:10\" }\n\
+- ungroup_rows:            { range:\"3:10\" }\n\
+- group_columns:           { range:\"C:F\" }\n\
+- ungroup_columns:         { range:\"C:F\" }\n\
+\n\
+── CHARTS ──\n\
+- insert_chart:            { type:\"column\"|\"bar\"|\"line\"|\"pie\"|\"area\"|\"scatter\"|\"doughnut\", range?:\"auto\", title?:string, width?:480, height?:300 }\n\
+\n\
+── FREEZE & MISC ──\n\
+- freeze_panes:            { rows?:1, cols?:0 }\n\
+- unfreeze_panes:          {}\n\
+- add_comment:             { range:\"A1\", text:string }\n\
+- define_name:             { name:string, range?:\"auto\" }\n\
+\n\
+── SHEETS ──\n\
 - add_sheet:               { name?:string, activate?:bool }\n\
 - rename_sheet:            { name:string }\n\
+- duplicate_sheet:         { newName?:string }\n\
+- delete_sheet:            { name?:string }        — omit name to delete active sheet\n\
+- tab_color:               { color:\"#hex\" }\n\
+- protect_sheet:           { password?:string, allowFormatCells?:true, allowSort?:false, allowAutoFilter?:false, allowInsertRows?:false, allowDeleteRows?:false }\n\
+- unprotect_sheet:         { password?:string }\n\
 \n\
 Rules:\n\
-- Use range:\"auto\" to mean the user's currently selected range\n\
-- Combine multiple steps naturally, e.g. create_table + format_header + auto_fit_columns + freeze_panes\n\
+- Use range:\"auto\" to use the user's currently selected range\n\
+- For pivot tables use column header names exactly as they appear in the workbook schema above\n\
+- For data validation lists, values is a string array e.g. [\"Low\",\"Medium\",\"High\"]\n\
+- Chain steps naturally: create_table → format_header → auto_fit_columns → freeze_panes\n\
 - Output ONLY the JSON. Absolutely no other text.";
 
                 let user_msg = format!(
@@ -1793,7 +1833,113 @@ USER REQUEST: {request}"
                         let client = reqwest::Client::new();
                         let body = serde_json::json!({
                             "prompt":         prompt,
-                            "n_predict":      500,
+                            "n_predict":      900,
+                            "temperature":    0.1,
+                            "stream":         true,
+                            "repeat_penalty": 1.05,
+                            "stop":           ["<|im_end|>", "\n\n\n"],
+                        });
+                        let res = match client
+                            .post(format!("http://127.0.0.1:{port}/completion"))
+                            .json(&body).send().await {
+                            Ok(r) => r,
+                            Err(e) => { let _ = tx.send(serde_json::json!({"type":"error","message":e.to_string()}).to_string()); return; }
+                        };
+                        let mut stream = res.bytes_stream();
+                        let mut buf    = String::new();
+                        'stream: loop {
+                            match stream.next().await {
+                                Some(Ok(chunk)) => {
+                                    buf.push_str(&String::from_utf8_lossy(&chunk));
+                                    while let Some(pos) = buf.find('\n') {
+                                        let line = buf[..pos].trim().to_string();
+                                        buf = buf[pos+1..].to_string();
+                                        if line.starts_with("data: ") {
+                                            if let Ok(j) = serde_json::from_str::<serde_json::Value>(&line["data: ".len()..]) {
+                                                if let Some(tok) = j["content"].as_str() {
+                                                    if !tok.is_empty() {
+                                                        let _ = tx.send(serde_json::json!({"type":"token","content":tok}).to_string());
+                                                    }
+                                                }
+                                                if j["stop"].as_bool().unwrap_or(false) {
+                                                    let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                                                    break 'stream;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Err(_)) | None => { break; }
+                            }
+                        }
+                        let _ = tx.send(serde_json::json!({"type":"done"}).to_string());
+                    });
+                }
+            }
+            // ── Power BI: AI Assistant — natural language → action list ──────
+            Some("powerbi_command") => {
+                let command     = val["command"].as_str().unwrap_or("").to_string();
+                let context_str = val["context"].as_str().unwrap_or("").to_string();
+
+                let system_prompt = "You are a Power BI AI assistant integrated into CodeForge AI.\n\
+Your job is to convert a natural language command into a JSON action list for the Power BI JavaScript client API.\n\
+\n\
+Output ONLY a valid JSON object: {\"actions\":[...]}  — no markdown fences, no explanation, nothing else.\n\
+\n\
+Available actions (use only these):\n\
+- navigate_page:        { \"action\":\"navigate_page\", \"pageName\":\"Page display name\" }\n\
+- navigate_next:        { \"action\":\"navigate_next\" }\n\
+- navigate_prev:        { \"action\":\"navigate_prev\" }\n\
+- navigate_first:       { \"action\":\"navigate_first\" }\n\
+- navigate_last:        { \"action\":\"navigate_last\" }\n\
+- set_filter:           { \"action\":\"set_filter\", \"table\":\"TableName\", \"column\":\"ColumnName\", \"operator\":\"In\"|\"NotIn\"|\"All\", \"values\":[\"v1\",\"v2\"] }\n\
+- set_date_filter:      { \"action\":\"set_date_filter\", \"table\":\"TableName\", \"column\":\"DateColumn\", \"start\":\"YYYY-MM-DD\", \"end\":\"YYYY-MM-DD\" }\n\
+- set_advanced_filter:  { \"action\":\"set_advanced_filter\", \"table\":\"TableName\", \"column\":\"ColumnName\", \"logicalOperator\":\"And\"|\"Or\", \"conditions\":[{\"operator\":\"Contains\"|\"StartsWith\"|\"GreaterThan\"|\"LessThan\"|\"Is\", \"value\":\"val\"}] }\n\
+- remove_filter:        { \"action\":\"remove_filter\", \"table\":\"TableName\", \"column\":\"ColumnName\" }\n\
+- clear_filters:        { \"action\":\"clear_filters\" }\n\
+- apply_bookmark:       { \"action\":\"apply_bookmark\", \"bookmarkName\":\"Bookmark display name\" }\n\
+- capture_bookmark:     { \"action\":\"capture_bookmark\", \"name\":\"My Snapshot\" }\n\
+- focus_visual:         { \"action\":\"focus_visual\", \"visualTitle\":\"Visual title text\" }\n\
+- sort_visual:          { \"action\":\"sort_visual\", \"visualTitle\":\"Visual title\", \"column\":\"ColumnName\", \"direction\":\"Ascending\"|\"Descending\" }\n\
+- drill_down:           { \"action\":\"drill_down\", \"visualTitle\":\"Visual title\" }\n\
+- drill_up:             { \"action\":\"drill_up\", \"visualTitle\":\"Visual title\" }\n\
+- reset_report:         { \"action\":\"reset_report\" }\n\
+- full_screen:          { \"action\":\"full_screen\" }\n\
+- exit_full_screen:     { \"action\":\"exit_full_screen\" }\n\
+- print:                { \"action\":\"print\" }\n\
+- reload:               { \"action\":\"reload\" }\n\
+- undo:                 { \"action\":\"undo\" }\n\
+- redo:                 { \"action\":\"redo\" }\n\
+- refresh_dataset:      { \"action\":\"refresh_dataset\" }\n\
+- dom_click:            { \"action\":\"dom_click\", \"selector\":\"CSS selector or button text\" }\n\
+- answer:               { \"action\":\"answer\", \"text\":\"Plain text answer to the user\" }\n\
+\n\
+Rules:\n\
+- Use answer action for questions, definitions, or explanations that don't require clicking anything\n\
+- For ambiguous page names, use the closest match from the pages list provided\n\
+- Combine multiple actions when the request implies multiple steps\n\
+- Output ONLY the JSON. Absolutely no other text.";
+
+                let user_msg = format!(
+                    "REPORT CONTEXT:\n{context_str}\n\n\
+USER COMMAND: {command}"
+                );
+
+                let prompt = format!(
+                    "<|im_start|>system\n{system_prompt}\n<|im_end|>\n\
+<|im_start|>user\n{user_msg}\n<|im_end|>\n\
+<|im_start|>assistant\n"
+                );
+
+                let tx_opt = { let lock = clients.lock().await; lock.get(&id).map(|c| c.tx.clone()) };
+                if let Some(tx) = tx_opt {
+                    let port = SERVER_PORT;
+                    tauri::async_runtime::spawn(async move {
+                        use futures_util::StreamExt;
+                        let client = reqwest::Client::new();
+                        let body = serde_json::json!({
+                            "prompt":         prompt,
+                            "n_predict":      600,
                             "temperature":    0.1,
                             "stream":         true,
                             "repeat_penalty": 1.05,
@@ -2041,17 +2187,24 @@ CODE TO TEST:\n\
             // ── VS Code: Inline Code Suggestion ───────────────────────────────
             Some("inline_suggest") => {
                 let context     = val["context"].as_str().unwrap_or("").to_string();
+                let suffix      = val["suffix"].as_str().unwrap_or("").to_string();
                 let line_prefix = val["linePrefix"].as_str().unwrap_or("").to_string();
                 let language    = val["language"].as_str().unwrap_or("").to_string();
-                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(80) as u32;
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(160) as u32;
 
-                // Build the prompt:
-                // We show the context up to cursor, and explicitly tell the model
-                // what text is already on the current partial line so it doesn't repeat it.
+                // Build FIM (fill-in-middle) prompt:
+                // PREFIX = code before cursor, SUFFIX = code after cursor
+                // Model fills in what goes at the cursor position.
                 let line_hint = if line_prefix.trim().is_empty() {
                     String::new()
                 } else {
                     format!("\nThe current partial line already contains: `{}`\nContinue from AFTER that — do not repeat it.\n", line_prefix.trim())
+                };
+
+                let suffix_hint = if suffix.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("\n\nCode that already exists AFTER the cursor (do NOT repeat or duplicate it):\n{}", suffix.trim())
                 };
 
                 let prompt = format!(
@@ -2060,16 +2213,16 @@ You are a code completion engine. Your ONLY job is to output the missing code th
 \n\
 Strict rules:\n\
 - Output ONLY the raw code that continues from <CURSOR> — nothing else\n\
-- NO markdown fences, NO explanations, NO comments unless the surrounding code already has them\n\
-- NEVER repeat any code that appears before <CURSOR>\n\
-- Complete the current line first (just the remainder of the line), then add at most 2 more lines if they are the natural next step\n\
+- NO markdown fences, NO explanations\n\
+- NEVER repeat any code that appears before <CURSOR> or after <CURSOR>\n\
+- Complete the current line first, then add at most 3 more lines if they are the natural next step\n\
 - Match the exact indentation style of the file (spaces vs tabs, same depth)\n\
 - Stop at a logical boundary — one statement, one return, one if-block — do not generate an entire function\n\
-- If there is nothing meaningful to complete, output a single newline and stop\
+- If there is nothing meaningful to complete, output nothing\
 <|im_end|>\n\
 <|im_start|>user\n\
 Language: {language}\n\
-{line_hint}\n\
+{line_hint}{suffix_hint}\n\
 {context}<CURSOR>\
 <|im_end|>\n\
 <|im_start|>assistant\n"
@@ -2081,18 +2234,18 @@ Language: {language}\n\
                 };
                 if let Some(tx) = tx_opt {
                     let port = SERVER_PORT;
-                    let n_predict = suggested_tokens.max(20).min(120); // tight cap — inline completions should be short
+                    let n_predict = suggested_tokens.max(40).min(200);
                     tauri::async_runtime::spawn(async move {
                         use futures_util::StreamExt;
                         let client = reqwest::Client::new();
                         let body = serde_json::json!({
                             "prompt": prompt,
                             "n_predict": n_predict,
-                            "temperature": 0.1,
+                            "temperature": 0.05,
                             "stream": true,
                             "repeat_penalty": 1.05,
-                            // Stop on: chat delimiters, blank line (over-gen), comment start
-                            "stop": ["<|im_end|>", "<|im_start|>", "\n\n", "//", "#", "/*"]
+                            // Only stop on chat delimiters — let code comments through
+                            "stop": ["<|im_end|>", "<|im_start|>"]
                         });
                         let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
                             Ok(r) => r,
@@ -2139,7 +2292,21 @@ Language: {language}\n\
                 let current_code   = val["currentCode"].as_str().unwrap_or("").to_string();
                 let language       = val["language"].as_str().unwrap_or("").to_string();
                 let connected      = val["connectedFiles"].as_array().cloned().unwrap_or_default();
-                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(1500) as u32;
+                let diagnostics    = val["diagnostics"].as_array().cloned().unwrap_or_default();
+                let suggested_tokens = val["suggestedTokens"].as_u64().unwrap_or(2000) as u32;
+
+                // Build diagnostics block (VS Code red/yellow squiggles)
+                let diag_block = if diagnostics.is_empty() {
+                    String::new()
+                } else {
+                    let lines: Vec<String> = diagnostics.iter().map(|d| {
+                        let line = d["line"].as_u64().unwrap_or(0);
+                        let msg  = d["message"].as_str().unwrap_or("");
+                        let sev  = d["severity"].as_str().unwrap_or("error");
+                        format!("  Line {line} [{sev}]: {msg}")
+                    }).collect();
+                    format!("\nVS CODE DIAGNOSTICS (editor errors/warnings):\n{}\n", lines.join("\n"))
+                };
 
                 let mut connected_block = String::new();
                 for cf in &connected {
@@ -2172,7 +2339,7 @@ Rules for the CHANGES block:\n\
 <|im_end|>\n\
 <|im_start|>user\n\
 BUG DESCRIPTION: {bug_desc}\n\
-\n\
+{diag_block}\n\
 MAIN FILE: {current_file}\n\
 ```{language}\n\
 {current_code}\n\
@@ -2187,13 +2354,13 @@ MAIN FILE: {current_file}\n\
                 };
                 if let Some(tx) = tx_opt {
                     let port = SERVER_PORT;
-                    let n_predict = suggested_tokens.max(500).min(1500);
+                    let n_predict = suggested_tokens.max(800).min(2500);
                     tauri::async_runtime::spawn(async move {
                         use futures_util::StreamExt;
                         let client = reqwest::Client::new();
                         let body = serde_json::json!({
                             "prompt": prompt, "n_predict": n_predict,
-                            "temperature": 0.2, "stream": true,
+                            "temperature": 0.15, "stream": true,
                             "repeat_penalty": 1.1, "stop": ["<|im_end|>"]
                         });
                         let res = match client.post(format!("http://127.0.0.1:{port}/completion")).json(&body).send().await {
@@ -3011,6 +3178,64 @@ async fn read_pdf(path: String) -> Result<String, String> {
     pdf_extract::extract_text_from_mem(&bytes).map_err(|e| format!("PDF parse error: {e}"))
 }
 
+/// Extract PDF text then ask the local LLM to structure it into JSON
+/// ready for interactive website generation on the frontend.
+#[tauri::command]
+async fn pdf_to_structured_content(path: String) -> Result<serde_json::Value, String> {
+    // ── 1. Extract raw text ────────────────────────────────────────────────────
+    let bytes = std::fs::read(&path).map_err(|e| format!("Cannot read file: {e}"))?;
+    let raw   = pdf_extract::extract_text_from_mem(&bytes)
+        .map_err(|e| format!("PDF parse error: {e}"))?;
+
+    // ── 2. Truncate to ~4 500 words so it fits the LLM context window ──────────
+    let words: Vec<&str> = raw.split_whitespace().collect();
+    let input = words[..words.len().min(4500)].join(" ");
+
+    // ── 3. Build prompt ────────────────────────────────────────────────────────
+    let system = "You are a research document analyst. \
+Extract the structure of the provided paper/document into JSON.\n\
+Output ONLY valid JSON — no markdown fences, no explanation, nothing else.\n\
+Use exactly this shape:\n\
+{\"title\":\"...\",\"authors\":[\"...\"],\"year\":\"...\",\"abstract\":\"...\",\
+\"keywords\":[\"kw1\",\"kw2\"],\
+\"sections\":[{\"heading\":\"...\",\"content\":\"1-2 sentences\",\"bullets\":[\"pt1\",\"pt2\",\"pt3\"]}],\
+\"key_findings\":[\"finding 1\",\"finding 2\",\"finding 3\",\"finding 4\",\"finding 5\"],\
+\"methodology\":\"2-3 sentences\",\"conclusion\":\"2-3 sentences\"}\n\
+Rules: 3-6 sections | 5-7 key_findings | 5-8 keywords | all fields required (empty string/array if missing) | JSON only.";
+
+    let prompt = format!(
+        "<|im_start|>system\n{system}\n<|im_end|>\n\
+<|im_start|>user\n{input}\n<|im_end|>\n\
+<|im_start|>assistant\n"
+    );
+
+    // ── 4. Call local LLM (non-streaming) ──────────────────────────────────────
+    let client = reqwest::Client::new();
+    let body   = serde_json::json!({
+        "prompt": prompt, "n_predict": 1600,
+        "temperature": 0.1, "stream": false,
+        "repeat_penalty": 1.05, "stop": ["<|im_end|>"],
+    });
+    let res = client
+        .post(format!("http://127.0.0.1:{SERVER_PORT}/completion"))
+        .json(&body).send().await
+        .map_err(|e| format!("LLM request failed: {e}"))?;
+    let llm: serde_json::Value = res.json().await
+        .map_err(|e| format!("LLM response error: {e}"))?;
+    let content = llm["content"].as_str().unwrap_or("{}");
+
+    // ── 5. Parse JSON from model output (tolerate leading prose) ───────────────
+    let start   = content.find('{').unwrap_or(0);
+    let cleaned = &content[start..];
+    let parsed  = serde_json::from_str::<serde_json::Value>(cleaned)
+        .unwrap_or_else(|_| serde_json::json!({
+            "title": "Document", "authors": [], "year": "",
+            "abstract": cleaned, "keywords": [], "sections": [],
+            "key_findings": [], "methodology": "", "conclusion": ""
+        }));
+    Ok(parsed)
+}
+
 /// Strip XML tags, collapsing whitespace, to produce clean plain text.
 fn strip_xml(xml: String) -> String {
     let mut out = String::with_capacity(xml.len() / 2);
@@ -3349,8 +3574,6 @@ fn obfuscate_code(text: &str, _file_type: &str) -> String {
     result
 }
 
-// ── Entry point ───────────────────────────────────────────────────────────────
-
 /// Fetch the latest version JSON from a URL (GitHub raw or any host).
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -3531,6 +3754,7 @@ pub fn run() {
             hub_send,
             hub_get_clients,
             read_pdf,
+            pdf_to_structured_content,
             read_docx,
             pubmed_search,
             shield_protect,

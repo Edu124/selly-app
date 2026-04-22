@@ -33,7 +33,7 @@ function setMode(m) {
   if (m === "ask")     { $askBtn().textContent = "Ask";      $question().placeholder = "e.g. What is revenue for 2023?"; }
   if (m === "formula") { $askBtn().textContent = "Generate"; $question().placeholder = "e.g. VLOOKUP employee name from Sheet2 using ID in column A"; }
   if (m === "macro")   { $askBtn().textContent = "Generate Macro"; $question().placeholder = "e.g. Highlight all cells above 1000 in red"; }
-  if (m === "build")   { $askBtn().textContent = "Run"; $question().placeholder = "e.g. Create a table, bold headers, freeze row 1 and auto-fit columns"; }
+  if (m === "build")   { $askBtn().textContent = "Run"; $question().placeholder = "e.g. Create pivot table by Region and Category  /  Add dropdown validation  /  Hide columns D:F"; }
 
   const icon  = document.getElementById("emptyIcon");
   const title = document.getElementById("emptyTitle");
@@ -53,8 +53,8 @@ function setMode(m) {
     macroHistory      = [];
   } else {
     icon.textContent  = "🏗️";
-    title.textContent = "Build & format your sheet";
-    sub.textContent   = "Select your data, then describe what to do — create tables, filters, charts, formatting and more.";
+    title.textContent = "Build & automate your sheet";
+    sub.textContent   = "Select data, then describe what you need:\nPivot tables · Data validation · Protect sheet · Insert/delete rows · Hide columns · Group rows · Charts · Conditional formatting · Find & replace · Named ranges · and more.";
   }
   updateAskBtn();
 }
@@ -72,7 +72,7 @@ function updateAskBtn() {
   else if (isStreaming)       $subHint().textContent = mode === "macro" ? "Thinking…" : mode === "build" ? "Planning actions…" : "Answering…";
   else if (mode === "ask")    $subHint().textContent = "Select cells in Excel, then ask a question";
   else if (mode === "formula")$subHint().textContent = "Select target cell(s), then describe the formula — can reference other sheets";
-  else if (mode === "build")  $subHint().textContent = "Select your data range, describe what to do — table, filter, format, chart…";
+  else if (mode === "build")  $subHint().textContent = "Describe anything: pivot table, validation, protect, hide rows, format, chart…";
   else                        $subHint().textContent = macroHistory.length ? "Answer the questions above, then click Generate Macro" : "Describe your macro idea";
 }
 function hideEmpty() { const e = $empty(); if (e) e.remove(); }
@@ -846,6 +846,7 @@ async function executeBuildActions(actions, displayEl) {
 
 function opLabel(op) {
   const labels = {
+    // existing
     create_table: "Table", apply_filter: "Filter", clear_filters: "Clear Filters",
     sort: "Sort", format_header: "Header Style", format_range: "Format",
     conditional_format: "Cond. Format", freeze_panes: "Freeze", unfreeze_panes: "Unfreeze",
@@ -855,6 +856,19 @@ function opLabel(op) {
     set_border: "Borders", clear_formatting: "Clear Fmt", clear_conditional_formats: "Clear CF",
     merge_cells: "Merge", unmerge_cells: "Unmerge",
     add_sheet: "Add Sheet", rename_sheet: "Rename Sheet",
+    // new
+    create_pivot_table: "Pivot Table",
+    add_data_validation: "Data Validation", clear_data_validation: "Clear Validation",
+    set_values: "Set Values", find_replace: "Find & Replace",
+    insert_rows: "Insert Rows", delete_rows: "Delete Rows",
+    insert_columns: "Insert Cols", delete_columns: "Delete Cols",
+    hide_rows: "Hide Rows", unhide_rows: "Unhide Rows",
+    hide_columns: "Hide Cols", unhide_columns: "Unhide Cols",
+    group_rows: "Group Rows", ungroup_rows: "Ungroup Rows",
+    group_columns: "Group Cols", ungroup_columns: "Ungroup Cols",
+    protect_sheet: "Protect Sheet", unprotect_sheet: "Unprotect Sheet",
+    duplicate_sheet: "Duplicate Sheet", delete_sheet: "Delete Sheet", tab_color: "Tab Color",
+    add_comment: "Add Comment", define_name: "Named Range",
   };
   return labels[op] || op;
 }
@@ -1114,6 +1128,204 @@ async function runBuildAction(context, sheet, action, sel, selAddr) {
       if (!action.name) throw new Error("name is required");
       sheet.name = action.name;
       return `Renamed sheet to "${action.name}"`;
+    }
+
+    // ── Pivot Tables ──────────────────────────────────────────────────────────
+    case "create_pivot_table": {
+      const pivotName  = action.name || ("PivotTable_" + Date.now());
+      const srcRng     = (action.sourceRange && action.sourceRange !== "auto")
+        ? sheet.getRange(action.sourceRange) : sheet.getRange(selAddr);
+      const destCell   = sheet.getRange(action.destRange || "F1");
+
+      // Remove existing pivot with same name if present
+      try {
+        const existingPivots = sheet.pivotTables;
+        existingPivots.load("items/name");
+        await context.sync();
+        const old = existingPivots.items.find(p => p.name === pivotName);
+        if (old) { old.delete(); await context.sync(); }
+      } catch {}
+
+      const pt = sheet.pivotTables.add(pivotName, srcRng, destCell);
+      await context.sync();
+
+      for (const f of (action.rowFields || [])) {
+        try { pt.rowHierarchies.add(pt.hierarchies.getItem(f)); } catch {}
+      }
+      for (const f of (action.columnFields || [])) {
+        try { pt.columnHierarchies.add(pt.hierarchies.getItem(f)); } catch {}
+      }
+      for (const df of (action.dataFields || [])) {
+        const name = typeof df === "string" ? df : df.field;
+        const func = typeof df === "string" ? "sum" : (df.function || "sum");
+        try {
+          const dh = pt.dataHierarchies.add(pt.hierarchies.getItem(name));
+          const fnMap = {
+            sum: Excel.AggregationFunction.sum, count: Excel.AggregationFunction.count,
+            average: Excel.AggregationFunction.average, max: Excel.AggregationFunction.max,
+            min: Excel.AggregationFunction.min,
+          };
+          dh.summarizeBy = fnMap[func.toLowerCase()] || Excel.AggregationFunction.sum;
+        } catch {}
+      }
+      for (const f of (action.filterFields || [])) {
+        try { pt.filterHierarchies.add(pt.hierarchies.getItem(f)); } catch {}
+      }
+      pt.refresh();
+      await context.sync();
+      return `Created pivot table "${pivotName}" (${(action.rowFields||[]).length} row field(s), ${(action.dataFields||[]).length} value field(s))`;
+    }
+
+    // ── Data Validation ───────────────────────────────────────────────────────
+    case "add_data_validation": {
+      const rng  = getRange(action.range);
+      const type = (action.validationType || action.type || "list").toLowerCase().replace(/[_\s]/g,"");
+      const opMap = {
+        between: Excel.DataValidationOperator.between,
+        notbetween: Excel.DataValidationOperator.notBetween,
+        equal: Excel.DataValidationOperator.equalTo,
+        notequal: Excel.DataValidationOperator.notEqualTo,
+        greaterthan: Excel.DataValidationOperator.greaterThan,
+        lessthan: Excel.DataValidationOperator.lessThan,
+        greaterorequal: Excel.DataValidationOperator.greaterThanOrEqualTo,
+        lessorequal: Excel.DataValidationOperator.lessThanOrEqualTo,
+      };
+      const dvOp = opMap[(action.operator||"between").toLowerCase().replace(/[_\s]/g,"")] || Excel.DataValidationOperator.between;
+
+      if (type === "list") {
+        const src = Array.isArray(action.values) ? action.values.join(",") : String(action.values || "");
+        rng.dataValidation.rule = { list: { inCellDropDown: action.dropdown !== false, source: src } };
+      } else if (type === "wholenumber" || type === "whole") {
+        rng.dataValidation.rule = { wholeNumber: { operator: dvOp, formula1: String(action.min ?? action.value ?? 0), formula2: action.max !== undefined ? String(action.max) : "9999999" } };
+      } else if (type === "decimal") {
+        rng.dataValidation.rule = { decimal: { operator: dvOp, formula1: String(action.min ?? 0), formula2: String(action.max ?? 100) } };
+      } else if (type === "date") {
+        rng.dataValidation.rule = { date: { operator: dvOp, formula1: action.startDate || action.min || "2000-01-01", formula2: action.endDate || action.max || "2099-12-31" } };
+      } else if (type === "textlength") {
+        rng.dataValidation.rule = { textLength: { operator: dvOp, formula1: String(action.min ?? 0), formula2: String(action.max ?? 255) } };
+      } else if (type === "custom") {
+        rng.dataValidation.rule = { custom: { formula: action.formula || "=TRUE" } };
+      }
+      if (action.promptTitle || action.promptMessage) {
+        rng.dataValidation.prompt = { showPrompt: true, title: action.promptTitle || "", message: action.promptMessage || "" };
+      }
+      if (action.errorMessage) {
+        rng.dataValidation.errorAlert = { showAlert: true, style: Excel.DataValidationAlertStyle.stop, title: action.errorTitle || "Invalid Input", message: action.errorMessage };
+      }
+      return `Added ${action.validationType || "list"} validation to ${action.range || selAddr}`;
+    }
+
+    case "clear_data_validation": {
+      getRange(action.range).dataValidation.clear();
+      return `Cleared data validation from ${action.range || selAddr}`;
+    }
+
+    // ── Rows & Columns ────────────────────────────────────────────────────────
+    case "insert_rows": {
+      sheet.getRange(action.range).insert(Excel.InsertShiftDirection.down);
+      return `Inserted rows at ${action.range}`;
+    }
+    case "delete_rows": {
+      sheet.getRange(action.range).delete(Excel.DeleteShiftDirection.up);
+      return `Deleted rows ${action.range}`;
+    }
+    case "insert_columns": {
+      sheet.getRange(action.range).insert(Excel.InsertShiftDirection.right);
+      return `Inserted columns at ${action.range}`;
+    }
+    case "delete_columns": {
+      sheet.getRange(action.range).delete(Excel.DeleteShiftDirection.left);
+      return `Deleted columns ${action.range}`;
+    }
+    case "hide_rows":     { sheet.getRange(action.range).rowHidden    = true;  return `Hidden rows ${action.range}`; }
+    case "unhide_rows":   { sheet.getRange(action.range).rowHidden    = false; return `Unhidden rows ${action.range}`; }
+    case "hide_columns":  { sheet.getRange(action.range).columnHidden = true;  return `Hidden columns ${action.range}`; }
+    case "unhide_columns":{ sheet.getRange(action.range).columnHidden = false; return `Unhidden columns ${action.range}`; }
+
+    case "group_rows":    { sheet.getRange(action.range).group(Excel.GroupOption.byRows);    return `Grouped rows ${action.range}`; }
+    case "ungroup_rows":  { sheet.getRange(action.range).ungroup(Excel.GroupOption.byRows);  return `Ungrouped rows ${action.range}`; }
+    case "group_columns": { sheet.getRange(action.range).group(Excel.GroupOption.byColumns); return `Grouped columns ${action.range}`; }
+    case "ungroup_columns":{ sheet.getRange(action.range).ungroup(Excel.GroupOption.byColumns); return `Ungrouped columns ${action.range}`; }
+
+    // ── Cell Data ─────────────────────────────────────────────────────────────
+    case "set_values": {
+      const rng = getRange(action.range);
+      if (action.values) {
+        const vals = Array.isArray(action.values[0]) ? action.values : action.values.map(v => [v]);
+        rng.values = vals;
+      }
+      return `Set values in ${action.range || selAddr}`;
+    }
+
+    case "find_replace": {
+      const found = sheet.findAllOrNullObject(String(action.find), {
+        completeMatch: action.completeMatch || false,
+        matchCase:     action.matchCase     || false,
+      });
+      found.load("address");
+      await context.sync();
+      if (!found.isNullObject) {
+        found.replace(String(action.replaceWith ?? ""), {
+          completeMatch: action.completeMatch || false,
+          matchCase:     action.matchCase     || false,
+        });
+        return `Replaced "${action.find}" → "${action.replaceWith}"`;
+      }
+      return `No matches found for "${action.find}"`;
+    }
+
+    // ── Sheet Management ──────────────────────────────────────────────────────
+    case "duplicate_sheet": {
+      sheet.copy(Excel.WorksheetPositionType.after, sheet);
+      const sheets2 = context.workbook.worksheets;
+      sheets2.load("items/name");
+      await context.sync();
+      const copied = sheets2.items[sheets2.items.length - 1];
+      if (action.newName) copied.name = action.newName;
+      return `Duplicated sheet${action.newName ? ` as "${action.newName}"` : ""}`;
+    }
+
+    case "delete_sheet": {
+      const tSheet = action.name
+        ? context.workbook.worksheets.getItem(action.name) : sheet;
+      tSheet.delete();
+      return `Deleted sheet "${action.name || sheet.name}"`;
+    }
+
+    case "tab_color": {
+      sheet.tabColor = action.color || "#3b82f6";
+      return `Set tab color to ${action.color}`;
+    }
+
+    case "protect_sheet": {
+      const opts = {
+        allowFormatCells:    action.allowFormatCells !== false,
+        allowInsertRows:     action.allowInsertRows     || false,
+        allowDeleteRows:     action.allowDeleteRows     || false,
+        allowInsertColumns:  action.allowInsertColumns  || false,
+        allowDeleteColumns:  action.allowDeleteColumns  || false,
+        allowSort:           action.allowSort           || false,
+        allowAutoFilter:     action.allowAutoFilter     || false,
+      };
+      sheet.protection.protect(opts, action.password || "");
+      return `Protected sheet${action.password ? " with password" : ""}`;
+    }
+
+    case "unprotect_sheet": {
+      sheet.protection.unprotect(action.password || "");
+      return "Unprotected sheet";
+    }
+
+    // ── Misc ──────────────────────────────────────────────────────────────────
+    case "add_comment": {
+      context.workbook.comments.add(getRange(action.range), String(action.text || ""));
+      return `Added comment to ${action.range}`;
+    }
+
+    case "define_name": {
+      if (!action.name) throw new Error("name is required");
+      context.workbook.names.add(action.name, sheet.getRange(action.range || selAddr));
+      return `Defined named range "${action.name}"`;
     }
 
     default:

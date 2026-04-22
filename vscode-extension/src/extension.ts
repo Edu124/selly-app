@@ -199,13 +199,16 @@ function registerInlineSuggester(context: vscode.ExtensionContext): void {
       const linePrefix = doc.getText(new vscode.Range(position.with(undefined, 0), position));
       if (!linePrefix.trim() || linePrefix.trim().length < 3) return null;
 
-      // Give the model: up to 20 lines of prior context + the current partial line
-      const startLine   = Math.max(0, position.line - 20);
+      // Give the model: up to 60 lines of prior context + the current partial line
+      // Also include up to 20 lines AFTER cursor so model knows what's already written
+      const startLine   = Math.max(0, position.line - 60);
+      const endLine     = Math.min(doc.lineCount - 1, position.line + 20);
       const contextCode = doc.getText(new vscode.Range(new vscode.Position(startLine, 0), position));
+      const suffixCode  = doc.getText(new vscode.Range(position, new vscode.Position(endLine, 0)));
 
       if (token.isCancellationRequested) return null;
 
-      const suggestion = await requestInlineSuggestion(contextCode, linePrefix, doc.languageId, token);
+      const suggestion = await requestInlineSuggestion(contextCode, suffixCode, linePrefix, doc.languageId, token);
       if (!suggestion || token.isCancellationRequested) return null;
 
       // VS Code inserts the completion starting at the cursor position.
@@ -244,7 +247,7 @@ function stripLinePrefix(suggestion: string, linePrefix: string): string {
 }
 
 function requestInlineSuggestion(
-  ctx: string, linePrefix: string, language: string, token: vscode.CancellationToken
+  ctx: string, suffix: string, linePrefix: string, language: string, token: vscode.CancellationToken
 ): Promise<string> {
   // Bump request ID — any older pending resolve is now stale and must be ignored
   const myId = ++inlineRequestId;
@@ -271,7 +274,7 @@ function requestInlineSuggestion(
     currentOperation = "inline_suggest";
     responseBuffer   = "";
     // Pass linePrefix so Rust can use it as a prefix hint and avoid re-generating it
-    send({ type: "inline_suggest", context: ctx, linePrefix, language, suggestedTokens: 80 });
+    send({ type: "inline_suggest", context: ctx, suffix, linePrefix, language, suggestedTokens: 160 });
   });
 }
 
@@ -294,9 +297,20 @@ async function debugWithAI(): Promise<void> {
   const currentCode = doc.getText();
   const language    = doc.languageId;
 
+  // Collect VS Code diagnostics (red squiggles) for the current file
+  const diagnostics = vscode.languages.getDiagnostics(doc.uri)
+    .filter(d => d.severity === vscode.DiagnosticSeverity.Error || d.severity === vscode.DiagnosticSeverity.Warning)
+    .slice(0, 10)
+    .map(d => ({
+      line:     d.range.start.line + 1,
+      message:  d.message,
+      severity: d.severity === vscode.DiagnosticSeverity.Error ? "error" : "warning",
+      source:   d.source || "",
+    }));
+
   vscode.window.showInformationMessage("CodeForge AI: Scanning connected files…");
 
-  // Find files imported/required by the current file (max 5)
+  // Find files imported/required by the current file (max 8)
   const connectedPaths   = findConnectedFiles(currentFile, currentCode, language);
   const connectedFiles: Array<{ name: string; path: string; content: string }> = [];
   for (const fp of connectedPaths) {
@@ -304,7 +318,7 @@ async function debugWithAI(): Promise<void> {
       connectedFiles.push({
         name:    path.basename(fp),
         path:    fp,
-        content: fs.readFileSync(fp, "utf8").slice(0, 2000),
+        content: fs.readFileSync(fp, "utf8").slice(0, 3000),
       });
     } catch { /* unreadable */ }
   }
@@ -320,10 +334,11 @@ async function debugWithAI(): Promise<void> {
     type:           "debug_query",
     bugDescription: bugDesc,
     currentFile:    path.basename(currentFile),
-    currentCode:    currentCode.slice(0, 4000),
+    currentCode:    currentCode.slice(0, 8000),
     language,
     connectedFiles,
-    suggestedTokens: 1500,
+    diagnostics,
+    suggestedTokens: 2000,
   });
 }
 
@@ -475,6 +490,69 @@ async function handleTerminalFixResult(result: string, meta: Record<string, any>
 
 // ── Shared: Apply code changes via WorkspaceEdit ──────────────────────────────
 
+/** Normalize code for fuzzy matching — collapse whitespace, trim each line */
+function normalizeCode(code: string): string {
+  return code.split("\n").map(l => l.trim()).filter(l => l.length > 0).join("\n");
+}
+
+/** Find the best match position for oldCode in text.
+ *  Tries exact match first, then normalized match, then longest-line anchor. */
+function findCodeIndex(text: string, oldCode: string): { idx: number; len: number } | null {
+  // 1. Exact match
+  const exact = text.indexOf(oldCode);
+  if (exact !== -1) return { idx: exact, len: oldCode.length };
+
+  // 2. Normalized match — ignore leading/trailing whitespace per line
+  const normOld  = normalizeCode(oldCode);
+  const textLines = text.split("\n");
+  const oldLines  = normOld.split("\n");
+  if (oldLines.length === 0) return null;
+
+  for (let i = 0; i <= textLines.length - oldLines.length; i++) {
+    const slice = textLines.slice(i, i + oldLines.length).map(l => l.trim()).join("\n");
+    if (slice === normOld) {
+      // Found — compute character offset and length in original text
+      const startIdx = textLines.slice(0, i).join("\n").length + (i > 0 ? 1 : 0);
+      const endIdx   = textLines.slice(0, i + oldLines.length).join("\n").length + (i + oldLines.length > 0 ? 1 : 0);
+      return { idx: startIdx, len: endIdx - startIdx };
+    }
+  }
+
+  // 3. Anchor on the longest line — find the most unique line and search around it
+  const longestLine = oldLines.reduce((a, b) => a.length >= b.length ? a : b, "");
+  if (longestLine.trim().length > 10) {
+    const anchorIdx = text.indexOf(longestLine.trim());
+    if (anchorIdx !== -1) {
+      // Find line start before anchor
+      const lineStart = text.lastIndexOf("\n", anchorIdx) + 1;
+      // Use a window of ±5 lines around anchor
+      const windowStart = text.lastIndexOf("\n", Math.max(0, lineStart - 200)) + 1;
+      const windowEnd   = text.indexOf("\n\n", anchorIdx + 200);
+      const window      = text.slice(windowStart, windowEnd === -1 ? undefined : windowEnd);
+      const innerIdx    = window.split("\n").map(l => l.trim()).join("\n").indexOf(normOld);
+      if (innerIdx !== -1) {
+        // Rough mapping back to original
+        const normLines   = normalizeCode(window).split("\n");
+        const origLines   = window.split("\n");
+        let normCount = 0, origIdx = 0;
+        for (let k = 0; k < origLines.length; k++) {
+          if (origLines[k].trim() === normLines[normCount]) {
+            if (normCount === 0 && normalizeCode(window).indexOf(normOld) === normLines.slice(0, normCount).join("\n").length) {
+              origIdx = k;
+              break;
+            }
+            normCount++;
+          }
+        }
+        const roughStart = windowStart + origLines.slice(0, origIdx).join("\n").length;
+        return { idx: roughStart, len: oldCode.length };
+      }
+    }
+  }
+
+  return null;
+}
+
 async function applyChanges(
   changes: CodeChange[],
   connectedFiles: Array<{ name: string; path: string }>,
@@ -484,18 +562,21 @@ async function applyChanges(
 
   for (const change of changes) {
     // Resolve file path: check connected files first, fallback to current file
-    const connMatch = connectedFiles.find(f => f.name === change.file);
+    const connMatch    = connectedFiles.find(f => f.name === change.file);
     const resolvedPath = connMatch?.path
       || (path.basename(currentFilePath) === change.file ? currentFilePath : currentFilePath);
 
     try {
-      const uri  = vscode.Uri.file(resolvedPath);
-      const doc  = await vscode.workspace.openTextDocument(uri);
-      const text = doc.getText();
-      const idx  = text.indexOf(change.oldCode);
-      if (idx === -1) { vscode.window.showWarningMessage(`CodeForge AI: Could not locate code in ${change.file} — skipped.`); continue; }
-      const start = doc.positionAt(idx);
-      const end   = doc.positionAt(idx + change.oldCode.length);
+      const uri    = vscode.Uri.file(resolvedPath);
+      const doc    = await vscode.workspace.openTextDocument(uri);
+      const text   = doc.getText();
+      const match  = findCodeIndex(text, change.oldCode);
+      if (!match) {
+        vscode.window.showWarningMessage(`CodeForge AI: Could not locate code in ${change.file} — skipped.`);
+        continue;
+      }
+      const start = doc.positionAt(match.idx);
+      const end   = doc.positionAt(match.idx + match.len);
       edit.replace(uri, new vscode.Range(start, end), change.newCode);
     } catch (err) {
       vscode.window.showWarningMessage(`CodeForge AI: Could not edit ${change.file} — ${err}`);
