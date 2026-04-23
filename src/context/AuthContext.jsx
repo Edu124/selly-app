@@ -154,8 +154,12 @@ export function AuthProvider({ children }) {
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({ whatsapp_number: number })
-        .eq("id", user.id);
+        .upsert({
+          id              : user.id,
+          business_id     : profile?.business_id || user.id.split("-")[0].toUpperCase(),
+          business_name   : profile?.business_name || user.user_metadata?.business_name || "My Business",
+          whatsapp_number : number,
+        }, { onConflict: "id" });
       if (error) return { ok: false, error: error.message };
       setProfile(prev => prev ? { ...prev, whatsapp_number: number } : prev);
       return { ok: true };
