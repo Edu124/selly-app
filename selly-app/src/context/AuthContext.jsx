@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
+import { fetchSubscription } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -85,9 +86,34 @@ export function AuthProvider({ children }) {
         if (data.business_id) {
           await AsyncStorage.setItem(STORAGE_KEY_BID, data.business_id);
         }
+        // Fetch live trial/subscription status from Railway backend
+        _refreshSubFromBackend(data);
       }
     } catch (err) {
       console.error("[Auth] loadProfile error:", err.message);
+    }
+  }
+
+  // ── Pull live subscription data from Railway (real-time countdown) ─────────
+  async function _refreshSubFromBackend(currentProfile) {
+    try {
+      const sub = await fetchSubscription();
+      // sub has: { status, plan, daysRemaining, isActive, trialEnds, ... }
+      setProfile(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          trial_days_left    : sub.daysRemaining   ?? prev.trial_days_left,
+          plan               : sub.status === "active" ? "pro"
+                             : sub.status === "expired" ? "expired"
+                             : "trial",
+          subscription_status: sub.status,
+          is_active          : sub.isActive,
+          trial_ends_at      : sub.trialEnds,
+        };
+      });
+    } catch (e) {
+      // Backend unreachable — static Supabase data stays as fallback
     }
   }
 
@@ -175,7 +201,8 @@ export function AuthProvider({ children }) {
       signOut,
       resetPassword,
       updateWhatsappNumber,
-      refreshProfile: () => user && loadProfile(user.id),
+      refreshProfile     : () => user && loadProfile(user.id),
+      refreshSubscription: () => profile && _refreshSubFromBackend(profile),
     }}>
       {children}
     </AuthContext.Provider>
