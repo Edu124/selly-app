@@ -19,9 +19,10 @@ import DashboardScreen  from "../screens/DashboardScreen";
 import OrdersScreen     from "../screens/OrdersScreen";
 import CatalogScreen    from "../screens/CatalogScreen";
 import CustomersScreen  from "../screens/CustomersScreen";
-import PromotionsScreen from "../screens/PromotionsScreen";
-import BillingScreen    from "../screens/BillingScreen";
-import SettingsScreen   from "../screens/SettingsScreen";
+import PromotionsScreen    from "../screens/PromotionsScreen";
+import BillingScreen       from "../screens/BillingScreen";
+import SettingsScreen      from "../screens/SettingsScreen";
+import PhotoInquiriesScreen from "../screens/PhotoInquiriesScreen";
 
 const Tab        = createBottomTabNavigator();
 const RootStack  = createStackNavigator();
@@ -47,10 +48,11 @@ function MoreStack() {
       }}
     >
       <MoreStack_.Screen name="MoreHub"    component={MoreHubScreen}    options={{ title: "More" }} />
-      <MoreStack_.Screen name="Promotions" component={PromotionsScreen} options={{ title: "Promotions" }} />
-      <MoreStack_.Screen name="Billing"    component={BillingScreen}    options={{ title: "Billing" }} />
-      <MoreStack_.Screen name="Settings"   component={SettingsScreen}   options={{ title: "Settings" }} />
-      <MoreStack_.Screen name="Profile"    component={ProfileScreen}    options={{ title: "My Profile" }} />
+      <MoreStack_.Screen name="Promotions"    component={PromotionsScreen}    options={{ title: "Promotions" }} />
+      <MoreStack_.Screen name="Billing"       component={BillingScreen}       options={{ title: "Billing" }} />
+      <MoreStack_.Screen name="Settings"      component={SettingsScreen}      options={{ title: "Settings" }} />
+      <MoreStack_.Screen name="Profile"       component={ProfileScreen}       options={{ title: "My Profile" }} />
+      <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen} options={{ title: "Photo Inquiries" }} />
     </MoreStack_.Navigator>
   );
 }
@@ -61,10 +63,11 @@ function MoreHubScreen() {
   const { user, profile } = useAuth();
 
   const items = [
-    { icon: "⚡", label: "Promotions",   desc: "Flash sale, new arrivals, abandoned cart", screen: "Promotions" },
-    { icon: "💳", label: "Billing",       desc: "Subscription, commissions, payments",      screen: "Billing"    },
-    { icon: "👤", label: "My Profile",    desc: "Business ID, plan, webhook URL",            screen: "Profile"    },
-    { icon: "⚙️",  label: "Settings",     desc: "Server config",                             screen: "Settings"   },
+    { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",    screen: "Promotions"     },
+    { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",          screen: "PhotoInquiries" },
+    { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
+    { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },
+    { icon: "⚙️",  label: "Settings",       desc: "Server, GST, delivery, tracking APIs",   screen: "Settings"       },
   ];
 
   return (

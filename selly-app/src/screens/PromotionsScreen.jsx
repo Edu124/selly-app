@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { sendFlashSale, sendNewArrival, sendAbandonedCart, fetchCatalog, fetchCustomers } from "../lib/api";
+import { sendFlashSale, sendNewArrival, sendAbandonedCart, sendSegmentBroadcast, fetchCatalog, fetchCustomers } from "../lib/api";
 
 export default function PromotionsScreen() {
   const [products, setProducts]     = useState([]);
@@ -15,7 +15,11 @@ export default function PromotionsScreen() {
   const [flashMsg, setFlashMsg]     = useState("⚡ Flash Sale! Limited time offer on selected items.");
   const [arrivalMsg, setArrivalMsg] = useState("✨ New Arrivals are here! Check out our latest collection.");
   const [selectedProds, setSelectedProds] = useState([]);
-  const [pickModal, setPickModal]   = useState(null); // "flash" | "arrival"
+  const [pickModal, setPickModal]   = useState(null); // "flash" | "arrival" | "choose"
+  // Segment broadcast state
+  const [segMsg, setSegMsg]         = useState("");
+  const [segment, setSegment]       = useState("all");
+  const [segProds, setSegProds]     = useState([]);
 
   const load = async () => {
     try {
@@ -50,6 +54,19 @@ export default function PromotionsScreen() {
       const d = await sendNewArrival({ productIds: selectedProds, message: arrivalMsg });
       show(`✅ New arrival sent to ${d.sent || 0} customers!`);
       setSelectedProds([]);
+    } catch (e) {
+      show("Error: " + e.message, false);
+    } finally { setLoading(false); }
+  };
+
+  const sendSegment = async () => {
+    if (!segMsg.trim()) { show("Enter a message to send.", false); return; }
+    setLoading(true);
+    try {
+      const d = await sendSegmentBroadcast({ segment, message: segMsg, productIds: segProds });
+      show(`✅ Sent to ${d.sent || 0} "${segment}" customers!`);
+      setSegMsg("");
+      setSegProds([]);
     } catch (e) {
       show("Error: " + e.message, false);
     } finally { setLoading(false); }
@@ -187,6 +204,80 @@ export default function PromotionsScreen() {
         </TouchableOpacity>
       </PromoCard>
 
+      {/* ─── Segment Broadcast card ─────────────────── */}
+      <PromoCard
+        icon="🎯"
+        title="Segment Broadcast"
+        color={Colors.primary}
+        description="Target specific customer groups — VIPs, new customers, inactive buyers, or repeat shoppers."
+        customersCount={customers.length}
+      >
+        {/* Segment selector */}
+        <Text style={styles.fieldLabel}>Target Segment</Text>
+        <View style={styles.segmentRow}>
+          {[
+            { key: "all",      label: "All",      emoji: "👥" },
+            { key: "vip",      label: "VIP",       emoji: "⭐" },
+            { key: "new",      label: "New",       emoji: "🌱" },
+            { key: "inactive", label: "Inactive",  emoji: "💤" },
+            { key: "repeat",   label: "Repeat",    emoji: "🔄" },
+          ].map(s => (
+            <TouchableOpacity
+              key={s.key}
+              style={[styles.segBtn, segment === s.key && styles.segBtnActive]}
+              onPress={() => setSegment(s.key)}
+            >
+              <Text style={styles.segBtnEmoji}>{s.emoji}</Text>
+              <Text style={[styles.segBtnText, segment === s.key && { color: Colors.primary }]}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Segment description */}
+        <View style={styles.segInfoBox}>
+          <Text style={styles.segInfoText}>
+            {segment === "vip"      && "⭐ Customers who have spent ₹5,000+"}
+            {segment === "new"      && "🌱 Customers who joined in the last 30 days"}
+            {segment === "inactive" && "💤 Customers with no activity in the last 60 days"}
+            {segment === "repeat"   && "🔄 Customers with 2 or more orders"}
+            {segment === "all"      && "👥 All your customers"}
+          </Text>
+        </View>
+
+        {/* Optional product picker */}
+        <Text style={styles.fieldLabel}>Products (optional)</Text>
+        {segProds.length > 0 ? (
+          <Text style={styles.pickerNames} numberOfLines={1}>
+            {products.filter(p => segProds.includes(p.id)).map(p => p.name).join(", ")}
+          </Text>
+        ) : null}
+        <TouchableOpacity style={styles.chooseBtn} onPress={() => setPickModal("segment")}>
+          <Text style={styles.chooseBtnText}>
+            {segProds.length > 0 ? `${segProds.length} product(s) selected` : "Choose Products (optional)"}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Message</Text>
+        <TextInput
+          style={styles.msgInput}
+          value={segMsg}
+          onChangeText={setSegMsg}
+          multiline
+          numberOfLines={3}
+          placeholder={`Write your message for ${segment} customers...`}
+          placeholderTextColor={Colors.textMuted}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, { backgroundColor: Colors.primary }, loading && styles.sendBtnDisabled]}
+          onPress={sendSegment}
+          disabled={loading}
+        >
+          {loading ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.sendBtnText}>Send to {segment.charAt(0).toUpperCase() + segment.slice(1)} Customers →</Text>
+          }
+        </TouchableOpacity>
+      </PromoCard>
+
       {/* Commission note */}
       <View style={styles.commissionNote}>
         <Text style={styles.commissionTitle}>💳 Commission Reminder</Text>
@@ -195,8 +286,8 @@ export default function PromotionsScreen() {
         </Text>
       </View>
 
-      {/* Product picker modal */}
-      <Modal visible={pickModal === "choose"} animationType="slide" transparent>
+      {/* Product picker modal — shared for flash/arrival/segment */}
+      <Modal visible={pickModal === "choose" || pickModal === "segment"} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -210,11 +301,17 @@ export default function PromotionsScreen() {
               data={products}
               keyExtractor={p => String(p.id)}
               renderItem={({ item }) => {
-                const sel = selectedProds.includes(item.id);
+                const targetList = pickModal === "segment" ? segProds : selectedProds;
+                const setTarget  = pickModal === "segment"
+                  ? (fn) => setSegProds(fn)
+                  : (fn) => setSelectedProds(fn);
+                const sel = targetList.includes(item.id);
                 return (
                   <TouchableOpacity
                     style={[styles.pickItem, sel && styles.pickItemActive]}
-                    onPress={() => toggleProduct(item.id)}
+                    onPress={() => setTarget(prev =>
+                      prev.includes(item.id) ? prev.filter(p => p !== item.id) : [...prev, item.id]
+                    )}
                   >
                     <Text style={styles.pickName}>{item.name}</Text>
                     <Text style={styles.pickPrice}>₹{(item.price || 0).toLocaleString("en-IN")}</Text>
@@ -294,6 +391,15 @@ const styles = StyleSheet.create({
   commissionNote: { backgroundColor: Colors.bgCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.primary + "33", marginTop: 4 },
   commissionTitle: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: 6 },
   commissionText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+
+  // Segment selector
+  segmentRow  : { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  segBtn      : { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border },
+  segBtnActive: { backgroundColor: Colors.primary + "22", borderColor: Colors.primary },
+  segBtnEmoji : { fontSize: 13 },
+  segBtnText  : { color: Colors.textSecondary, fontSize: 12, fontWeight: "600" },
+  segInfoBox  : { backgroundColor: Colors.bgInput, borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  segInfoText : { color: Colors.textSecondary, fontSize: 12 },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },

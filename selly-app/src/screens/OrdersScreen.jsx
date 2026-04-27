@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchOrders, updateOrderStatus } from "../lib/api";
+import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking } from "../lib/api";
 import OrderRow from "../components/OrderRow";
 import StatusPill from "../components/StatusPill";
 
@@ -24,6 +24,9 @@ export default function OrdersScreen({ navigation, route }) {
   const [updating, setUpdating]   = useState(false);
   const [trackNum, setTrackNum]   = useState("");
   const [trackUrl, setTrackUrl]   = useState("");
+  const [orderOTPs, setOrderOTPs] = useState(null);  // OTP data for selected order
+  const [tracking, setTracking]   = useState(null);  // live tracking data
+  const [trackLoading, setTrackLoading] = useState(false);
 
   const load = async (reset = false) => {
     const p = reset ? 1 : page;
@@ -64,10 +67,29 @@ export default function OrdersScreen({ navigation, route }) {
       )
     : orders;
 
-  const openDetail = (order) => {
+  const openDetail = async (order) => {
     setSelected(order);
     setTrackNum(order.trackingNumber || "");
     setTrackUrl(order.trackingUrl || "");
+    setOrderOTPs(null);
+    setTracking(null);
+    // Load OTPs for COD orders
+    if (order.paymentMode === "cod") {
+      fetchOrderOTPs(order.id).then(d => setOrderOTPs(d.otps || null)).catch(() => {});
+    }
+  };
+
+  const loadTracking = async () => {
+    if (!selected?.trackingNumber) return;
+    setTrackLoading(true);
+    try {
+      const d = await fetchTracking(selected.trackingNumber, "shiprocket", selected.id);
+      setTracking(d.tracking || null);
+    } catch {
+      setTracking(null);
+    } finally {
+      setTrackLoading(false);
+    }
   };
 
   const advanceStatus = async () => {
@@ -209,24 +231,84 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 )}
 
-                {/* Tracking (only for shipping step) */}
+                {/* COD OTP display */}
+                {selected.paymentMode === "cod" && orderOTPs && (
+                  <View style={styles.otpBox}>
+                    <Text style={styles.subTitle}>🔐 Order OTPs</Text>
+                    <View style={styles.otpRow}>
+                      <View style={styles.otpItem}>
+                        <Text style={styles.otpLabel}>Delivery OTP</Text>
+                        <Text style={styles.otpCode}>{orderOTPs.cod_otp || "—"}</Text>
+                        <Text style={[styles.otpStatus, { color: orderOTPs.cod_otp_verified ? Colors.green : Colors.yellow }]}>
+                          {orderOTPs.cod_otp_verified ? "✅ Verified" : "⏳ Pending"}
+                        </Text>
+                      </View>
+                      {orderOTPs.delivery_otp && (
+                        <View style={styles.otpItem}>
+                          <Text style={styles.otpLabel}>At-Door OTP</Text>
+                          <Text style={styles.otpCode}>{orderOTPs.delivery_otp}</Text>
+                          <Text style={[styles.otpStatus, { color: orderOTPs.delivery_otp_verified ? Colors.green : Colors.yellow }]}>
+                            {orderOTPs.delivery_otp_verified ? "✅ Verified" : "⏳ Pending"}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+
+                {/* Tracking (for packing/shipping step) */}
                 {selected.status === "confirmed" || selected.status === "packed" ? (
                   <View style={styles.trackingBox}>
                     <Text style={styles.subTitle}>Tracking Info (for shipping)</Text>
                     <TextInput
                       style={styles.trackInput}
-                      placeholder="Tracking number"
+                      placeholder="Tracking number (AWB)"
                       placeholderTextColor={Colors.textMuted}
                       value={trackNum}
                       onChangeText={setTrackNum}
                     />
                     <TextInput
                       style={styles.trackInput}
-                      placeholder="Tracking URL"
+                      placeholder="Tracking URL (optional)"
                       placeholderTextColor={Colors.textMuted}
                       value={trackUrl}
                       onChangeText={setTrackUrl}
                     />
+                  </View>
+                ) : null}
+
+                {/* Live tracking for shipped orders */}
+                {selected.trackingNumber && (selected.status === "shipped" || selected.status === "out_for_delivery") ? (
+                  <View style={styles.trackingBox}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={styles.subTitle}>Live Tracking</Text>
+                      <TouchableOpacity onPress={loadTracking} disabled={trackLoading}>
+                        <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: "700" }}>
+                          {trackLoading ? "Loading..." : "Refresh ↻"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                    {tracking ? (
+                      <View style={styles.liveTrackBox}>
+                        <Text style={styles.liveStatus}>{tracking.statusText || tracking.status}</Text>
+                        <Text style={styles.liveCarrier}>{tracking.carrier} · AWB: {tracking.awb}</Text>
+                        {tracking.estimatedDate ? (
+                          <Text style={styles.liveEta}>ETA: {tracking.estimatedDate}</Text>
+                        ) : null}
+                        {(tracking.events || []).slice(0, 3).map((e, i) => (
+                          <View key={i} style={styles.eventRow}>
+                            <Text style={styles.eventDot}>•</Text>
+                            <Text style={styles.eventText}>{e.status} {e.location ? `— ${e.location}` : ""}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : (
+                      <TouchableOpacity style={styles.liveTrackBtn} onPress={loadTracking}>
+                        <Text style={{ color: Colors.primary, fontWeight: "600", fontSize: 13 }}>
+                          🔍 Fetch Live Tracking
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ) : null}
 
@@ -329,6 +411,22 @@ const styles = StyleSheet.create({
 
   trackingBox   : { marginTop: 12 },
   trackInput    : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, color: Colors.textPrimary, fontSize: 13, marginBottom: 8, borderWidth: 1, borderColor: Colors.border },
+
+  otpBox        : { marginTop: 16 },
+  otpRow        : { flexDirection: "row", gap: 10 },
+  otpItem       : { flex: 1, backgroundColor: Colors.bgCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: "center" },
+  otpLabel      : { color: Colors.textSecondary, fontSize: 11, fontWeight: "600", marginBottom: 4 },
+  otpCode       : { color: Colors.textPrimary, fontSize: 28, fontWeight: "900", letterSpacing: 4, fontFamily: "monospace" },
+  otpStatus     : { fontSize: 11, fontWeight: "700", marginTop: 4 },
+
+  liveTrackBox  : { backgroundColor: Colors.bgCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  liveStatus    : { color: Colors.textPrimary, fontSize: 15, fontWeight: "800", marginBottom: 4 },
+  liveCarrier   : { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
+  liveEta       : { color: Colors.green, fontSize: 12, fontWeight: "600", marginBottom: 8 },
+  eventRow      : { flexDirection: "row", alignItems: "flex-start", marginTop: 4 },
+  eventDot      : { color: Colors.primary, marginRight: 6 },
+  eventText     : { color: Colors.textSecondary, fontSize: 12, flex: 1 },
+  liveTrackBtn  : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, alignItems: "center", borderWidth: 1, borderColor: Colors.primary + "44" },
 
   advanceBtn    : { backgroundColor: Colors.primary, borderRadius: 12, padding: 16, alignItems: "center", marginTop: 16 },
   advanceBtnDisabled: { opacity: 0.6 },

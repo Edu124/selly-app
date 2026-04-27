@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
   gst_enabled: true, gst_rate: "5", delivery_charge: "49",
   free_above: "999", cod_fee: "30",
+  whatsapp_number: "", shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
 };
 
 export default function SettingsScreen() {
@@ -29,14 +30,18 @@ export default function SettingsScreen() {
         if (d?.settings && d.settings.business_id) {
           const s = d.settings;
           setBiz({
-            business_name   : s.business_name    || "",
-            business_gst_no : s.business_gst_no  || "",
-            business_address: s.business_address || "",
-            gst_enabled     : s.gst_enabled !== false,
-            gst_rate        : String(s.gst_rate        ?? 5),
-            delivery_charge : String(s.delivery_charge ?? 49),
-            free_above      : String(s.free_above      ?? 999),
-            cod_fee         : String(s.cod_fee         ?? 30),
+            business_name     : s.business_name       || "",
+            business_gst_no   : s.business_gst_no     || "",
+            business_address  : s.business_address    || "",
+            gst_enabled       : s.gst_enabled !== false,
+            gst_rate          : String(s.gst_rate          ?? 5),
+            delivery_charge   : String(s.delivery_charge   ?? 49),
+            free_above        : String(s.free_above         ?? 999),
+            cod_fee           : String(s.cod_fee            ?? 30),
+            whatsapp_number   : s.whatsapp_number     || "",
+            shiprocket_email  : s.shiprocket_email    || "",
+            shiprocket_password: s.shiprocket_password || "",
+            delhivery_api_key : s.delhivery_api_key   || "",
           });
         }
       })
@@ -49,14 +54,18 @@ export default function SettingsScreen() {
     setBizSaving(true);
     try {
       await saveBusinessSettings({
-        business_name   : biz.business_name.trim(),
-        business_gst_no : biz.business_gst_no.trim(),
-        business_address: biz.business_address.trim(),
-        gst_enabled     : biz.gst_enabled,
-        gst_rate        : Number(biz.gst_rate)        || 5,
-        delivery_charge : Number(biz.delivery_charge) || 49,
-        free_above      : Number(biz.free_above)      || 999,
-        cod_fee         : Number(biz.cod_fee)         || 30,
+        business_name      : biz.business_name.trim(),
+        business_gst_no    : biz.business_gst_no.trim(),
+        business_address   : biz.business_address.trim(),
+        gst_enabled        : biz.gst_enabled,
+        gst_rate           : Number(biz.gst_rate)        || 5,
+        delivery_charge    : Number(biz.delivery_charge) || 49,
+        free_above         : Number(biz.free_above)      || 999,
+        cod_fee            : Number(biz.cod_fee)         || 30,
+        whatsapp_number    : biz.whatsapp_number.trim(),
+        shiprocket_email   : biz.shiprocket_email.trim(),
+        shiprocket_password: biz.shiprocket_password.trim(),
+        delhivery_api_key  : biz.delhivery_api_key.trim(),
       });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
@@ -201,6 +210,23 @@ export default function SettingsScreen() {
         <Text style={styles.fieldLabel}>COD Extra Charge (₹)</Text>
         <TextInput style={styles.input} value={biz.cod_fee} onChangeText={v => setBizField("cod_fee", v)} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textMuted} />
 
+        <Text style={[styles.fieldLabel, { marginTop: 16 }]}>WhatsApp Business Number</Text>
+        <Text style={styles.fieldHint}>Customers see a "Chat with us" link after order confirmation</Text>
+        <TextInput style={styles.input} value={biz.whatsapp_number} onChangeText={v => setBizField("whatsapp_number", v)} placeholder="+919876543210" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+
+        <View style={styles.sectionDivider} />
+        <Text style={[styles.cardTitle, { marginBottom: 4 }]}>🚚 Shipping Integration</Text>
+        <Text style={styles.cardDesc}>Enter credentials to enable auto-tracking updates.</Text>
+
+        <Text style={styles.fieldLabel}>Shiprocket Email</Text>
+        <TextInput style={styles.input} value={biz.shiprocket_email} onChangeText={v => setBizField("shiprocket_email", v)} placeholder="your@email.com" placeholderTextColor={Colors.textMuted} autoCapitalize="none" keyboardType="email-address" />
+
+        <Text style={styles.fieldLabel}>Shiprocket Password</Text>
+        <TextInput style={styles.input} value={biz.shiprocket_password} onChangeText={v => setBizField("shiprocket_password", v)} placeholder="••••••••" placeholderTextColor={Colors.textMuted} secureTextEntry />
+
+        <Text style={styles.fieldLabel}>Delhivery API Key</Text>
+        <TextInput style={styles.input} value={biz.delhivery_api_key} onChangeText={v => setBizField("delhivery_api_key", v)} placeholder="Token xxxxxxxx" placeholderTextColor={Colors.textMuted} autoCapitalize="none" />
+
         <TouchableOpacity
           style={[styles.saveBtn, bizSaved && { backgroundColor: Colors.green }, bizSaving && { opacity: 0.6 }]}
           onPress={saveBiz}
@@ -279,6 +305,9 @@ const styles = StyleSheet.create({
   switchRow   : { flexDirection: "row", alignItems: "center", marginTop: 14, marginBottom: 4, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
   switchLabel : { color: Colors.textPrimary, fontSize: 14, fontWeight: "700" },
   switchDesc  : { color: Colors.textSecondary, fontSize: 12, marginTop: 1 },
+
+  fieldHint   : { color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -2 },
+  sectionDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 16 },
 
   planFeature : { flexDirection: "row", alignItems: "flex-start", marginBottom: 6 },
   planCheck   : { color: Colors.green, fontWeight: "800", marginRight: 8, fontSize: 14 },

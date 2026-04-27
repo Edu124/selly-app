@@ -203,6 +203,49 @@ export async function recordPayment(payload) {
   return r.data;
 }
 
+// ── Wishlist ──────────────────────────────────────────────────────────────────
+export async function fetchWishlist(customerId) {
+  const c = await client();
+  const r = await c.get(`/api/wishlist/${customerId}`);
+  return r.data;
+}
+
+// ── Photo Inquiries ───────────────────────────────────────────────────────────
+export async function fetchInquiries(pendingOnly = false) {
+  const c = await client();
+  const r = await c.get(`/api/inquiries${pendingOnly ? "?pending=true" : ""}`);
+  return r.data;
+}
+
+export async function replyToInquiry(inquiryId, reply, productId = null) {
+  const c = await client();
+  const r = await c.post(`/api/inquiries/${inquiryId}/reply`, { reply, productId });
+  return r.data;
+}
+
+// ── OTP ───────────────────────────────────────────────────────────────────────
+export async function fetchOrderOTPs(orderId) {
+  const c = await client();
+  const r = await c.get(`/api/orders/${orderId}/otp`);
+  return r.data;
+}
+
+// ── Tracking ──────────────────────────────────────────────────────────────────
+export async function fetchTracking(awb, carrier = "shiprocket", orderId = null) {
+  const c = await client();
+  const params = { carrier };
+  if (orderId) params.orderId = orderId;
+  const r = await c.get(`/api/tracking/${awb}`, { params });
+  return r.data;
+}
+
+// ── Segment Broadcast ─────────────────────────────────────────────────────────
+export async function sendSegmentBroadcast(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/segment", payload);
+  return r.data;
+}
+
 // ── Business Settings ─────────────────────────────────────────────────────────
 export async function fetchBusinessSettings() {
   const c = await client();
