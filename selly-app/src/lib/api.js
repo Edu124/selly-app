@@ -299,6 +299,18 @@ export async function adminExpire(businessId) {
   return r.data;
 }
 
+export async function adminRegisterNumber({ businessId, phoneNumberId, phoneNumber, token }) {
+  const c = await adminClient();
+  const r = await c.post("/api/admin/numbers/register", { businessId, phoneNumberId, phoneNumber, token });
+  return r.data;
+}
+
+export async function fetchAdminNumbers() {
+  const c = await adminClient();
+  const r = await c.get("/api/admin/numbers");
+  return r.data;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 export async function saveServerUrl(url) {
   await AsyncStorage.setItem(KEY_URL, url);
