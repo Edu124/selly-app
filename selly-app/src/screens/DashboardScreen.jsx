@@ -22,6 +22,10 @@ export default function DashboardScreen({ navigation }) {
       const d = await fetchDashboard();
       setData(d);
     } catch (e) {
+      // Show empty dashboard for new users instead of full-screen error
+      if (!data) {
+        setData({ stats: {}, recent: [], customers: [] });
+      }
       setError(e.message);
     } finally {
       setLoading(false);
@@ -45,9 +49,9 @@ export default function DashboardScreen({ navigation }) {
   if (error && !data) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorIcon}>⚠️</Text>
-        <Text style={styles.errorText}>Cannot reach server</Text>
-        <Text style={styles.errorSub}>{error}</Text>
+        <Text style={styles.errorIcon}>📡</Text>
+        <Text style={styles.errorText}>Connecting...</Text>
+        <Text style={styles.errorSub}>Server is waking up. This takes a few seconds on first load.</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
