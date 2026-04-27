@@ -23,6 +23,9 @@ import PromotionsScreen    from "../screens/PromotionsScreen";
 import BillingScreen       from "../screens/BillingScreen";
 import SettingsScreen      from "../screens/SettingsScreen";
 import PhotoInquiriesScreen from "../screens/PhotoInquiriesScreen";
+import AdminScreen           from "../screens/AdminScreen";
+
+const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
 const Tab        = createBottomTabNavigator();
 const RootStack  = createStackNavigator();
@@ -53,6 +56,7 @@ function MoreStack() {
       <MoreStack_.Screen name="Settings"      component={SettingsScreen}      options={{ title: "Settings" }} />
       <MoreStack_.Screen name="Profile"       component={ProfileScreen}       options={{ title: "My Profile" }} />
       <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen} options={{ title: "Photo Inquiries" }} />
+      <MoreStack_.Screen name="Admin"          component={AdminScreen}           options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
 }
@@ -62,12 +66,16 @@ function MoreHubScreen() {
   const nav     = useNavigation();
   const { user, profile } = useAuth();
 
+  const isAdminUser = user?.email === ADMIN_EMAIL;
+
   const items = [
     { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",    screen: "Promotions"     },
     { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",          screen: "PhotoInquiries" },
     { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
     { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },
     { icon: "⚙️",  label: "Settings",       desc: "Server, GST, delivery, tracking APIs",   screen: "Settings"       },
+    // Admin item — only shown to codeforeai.app@gmail.com
+    ...(isAdminUser ? [{ icon: "🔐", label: "Admin Panel", desc: "Manage client subscriptions", screen: "Admin" }] : []),
   ];
 
   return (

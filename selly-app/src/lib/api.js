@@ -259,6 +259,46 @@ export async function saveBusinessSettings(payload) {
   return r.data;
 }
 
+// ── Admin (codeforeai.app@gmail.com only) ─────────────────────────────────────
+const ADMIN_TOKEN = "selly_admin_2024"; // must match ADMIN_SECRET on Railway
+
+async function adminClient() {
+  const [base] = await Promise.all([getBaseUrl()]);
+  const { default: axios } = await import("axios");
+  return axios.create({
+    baseURL : base,
+    timeout : 20000,
+    headers : {
+      "Content-Type"  : "application/json",
+      "x-admin-token" : ADMIN_TOKEN,
+    },
+  });
+}
+
+export async function fetchAdminClients() {
+  const c = await adminClient();
+  const r = await c.get("/api/admin/clients");
+  return r.data;
+}
+
+export async function adminActivate(businessId) {
+  const c = await adminClient();
+  const r = await c.post(`/api/admin/clients/${businessId}/activate`);
+  return r.data;
+}
+
+export async function adminExtend(businessId) {
+  const c = await adminClient();
+  const r = await c.post(`/api/admin/clients/${businessId}/extend`);
+  return r.data;
+}
+
+export async function adminExpire(businessId) {
+  const c = await adminClient();
+  const r = await c.post(`/api/admin/clients/${businessId}/expire`);
+  return r.data;
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 export async function saveServerUrl(url) {
   await AsyncStorage.setItem(KEY_URL, url);
