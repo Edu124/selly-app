@@ -5,12 +5,13 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchCatalog, addProduct, toggleStock, deleteProduct, fetchInstaPost } from "../lib/api";
+import { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct, fetchInstaPost } from "../lib/api";
 
 export default function CatalogScreen() {
   const [products, setProducts]     = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showAdd, setShowAdd]       = useState(false);
+  const [editProduct, setEditProduct] = useState(null); // product being edited
   const [search, setSearch]         = useState("");
 
   const load = async () => {
@@ -88,6 +89,7 @@ export default function CatalogScreen() {
               product={item}
               onToggle={() => toggle(item.id, item.inStock)}
               onDelete={() => del(item.id, item.name)}
+              onEdit={() => setEditProduct(item)}
             />
           )}
           contentContainerStyle={styles.list}
@@ -95,16 +97,30 @@ export default function CatalogScreen() {
         />
       )}
 
+      {/* Add modal */}
       <AddProductModal
         visible={showAdd}
         onClose={() => setShowAdd(false)}
         onAdded={(p) => { setProducts(prev => [p, ...prev]); setShowAdd(false); }}
       />
+
+      {/* Edit modal */}
+      {editProduct && (
+        <EditProductModal
+          visible={!!editProduct}
+          product={editProduct}
+          onClose={() => setEditProduct(null)}
+          onSaved={(updated) => {
+            setProducts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setEditProduct(null);
+          }}
+        />
+      )}
     </View>
   );
 }
 
-function ProductCard({ product: p, onToggle, onDelete }) {
+function ProductCard({ product: p, onToggle, onDelete, onEdit }) {
   return (
     <View style={styles.card}>
       {p.imageUrl ? (
@@ -121,6 +137,9 @@ function ProductCard({ product: p, onToggle, onDelete }) {
           <Text style={styles.productPrice}>₹{(p.price || 0).toLocaleString("en-IN")}</Text>
         </View>
         <Text style={styles.productCategory}>{p.category}</Text>
+        {p.sizes?.length > 0 && (
+          <Text style={styles.productMeta}>📏 {p.sizes.join(", ")}</Text>
+        )}
         {p.instaPostUrl ? <Text style={styles.postBadge}>📸 Instagram post</Text> : null}
 
         <View style={styles.cardActions}>
@@ -133,6 +152,10 @@ function ProductCard({ product: p, onToggle, onDelete }) {
             </Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.editBtn} onPress={onEdit}>
+            <Text style={styles.editBtnText}>✏️</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
             <Text style={styles.deleteBtnText}>🗑</Text>
           </TouchableOpacity>
@@ -142,62 +165,98 @@ function ProductCard({ product: p, onToggle, onDelete }) {
   );
 }
 
+// ── Shared form fields component ──────────────────────────────────────────────
+function ProductForm({ form, setF, fetching, instaError, onInstaBlur }) {
+  const set = (k, v) => setF(f => ({ ...f, [k]: v }));
+  return (
+    <>
+      <Text style={styles.fieldLabel}>Instagram Post URL (optional)</Text>
+      <View style={styles.instaRow}>
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          placeholder="https://instagram.com/p/…"
+          placeholderTextColor={Colors.textMuted}
+          value={form.instaPostUrl}
+          onChangeText={v => set("instaPostUrl", v)}
+          onBlur={onInstaBlur}
+          autoCapitalize="none"
+        />
+        {fetching && <ActivityIndicator color={Colors.primary} style={{ marginLeft: 8 }} />}
+      </View>
+      {instaError ? <Text style={styles.errorText}>{instaError}</Text> : null}
+      {form.imageUrl ? <Image source={{ uri: form.imageUrl }} style={styles.previewImage} /> : null}
+
+      <Text style={styles.fieldLabel}>Product Name *</Text>
+      <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)} placeholder="e.g. Silk Saree" placeholderTextColor={Colors.textMuted} />
+
+      <Text style={styles.fieldLabel}>Price (₹) *</Text>
+      <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="1500" placeholderTextColor={Colors.textMuted} />
+
+      <Text style={styles.fieldLabel}>Category</Text>
+      <TextInput style={styles.input} value={form.category} onChangeText={v => set("category", v)} placeholder="Sarees, Kurtis, Candles…" placeholderTextColor={Colors.textMuted} />
+
+      <Text style={styles.fieldLabel}>Sizes (comma-separated)</Text>
+      <TextInput style={styles.input} value={form.sizes} onChangeText={v => set("sizes", v)} placeholder="S, M, L, XL" placeholderTextColor={Colors.textMuted} />
+
+      <Text style={styles.fieldLabel}>Colors (comma-separated)</Text>
+      <TextInput style={styles.input} value={form.colors} onChangeText={v => set("colors", v)} placeholder="Red, Blue, Black" placeholderTextColor={Colors.textMuted} />
+
+      <Text style={styles.fieldLabel}>Description</Text>
+      <TextInput
+        style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+        value={form.description}
+        onChangeText={v => set("description", v)}
+        placeholder="Short description…"
+        placeholderTextColor={Colors.textMuted}
+        multiline
+      />
+
+      <Text style={styles.fieldLabel}>Image URL (if not using Instagram post)</Text>
+      <TextInput style={styles.input} value={form.imageUrl} onChangeText={v => set("imageUrl", v)} placeholder="https://…" placeholderTextColor={Colors.textMuted} autoCapitalize="none" />
+    </>
+  );
+}
+
+// ── Add Product Modal ─────────────────────────────────────────────────────────
 function AddProductModal({ visible, onClose, onAdded }) {
-  const blank = { name: "", price: "", category: "", description: "", sizes: "", imageUrl: "", instaPostUrl: "" };
-  const [form, setForm]       = useState(blank);
-  const [saving, setSaving]   = useState(false);
+  const blank = { name: "", price: "", category: "", description: "", sizes: "", colors: "", imageUrl: "", instaPostUrl: "" };
+  const [form, setForm]         = useState(blank);
+  const [saving, setSaving]     = useState(false);
   const [fetching, setFetching] = useState(false);
   const [instaError, setInstaError] = useState("");
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
   const onInstaBlur = async () => {
     if (!form.instaPostUrl.trim()) return;
-    setFetching(true);
-    setInstaError("");
+    setFetching(true); setInstaError("");
     try {
       const d = await fetchInstaPost(form.instaPostUrl.trim());
       if (d.ok) {
-        setForm(f => ({
-          ...f,
-          name    : f.name || d.name || "",
-          category: f.category || d.category || "",
-          imageUrl: d.imageUrl || f.imageUrl,
-        }));
-      } else {
-        setInstaError(d.error || "Could not fetch post");
-      }
-    } catch (e) {
-      setInstaError("Network error: " + e.message);
-    } finally {
-      setFetching(false);
-    }
+        setForm(f => ({ ...f, name: f.name || d.name || "", category: f.category || d.category || "", imageUrl: d.imageUrl || f.imageUrl }));
+      } else { setInstaError(d.error || "Could not fetch post"); }
+    } catch (e) { setInstaError("Network error: " + e.message); }
+    finally { setFetching(false); }
   };
 
   const submit = async () => {
-    if (!form.name.trim() || !form.price) {
-      Alert.alert("Missing fields", "Name and price are required."); return;
-    }
+    if (!form.name.trim() || !form.price) { Alert.alert("Missing fields", "Name and price are required."); return; }
     setSaving(true);
     try {
       const payload = {
-        name       : form.name.trim(),
-        price      : Number(form.price),
-        category   : form.category.trim() || "General",
-        description: form.description.trim(),
-        sizes      : form.sizes ? form.sizes.split(",").map(s => s.trim()).filter(Boolean) : [],
-        imageUrl   : form.imageUrl.trim(),
+        name        : form.name.trim(),
+        price       : Number(form.price),
+        category    : form.category.trim() || "General",
+        description : form.description.trim(),
+        sizes       : form.sizes   ? form.sizes.split(",").map(s => s.trim()).filter(Boolean)   : [],
+        colors      : form.colors  ? form.colors.split(",").map(c => c.trim()).filter(Boolean)  : [],
+        imageUrl    : form.imageUrl.trim(),
         instaPostUrl: form.instaPostUrl.trim(),
-        inStock    : true,
+        inStock     : true,
       };
       const d = await addProduct(payload);
       onAdded(d.product || payload);
       setForm(blank);
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { Alert.alert("Error", e.message); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -209,61 +268,90 @@ function AddProductModal({ visible, onClose, onAdded }) {
             <Text style={styles.modalTitle}>Add Product</Text>
             <TouchableOpacity onPress={onClose}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
           </View>
-
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Instagram URL */}
-            <Text style={styles.fieldLabel}>Instagram Post URL (optional)</Text>
-            <View style={styles.instaRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="https://instagram.com/p/…"
-                placeholderTextColor={Colors.textMuted}
-                value={form.instaPostUrl}
-                onChangeText={v => set("instaPostUrl", v)}
-                onBlur={onInstaBlur}
-                autoCapitalize="none"
-              />
-              {fetching && <ActivityIndicator color={Colors.primary} style={{ marginLeft: 8 }} />}
+            <ProductForm form={form} setF={setForm} fetching={fetching} instaError={instaError} onInstaBlur={onInstaBlur} />
+            <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={submit} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Add Product</Text>}
+            </TouchableOpacity>
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Edit Product Modal ────────────────────────────────────────────────────────
+function EditProductModal({ visible, product: p, onClose, onSaved }) {
+  const toForm = (pr) => ({
+    name        : pr.name        || "",
+    price       : String(pr.price || ""),
+    category    : pr.category    || "",
+    description : pr.description || "",
+    sizes       : (pr.sizes  || []).join(", "),
+    colors      : (pr.colors || []).join(", "),
+    imageUrl    : pr.imageUrl    || "",
+    instaPostUrl: pr.instaPostUrl|| "",
+    inStock     : pr.inStock !== false,
+  });
+
+  const [form, setForm]     = useState(toForm(p));
+  const [saving, setSaving] = useState(false);
+
+  // Reset form when a different product is opened
+  React.useEffect(() => { setForm(toForm(p)); }, [p?.id]);
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.price) { Alert.alert("Missing fields", "Name and price are required."); return; }
+    setSaving(true);
+    try {
+      const changes = {
+        name        : form.name.trim(),
+        price       : Number(form.price),
+        category    : form.category.trim() || "General",
+        description : form.description.trim(),
+        sizes       : form.sizes   ? form.sizes.split(",").map(s => s.trim()).filter(Boolean)  : [],
+        colors      : form.colors  ? form.colors.split(",").map(c => c.trim()).filter(Boolean) : [],
+        imageUrl    : form.imageUrl.trim(),
+        inStock     : form.inStock,
+      };
+      const d = await updateProduct(p.id, changes);
+      onSaved(d.product || { ...p, ...changes });
+    } catch (e) { Alert.alert("Error", e.message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Edit Product</Text>
+            <TouchableOpacity onPress={onClose}><Text style={styles.closeBtn}>✕</Text></TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <ProductForm form={form} setF={setForm} fetching={false} instaError="" onInstaBlur={() => {}} />
+
+            {/* Stock toggle inside edit */}
+            <Text style={styles.fieldLabel}>Stock Status</Text>
+            <View style={styles.stockRow}>
+              <TouchableOpacity
+                style={[styles.stockToggle, form.inStock && styles.stockToggleActive]}
+                onPress={() => setForm(f => ({ ...f, inStock: true }))}
+              >
+                <Text style={[styles.stockToggleText, form.inStock && { color: Colors.green, fontWeight: "800" }]}>✓ In Stock</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.stockToggle, !form.inStock && styles.stockToggleInactive]}
+                onPress={() => setForm(f => ({ ...f, inStock: false }))}
+              >
+                <Text style={[styles.stockToggleText, !form.inStock && { color: Colors.red, fontWeight: "800" }]}>✗ Out of Stock</Text>
+              </TouchableOpacity>
             </View>
-            {instaError ? <Text style={styles.errorText}>{instaError}</Text> : null}
-            {form.imageUrl ? (
-              <Image source={{ uri: form.imageUrl }} style={styles.previewImage} />
-            ) : null}
 
-            <Text style={styles.fieldLabel}>Product Name *</Text>
-            <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)} placeholder="e.g. Silk Saree" placeholderTextColor={Colors.textMuted} />
-
-            <Text style={styles.fieldLabel}>Price (₹) *</Text>
-            <TextInput style={styles.input} value={form.price} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="1500" placeholderTextColor={Colors.textMuted} />
-
-            <Text style={styles.fieldLabel}>Category</Text>
-            <TextInput style={styles.input} value={form.category} onChangeText={v => set("category", v)} placeholder="Sarees, Kurtis, Candles…" placeholderTextColor={Colors.textMuted} />
-
-            <Text style={styles.fieldLabel}>Sizes (comma-separated)</Text>
-            <TextInput style={styles.input} value={form.sizes} onChangeText={v => set("sizes", v)} placeholder="S, M, L, XL" placeholderTextColor={Colors.textMuted} />
-
-            <Text style={styles.fieldLabel}>Description</Text>
-            <TextInput
-              style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-              value={form.description}
-              onChangeText={v => set("description", v)}
-              placeholder="Short description…"
-              placeholderTextColor={Colors.textMuted}
-              multiline
-            />
-
-            <Text style={styles.fieldLabel}>Image URL (if not using Instagram post)</Text>
-            <TextInput style={styles.input} value={form.imageUrl} onChangeText={v => set("imageUrl", v)} placeholder="https://…" placeholderTextColor={Colors.textMuted} autoCapitalize="none" />
-
-            <TouchableOpacity
-              style={[styles.submitBtn, saving && styles.submitBtnDisabled]}
-              onPress={submit}
-              disabled={saving}
-            >
-              {saving
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.submitText}>Add Product</Text>
-              }
+            <TouchableOpacity style={[styles.submitBtn, saving && styles.submitBtnDisabled]} onPress={submit} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Save Changes</Text>}
             </TouchableOpacity>
             <View style={{ height: 24 }} />
           </ScrollView>
@@ -294,13 +382,23 @@ const styles = StyleSheet.create({
   cardRow     : { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 },
   productName : { color: Colors.textPrimary, fontSize: 15, fontWeight: "700", flex: 1, marginRight: 8 },
   productPrice: { color: Colors.primary, fontSize: 15, fontWeight: "800" },
-  productCategory: { color: Colors.textSecondary, fontSize: 12, marginBottom: 4 },
+  productCategory: { color: Colors.textSecondary, fontSize: 12, marginBottom: 2 },
+  productMeta : { color: Colors.textMuted, fontSize: 11, marginBottom: 4 },
   postBadge   : { color: Colors.accent, fontSize: 11, marginBottom: 6 },
   cardActions : { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   stockBtn    : { flex: 1, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10, alignItems: "center" },
   stockText   : { fontSize: 12, fontWeight: "700" },
+  editBtn     : { padding: 6, backgroundColor: Colors.primary + "15", borderRadius: 8 },
+  editBtnText : { fontSize: 16 },
   deleteBtn   : { padding: 6 },
   deleteBtnText: { fontSize: 18 },
+
+  // Stock toggle in edit modal
+  stockRow    : { flexDirection: "row", gap: 10, marginBottom: 4 },
+  stockToggle : { flex: 1, borderRadius: 10, padding: 12, alignItems: "center", backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border },
+  stockToggleActive  : { backgroundColor: Colors.green + "22", borderColor: Colors.green },
+  stockToggleInactive: { backgroundColor: Colors.red + "22",   borderColor: Colors.red },
+  stockToggleText    : { fontSize: 13, color: Colors.textSecondary },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },

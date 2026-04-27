@@ -38,7 +38,7 @@ async function client() {
   const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
   return axios.create({
     baseURL : base,
-    timeout : 10000,
+    timeout : 20000,
     headers : {
       "Content-Type"  : "application/json",
       "X-Business-ID" : bid,          // header for server middleware
@@ -97,7 +97,7 @@ export async function updateProduct(id, changes) {
 
 export async function toggleStock(id, inStock) {
   const c = await client();
-  const r = await c.post("/api/catalog/stock", { productId: id, inStock });
+  const r = await c.post("/api/catalog/stock", { id, inStock });
   return r.data;
 }
 
@@ -200,6 +200,19 @@ export async function fetchCommissions() {
 export async function recordPayment(payload) {
   const c = await client();
   const r = await c.post("/api/billing/payment", payload);
+  return r.data;
+}
+
+// ── Business Settings ─────────────────────────────────────────────────────────
+export async function fetchBusinessSettings() {
+  const c = await client();
+  const r = await c.get("/api/settings");
+  return r.data;
+}
+
+export async function saveBusinessSettings(payload) {
+  const c = await client();
+  const r = await c.post("/api/settings", payload);
   return r.data;
 }
 
