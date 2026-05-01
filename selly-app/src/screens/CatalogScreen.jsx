@@ -10,17 +10,20 @@ import { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct, fe
 export default function CatalogScreen() {
   const [products, setProducts]     = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [loadError, setLoadError]   = useState(null);
   const [showAdd, setShowAdd]       = useState(false);
   const [editProduct, setEditProduct] = useState(null); // product being edited
   const [search, setSearch]         = useState("");
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const d = await fetchCatalog();
       setProducts(d.products || []);
     } catch (e) {
-      console.warn(e.message);
+      console.warn("[Catalog] load error:", e.message);
+      setLoadError(e.message);
     } finally {
       setLoading(false);
     }
@@ -80,6 +83,14 @@ export default function CatalogScreen() {
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>
+      ) : loadError ? (
+        <View style={styles.center}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorMsg}>{loadError}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={load}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={filtered}
@@ -417,4 +428,10 @@ const styles = StyleSheet.create({
   submitBtn   : { backgroundColor: Colors.primary, borderRadius: 12, padding: 16, alignItems: "center", marginTop: 20 },
   submitBtnDisabled: { opacity: 0.6 },
   submitText  : { color: "#fff", fontWeight: "800", fontSize: 16 },
+
+  // Error state
+  errorIcon   : { fontSize: 36, marginBottom: 10 },
+  errorMsg    : { color: Colors.textSecondary, fontSize: 13, textAlign: "center", marginHorizontal: 30, marginBottom: 16 },
+  retryBtn    : { backgroundColor: Colors.primary, paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10 },
+  retryText   : { color: "#fff", fontWeight: "700", fontSize: 14 },
 });

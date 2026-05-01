@@ -38,7 +38,7 @@ async function client() {
   const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
   return axios.create({
     baseURL : base,
-    timeout : 20000,
+    timeout : 35000,                   // 35s — handles Railway cold start (~30s)
     headers : {
       "Content-Type"  : "application/json",
       "X-Business-ID" : bid,          // header for server middleware
@@ -47,65 +47,14 @@ async function client() {
   });
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
-export async function fetchDashboard() {
-  const c = await client();
-  const [ordersRes, customersRes] = await Promise.all([
-    c.get("/api/orders?limit=5"),
-    c.get("/api/customers"),
-  ]);
-  return {
-    stats    : ordersRes.data.stats     || {},
-    recent   : ordersRes.data.orders    || [],
-    customers: customersRes.data.customers || [],
-  };
-}
+// ── Dashboard — Supabase direct ───────────────────────────────────────────────
+export { fetchDashboard } from "./supabase_data";
 
-// ── Orders ────────────────────────────────────────────────────────────────────
-export async function fetchOrders({ status, page = 1 } = {}) {
-  const c = await client();
-  const params = { page, limit: 20 };
-  if (status) params.status = status;
-  const r = await c.get("/api/orders", { params });
-  return r.data;
-}
+// ── Orders — Supabase direct ──────────────────────────────────────────────────
+export { fetchOrders, updateOrderStatus } from "./supabase_data";
 
-export async function updateOrderStatus(orderId, status, extra = {}) {
-  const c = await client();
-  const r = await c.post(`/api/orders/${orderId}/status`, { status, ...extra });
-  return r.data;
-}
-
-// ── Catalog ───────────────────────────────────────────────────────────────────
-export async function fetchCatalog() {
-  const c = await client();
-  const r = await c.get("/api/catalog");
-  return r.data;
-}
-
-export async function addProduct(product) {
-  const c = await client();
-  const r = await c.post("/api/catalog/add", product);
-  return r.data;
-}
-
-export async function updateProduct(id, changes) {
-  const c = await client();
-  const r = await c.put(`/api/catalog/${id}`, changes);
-  return r.data;
-}
-
-export async function toggleStock(id, inStock) {
-  const c = await client();
-  const r = await c.post("/api/catalog/stock", { id, inStock });
-  return r.data;
-}
-
-export async function deleteProduct(id) {
-  const c = await client();
-  const r = await c.delete(`/api/catalog/${id}`);
-  return r.data;
-}
+// ── Catalog — Supabase direct ─────────────────────────────────────────────────
+export { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct } from "./supabase_data";
 
 export async function fetchInstaPost(url) {
   const c = await client();
@@ -113,18 +62,8 @@ export async function fetchInstaPost(url) {
   return r.data;
 }
 
-// ── Customers ─────────────────────────────────────────────────────────────────
-export async function fetchCustomers() {
-  const c = await client();
-  const r = await c.get("/api/customers");
-  return r.data;
-}
-
-export async function fetchCustomer(id) {
-  const c = await client();
-  const r = await c.get(`/api/customers/${id}`);
-  return r.data;
-}
+// ── Customers — Supabase direct ───────────────────────────────────────────────
+export { fetchCustomers, fetchCustomer } from "./supabase_data";
 
 // ── Promotions ────────────────────────────────────────────────────────────────
 export async function sendFlashSale(payload) {
@@ -246,18 +185,8 @@ export async function sendSegmentBroadcast(payload) {
   return r.data;
 }
 
-// ── Business Settings ─────────────────────────────────────────────────────────
-export async function fetchBusinessSettings() {
-  const c = await client();
-  const r = await c.get("/api/settings");
-  return r.data;
-}
-
-export async function saveBusinessSettings(payload) {
-  const c = await client();
-  const r = await c.post("/api/settings", payload);
-  return r.data;
-}
+// ── Business Settings — Supabase direct ──────────────────────────────────────
+export { fetchBusinessSettings, saveBusinessSettings } from "./supabase_data";
 
 // ── Admin (codeforeai.app@gmail.com only) ─────────────────────────────────────
 const ADMIN_TOKEN = "selly_admin_2024"; // must match ADMIN_SECRET on Railway
@@ -267,7 +196,7 @@ async function adminClient() {
   const { default: axios } = await import("axios");
   return axios.create({
     baseURL : base,
-    timeout : 20000,
+    timeout : 35000,                   // 35s — handles Railway cold start (~30s)
     headers : {
       "Content-Type"  : "application/json",
       "x-admin-token" : ADMIN_TOKEN,

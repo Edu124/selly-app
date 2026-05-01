@@ -56,39 +56,24 @@ export function AuthProvider({ children }) {
     return () => subscription?.unsubscribe();
   }, []);
 
-  // ── Load business profile from Supabase ──────────────────────────────────
+  // ── Load business profile ─────────────────────────────────────────────────
+  // Supabase is auth-only — all business data lives in Railway PostgreSQL.
+  // The Supabase user UUID is used directly as business_id so each client's
+  // catalog, orders, customers etc. are completely isolated in Railway.
   async function loadProfile(userId) {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("business_id, business_name, plan, trial_days_left, whatsapp_number")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        // Profile might not exist yet (new user) — use fallback
-        console.warn("[Auth] Profile fetch:", error.message);
-        const fallbackProfile = {
-          business_id      : userId.split("-")[0].toUpperCase(),
-          business_name    : "My Business",
-          plan             : "trial",
-          trial_days_left  : 14,
-          whatsapp_number  : null,
-        };
-        setProfile(fallbackProfile);
-        await AsyncStorage.setItem(STORAGE_KEY_BID, fallbackProfile.business_id);
-        return;
-      }
-
-      if (data) {
-        setProfile(data);
-        // Cache business_id for API calls
-        if (data.business_id) {
-          await AsyncStorage.setItem(STORAGE_KEY_BID, data.business_id);
-        }
-        // Fetch live trial/subscription status from Railway backend
-        _refreshSubFromBackend(data);
-      }
+      const businessId = userId; // Supabase UUID → Railway business_id
+      const baseProfile = {
+        business_id    : businessId,
+        business_name  : "My Business",
+        plan           : "trial",
+        trial_days_left: 14,
+        whatsapp_number: null,
+      };
+      setProfile(baseProfile);
+      await AsyncStorage.setItem(STORAGE_KEY_BID, businessId);
+      // Pull live subscription + plan from Railway (non-blocking)
+      _refreshSubFromBackend(baseProfile);
     } catch (err) {
       console.error("[Auth] loadProfile error:", err.message);
     }
