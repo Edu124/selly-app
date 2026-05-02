@@ -54,7 +54,7 @@ export { fetchDashboard } from "./supabase_data";
 export { fetchOrders, updateOrderStatus } from "./supabase_data";
 
 // ── Catalog — Supabase direct ─────────────────────────────────────────────────
-export { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct } from "./supabase_data";
+export { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct, uploadProductImage } from "./supabase_data";
 
 export async function fetchInstaPost(url) {
   const c = await client();

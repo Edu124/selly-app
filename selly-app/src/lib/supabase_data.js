@@ -28,17 +28,20 @@ function _toProduct(row) {
     id           : row.id,
     name         : row.name,
     price        : Number(row.price),
-    category     : row.category     || "general",
-    colors       : row.colors       || [],
-    sizes        : row.sizes        || [],
-    hasSizes     : row.has_sizes    || false,
-    material     : row.material     || "",
-    description  : row.description  || "",
-    imageUrl     : row.image_url    || "",
+    category     : row.category      || "general",
+    subCategory  : row.sub_category  || "",
+    isPremium    : row.is_premium     || false,
+    extraFields  : row.extra_fields   || {},
+    colors       : row.colors        || [],
+    sizes        : row.sizes         || [],
+    hasSizes     : row.has_sizes     || false,
+    material     : row.material      || "",
+    description  : row.description   || "",
+    imageUrl     : row.image_url     || "",
     instaPostUrl : row.insta_post_url || "",
     rating       : row.rating != null ? Number(row.rating) : null,
     inStock      : row.in_stock,
-    tags         : row.tags         || [],
+    tags         : row.tags          || [],
     createdAt    : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
 }
@@ -107,6 +110,9 @@ export async function addProduct(product) {
     name           : product.name          || "",
     price          : Number(product.price) || 0,
     category       : product.category      || "general",
+    sub_category   : product.subCategory   || null,
+    is_premium     : product.isPremium     || false,
+    extra_fields   : product.extraFields   || {},
     colors         : product.colors        || [],
     sizes          : product.sizes         || [],
     has_sizes      : (product.sizes || []).length > 0,
@@ -132,6 +138,9 @@ export async function updateProduct(id, changes) {
   if (changes.name        !== undefined) updates.name          = changes.name;
   if (changes.price       !== undefined) updates.price         = changes.price;
   if (changes.category    !== undefined) updates.category      = changes.category;
+  if (changes.subCategory !== undefined) updates.sub_category  = changes.subCategory;
+  if (changes.isPremium   !== undefined) updates.is_premium    = changes.isPremium;
+  if (changes.extraFields !== undefined) updates.extra_fields  = changes.extraFields;
   if (changes.colors      !== undefined) updates.colors        = changes.colors;
   if (changes.sizes       !== undefined) { updates.sizes = changes.sizes; updates.has_sizes = changes.sizes.length > 0; }
   if (changes.material    !== undefined) updates.material      = changes.material;
@@ -168,6 +177,29 @@ export async function deleteProduct(id) {
     .eq("id", String(id));
   if (error) throw new Error(error.message);
   return { ok: true };
+}
+
+// ── Image Upload ──────────────────────────────────────────────────────────────
+// Uploads a local image URI to Supabase Storage bucket "catalog-images"
+// Returns the public URL of the uploaded image
+export async function uploadProductImage(localUri, productId) {
+  const bid = await _bid();
+  const ext  = (localUri.split(".").pop() || "jpg").split("?")[0].toLowerCase();
+  const path = `${bid}/${productId}.${ext}`;
+
+  // Fetch the local file as a blob
+  const response = await fetch(localUri);
+  const blob     = await response.blob();
+
+  const { error } = await supabase.storage
+    .from("catalog-images")
+    .upload(path, blob, { upsert: true, contentType: `image/${ext === "jpg" ? "jpeg" : ext}` });
+  if (error) throw new Error(error.message);
+
+  const { data: { publicUrl } } = supabase.storage
+    .from("catalog-images")
+    .getPublicUrl(path);
+  return publicUrl;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
