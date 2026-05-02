@@ -185,6 +185,13 @@ export async function sendSegmentBroadcast(payload) {
   return r.data;
 }
 
+// ── Video Blast ───────────────────────────────────────────────────────────────
+export async function sendVideoBlast(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/video", payload);
+  return r.data;
+}
+
 // ── Business Settings — Supabase direct ──────────────────────────────────────
 export { fetchBusinessSettings, saveBusinessSettings } from "./supabase_data";
 
