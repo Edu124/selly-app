@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
-import { fetchSubscription } from "../lib/api";
+import { fetchSubscription, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 
 const AuthContext = createContext(null);
 
@@ -15,10 +15,12 @@ const STORAGE_KEY_BID = "@selly_business_id";
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
-  const [user,        setUser]        = useState(null);
-  const [profile,     setProfile]     = useState(null);
-  const [loading,     setLoading]     = useState(true);   // initial session check
-  const [authError,   setAuthError]   = useState(null);
+  const [user,           setUser]           = useState(null);
+  const [profile,        setProfile]        = useState(null);
+  const [loading,        setLoading]        = useState(true);   // initial session check
+  const [authError,      setAuthError]      = useState(null);
+  const [industry,       setIndustry]       = useState(null);
+  const [industryLoading, setIndustryLoading] = useState(false);
 
   // ── Load session on app start ────────────────────────────────────────────
   useEffect(() => {
@@ -46,6 +48,8 @@ export function AuthProvider({ children }) {
         } else {
           setUser(null);
           setProfile(null);
+          setIndustry(null);
+          setIndustryLoading(false);
           await AsyncStorage.removeItem(STORAGE_KEY_BID);
         }
       });
@@ -74,8 +78,34 @@ export function AuthProvider({ children }) {
       await AsyncStorage.setItem(STORAGE_KEY_BID, businessId);
       // Pull live subscription + plan from Railway (non-blocking)
       _refreshSubFromBackend(baseProfile);
+      // Load industry from Supabase (non-blocking, shows splash until done)
+      _loadIndustry();
     } catch (err) {
       console.error("[Auth] loadProfile error:", err.message);
+    }
+  }
+
+  // ── Load industry from business_settings ─────────────────────────────────
+  async function _loadIndustry() {
+    setIndustryLoading(true);
+    try {
+      const { settings } = await fetchBusinessSettings();
+      setIndustry(settings?.industry || null);
+    } catch (e) {
+      setIndustry(null);
+    } finally {
+      setIndustryLoading(false);
+    }
+  }
+
+  // ── Update industry (called from IndustrySetupScreen / Settings) ──────────
+  async function updateIndustry(industryId) {
+    setIndustry(industryId); // Optimistic update — tabs switch immediately
+    try {
+      await saveBusinessSettings({ industry: industryId });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
     }
   }
 
@@ -150,6 +180,8 @@ export function AuthProvider({ children }) {
     await AsyncStorage.removeItem(STORAGE_KEY_BID);
     setUser(null);
     setProfile(null);
+    setIndustry(null);
+    setIndustryLoading(false);
   }
 
   // ── Reset password ────────────────────────────────────────────────────────
@@ -181,11 +213,14 @@ export function AuthProvider({ children }) {
       profile,
       loading,
       authError,
+      industry,
+      industryLoading,
       signIn,
       signUp,
       signOut,
       resetPassword,
       updateWhatsappNumber,
+      updateIndustry,
       refreshProfile     : () => user && loadProfile(user.id),
       refreshSubscription: () => profile && _refreshSubFromBackend(profile),
     }}>

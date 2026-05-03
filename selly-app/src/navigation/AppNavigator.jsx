@@ -1,29 +1,34 @@
 // ── App Navigator ─────────────────────────────────────────────────────────────
-// Auth-gated: shows LoginScreen if not signed in, main tabs if signed in.
+// Auth-gated:
+//   • No user  → LoginScreen
+//   • User, no industry set → IndustrySetupScreen (first-time onboarding)
+//   • User + industry set  → industry-specific MainTabs
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React from "react";
+import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput,
 } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { createStackNavigator }     from "@react-navigation/stack";
-import { useNavigation }            from "@react-navigation/native";
+import { NavigationContainer }            from "@react-navigation/native";
+import { createBottomTabNavigator }       from "@react-navigation/bottom-tabs";
+import { createStackNavigator }           from "@react-navigation/stack";
+import { useNavigation, useFocusEffect }  from "@react-navigation/native";
+import * as Clipboard                     from "expo-clipboard";
 
-import { Colors }        from "../constants/colors";
-import { useAuth }       from "../context/AuthContext";
+import { Colors }  from "../constants/colors";
+import { useAuth } from "../context/AuthContext";
 
-import LoginScreen      from "../screens/LoginScreen";
-import DashboardScreen  from "../screens/DashboardScreen";
-import OrdersScreen     from "../screens/OrdersScreen";
-import CatalogScreen    from "../screens/CatalogScreen";
-import CustomersScreen  from "../screens/CustomersScreen";
-import PromotionsScreen    from "../screens/PromotionsScreen";
-import BillingScreen       from "../screens/BillingScreen";
-import SettingsScreen      from "../screens/SettingsScreen";
+import LoginScreen          from "../screens/LoginScreen";
+import DashboardScreen      from "../screens/DashboardScreen";
+import OrdersScreen         from "../screens/OrdersScreen";
+import CatalogScreen        from "../screens/CatalogScreen";
+import CustomersScreen      from "../screens/CustomersScreen";
+import PromotionsScreen     from "../screens/PromotionsScreen";
+import BillingScreen        from "../screens/BillingScreen";
+import SettingsScreen       from "../screens/SettingsScreen";
 import PhotoInquiriesScreen from "../screens/PhotoInquiriesScreen";
-import AdminScreen           from "../screens/AdminScreen";
+import AdminScreen          from "../screens/AdminScreen";
+import IndustrySetupScreen  from "../screens/IndustrySetupScreen";
 
 const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
@@ -31,12 +36,25 @@ const Tab        = createBottomTabNavigator();
 const RootStack  = createStackNavigator();
 const MoreStack_ = createStackNavigator();
 
-const TAB_ICONS = {
-  Dashboard : "🏠",
-  Orders    : "📦",
-  Catalog   : "🛍️",
-  Customers : "👥",
-  More      : "☰",
+// ── Industry tab configuration ────────────────────────────────────────────────
+// Each industry maps the same 3 core screens to industry-specific names/icons.
+// Custom screens per industry will be swapped in here when built.
+const INDUSTRY_TABS = {
+  product: [
+    { name: "Orders",    icon: "📦", component: OrdersScreen    },
+    { name: "Catalog",   icon: "🛍️", component: CatalogScreen   },
+    { name: "Customers", icon: "👥", component: CustomersScreen  },
+  ],
+  education: [
+    { name: "Enrollments", icon: "🎓", component: OrdersScreen    },
+    { name: "Courses",     icon: "📚", component: CatalogScreen   },
+    { name: "Students",    icon: "👨‍🎓", component: CustomersScreen  },
+  ],
+  tourism: [
+    { name: "Bookings",  icon: "🗓️", component: OrdersScreen    },
+    { name: "Packages",  icon: "🌍", component: CatalogScreen   },
+    { name: "Travelers", icon: "🧳", component: CustomersScreen  },
+  ],
 };
 
 // ── More Stack ────────────────────────────────────────────────────────────────
@@ -50,23 +68,22 @@ function MoreStack() {
         cardStyle       : { backgroundColor: Colors.bg },
       }}
     >
-      <MoreStack_.Screen name="MoreHub"    component={MoreHubScreen}    options={{ title: "More" }} />
-      <MoreStack_.Screen name="Promotions"    component={PromotionsScreen}    options={{ title: "Promotions" }} />
-      <MoreStack_.Screen name="Billing"       component={BillingScreen}       options={{ title: "Billing" }} />
-      <MoreStack_.Screen name="Settings"      component={SettingsScreen}      options={{ title: "Settings" }} />
-      <MoreStack_.Screen name="Profile"       component={ProfileScreen}       options={{ title: "My Profile" }} />
+      <MoreStack_.Screen name="MoreHub"        component={MoreHubScreen}       options={{ title: "More" }} />
+      <MoreStack_.Screen name="Promotions"     component={PromotionsScreen}    options={{ title: "Promotions" }} />
+      <MoreStack_.Screen name="Billing"        component={BillingScreen}       options={{ title: "Billing" }} />
+      <MoreStack_.Screen name="Settings"       component={SettingsScreen}      options={{ title: "Settings" }} />
+      <MoreStack_.Screen name="Profile"        component={ProfileScreen}       options={{ title: "My Profile" }} />
       <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen} options={{ title: "Photo Inquiries" }} />
-      <MoreStack_.Screen name="Admin"          component={AdminScreen}           options={{ title: "Admin Panel" }} />
+      <MoreStack_.Screen name="Admin"          component={AdminScreen}          options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
 }
 
 // ── More Hub ──────────────────────────────────────────────────────────────────
 function MoreHubScreen() {
-  const nav     = useNavigation();
+  const nav              = useNavigation();
   const { user, profile } = useAuth();
-
-  const isAdminUser = user?.email === ADMIN_EMAIL;
+  const isAdminUser      = user?.email === ADMIN_EMAIL;
 
   const items = [
     { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",    screen: "Promotions"     },
@@ -74,7 +91,6 @@ function MoreHubScreen() {
     { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
     { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },
     { icon: "⚙️",  label: "Settings",       desc: "Server, GST, delivery, tracking APIs",   screen: "Settings"       },
-    // Admin item — only shown to codeforeai.app@gmail.com
     ...(isAdminUser ? [{ icon: "🔐", label: "Admin Panel", desc: "Manage client subscriptions", screen: "Admin" }] : []),
   ];
 
@@ -125,16 +141,12 @@ function MoreHubScreen() {
 }
 
 // ── Profile Screen ────────────────────────────────────────────────────────────
-import * as Clipboard from "expo-clipboard";
-import { useState, useEffect } from "react";
-import { useFocusEffect } from "@react-navigation/native";
-
 function ProfileScreen() {
   const { user, profile, signOut, updateWhatsappNumber, refreshSubscription } = useAuth();
-  const [copiedId,    setCopiedId]    = useState(false);
-  const [waNumber,    setWaNumber]    = useState(profile?.whatsapp_number || "");
-  const [saving,      setSaving]      = useState(false);
-  const [savedMsg,    setSavedMsg]    = useState(null);
+  const [copiedId, setCopiedId] = useState(false);
+  const [waNumber, setWaNumber] = useState(profile?.whatsapp_number || "");
+  const [saving,   setSaving]   = useState(false);
+  const [savedMsg, setSavedMsg] = useState(null);
 
   // Refresh live trial countdown every time this screen comes into focus
   useFocusEffect(
@@ -144,11 +156,9 @@ function ProfileScreen() {
   );
 
   const businessId = profile?.business_id || "—";
-  // Use live daysRemaining from backend; fall back to static Supabase value
   const daysLeft   = profile?.trial_days_left ?? 14;
   const isActive   = profile?.plan === "pro" || profile?.plan === "team" || profile?.subscription_status === "active";
   const isExpired  = profile?.subscription_status === "expired";
-  const hasNumber  = !!(profile?.whatsapp_number);
 
   async function copyId() {
     await Clipboard.setStringAsync(businessId);
@@ -224,7 +234,7 @@ function ProfileScreen() {
       {/* WhatsApp Number Input */}
       <View style={styles.credBox}>
         <Text style={styles.credLabel}>YOUR WHATSAPP BUSINESS NUMBER</Text>
-        <Text style={styles.credHint} style={{ color: Colors.textSecondary, fontSize: 12, marginBottom: 10 }}>
+        <Text style={{ color: Colors.textSecondary, fontSize: 12, marginBottom: 10 }}>
           Enter the phone number you want your bot to run on (with country code, e.g. +919876543210)
         </Text>
         <View style={styles.credRow}>
@@ -288,14 +298,18 @@ function ProfileScreen() {
   );
 }
 
-// ── Main Tabs ─────────────────────────────────────────────────────────────────
-function MainTabs() {
+// ── Main Tabs — industry-aware ─────────────────────────────────────────────────
+function MainTabs({ industry }) {
+  const tabs   = INDUSTRY_TABS[industry] || INDUSTRY_TABS.product;
+  const iconMap = { Dashboard: "🏠", More: "☰" };
+  tabs.forEach(t => { iconMap[t.name] = t.icon; });
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused }) => (
           <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45 }}>
-            {TAB_ICONS[route.name] || "•"}
+            {iconMap[route.name] || "•"}
           </Text>
         ),
         tabBarActiveTintColor  : Colors.primary,
@@ -326,20 +340,31 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: "Dashboard" }} />
-      <Tab.Screen name="Orders"    component={OrdersScreen}    options={{ title: "Orders"    }} />
-      <Tab.Screen name="Catalog"   component={CatalogScreen}   options={{ title: "Catalog"   }} />
-      <Tab.Screen name="Customers" component={CustomersScreen} options={{ title: "Customers" }} />
-      <Tab.Screen name="More"      component={MoreStack}       options={{ headerShown: false }} />
+      {tabs.map(tab => (
+        <Tab.Screen
+          key={tab.name}
+          name={tab.name}
+          component={tab.component}
+          options={{ title: tab.name }}
+        />
+      ))}
+      <Tab.Screen name="More" component={MoreStack} options={{ headerShown: false }} />
     </Tab.Navigator>
   );
 }
 
-// ── Root Navigator — auth-gated ───────────────────────────────────────────────
+// ── Root Navigator — auth + industry gated ────────────────────────────────────
 export default function AppNavigator() {
-  const { user, loading } = useAuth();
+  const { user, loading, industry, industryLoading, updateIndustry } = useAuth();
 
-  if (loading) {
-    // Splash / loading state while checking stored session
+  // Memoize the tabs component so React Navigation doesn't remount on re-render
+  const MainTabsComponent = React.useMemo(
+    () => function IndustryTabs() { return <MainTabs industry={industry} />; },
+    [industry]
+  );
+
+  // ── Splash (auth check or industry fetch in progress) ────────────────────
+  if (loading || (user && industryLoading)) {
     return (
       <View style={styles.splash}>
         <Text style={styles.splashLogo}>Sell<Text style={{ color: Colors.primary }}>y</Text></Text>
@@ -348,11 +373,21 @@ export default function AppNavigator() {
     );
   }
 
+  // ── Industry onboarding (logged in but no industry chosen yet) ───────────
+  if (user && !industryLoading && !industry) {
+    return (
+      <View style={{ flex: 1, backgroundColor: Colors.bg }}>
+        <IndustrySetupScreen onIndustrySet={(ind) => updateIndustry(ind)} />
+      </View>
+    );
+  }
+
+  // ── Main app ──────────────────────────────────────────────────────────────
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: Colors.bg } }}>
         {user ? (
-          <RootStack.Screen name="Main" component={MainTabs} />
+          <RootStack.Screen name="Main" component={MainTabsComponent} />
         ) : (
           <RootStack.Screen name="Login" component={LoginScreen} />
         )}
@@ -405,7 +440,6 @@ const styles = StyleSheet.create({
   credLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: "700", letterSpacing: 1, marginBottom: 8, textTransform: "uppercase" },
   credRow  : { flexDirection: "row", alignItems: "center", gap: 10 },
   credValue: { flex: 1, color: Colors.textPrimary, fontSize: 18, fontWeight: "800", letterSpacing: 1 },
-  credValueSm: { flex: 1, color: Colors.textPrimary, fontSize: 11, fontFamily: "monospace" },
   credHint : { color: Colors.textMuted, fontSize: 11, marginTop: 8, lineHeight: 16 },
   copyBtn  : { backgroundColor: Colors.primary + "22", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: Colors.primary + "44" },
   copyBtnDone: { backgroundColor: "rgba(34,197,94,0.15)", borderColor: "rgba(34,197,94,0.3)" },
@@ -429,7 +463,7 @@ const styles = StyleSheet.create({
   howStep   : { color: Colors.textSecondary, fontSize: 13, lineHeight: 22 },
   howContact: { color: Colors.primary, fontSize: 12, marginTop: 10, fontWeight: "600" },
 
-  // Input (shared with LoginScreen style)
+  // Input
   input: { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, color: Colors.textPrimary, fontSize: 15 },
 
   // Sign out

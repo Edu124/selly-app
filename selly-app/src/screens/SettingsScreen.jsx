@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { Colors } from "../constants/colors";
 import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -13,11 +14,19 @@ const DEFAULT_SETTINGS = {
   whatsapp_number: "", shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
 };
 
+const INDUSTRY_OPTIONS = [
+  { id: "product",   icon: "🛍️", label: "Product Business" },
+  { id: "education", icon: "📚", label: "Education"         },
+  { id: "tourism",   icon: "✈️", label: "Tourism & Travel"  },
+];
+
 export default function SettingsScreen() {
+  const { industry: activeIndustry, updateIndustry } = useAuth();
   const [serverUrl, setServerUrl]   = useState("");
   const [saved, setSaved]           = useState(false);
   const [testing, setTesting]       = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [industrySaving, setIndustrySaving] = useState(false);
 
   const [biz, setBiz]         = useState(DEFAULT_SETTINGS);
   const [bizSaving, setBizSaving] = useState(false);
@@ -239,6 +248,38 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Industry picker */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>🏭 Business Industry</Text>
+        <Text style={styles.cardDesc}>Change your business type. This updates the tab labels throughout the app.</Text>
+        {INDUSTRY_OPTIONS.map(opt => {
+          const isActive = activeIndustry === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              style={[
+                styles.industryRow,
+                isActive && styles.industryRowActive,
+              ]}
+              onPress={async () => {
+                if (isActive || industrySaving) return;
+                setIndustrySaving(true);
+                await updateIndustry(opt.id);
+                setIndustrySaving(false);
+              }}
+              disabled={industrySaving}
+            >
+              <Text style={styles.industryIcon}>{opt.icon}</Text>
+              <Text style={[styles.industryLabel, isActive && styles.industryLabelActive]}>{opt.label}</Text>
+              {isActive && <Text style={styles.industryCheck}>✓</Text>}
+            </TouchableOpacity>
+          );
+        })}
+        {industrySaving && (
+          <ActivityIndicator color={Colors.primary} size="small" style={{ marginTop: 8 }} />
+        )}
+      </View>
+
       {/* About */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>ℹ️ About Selly</Text>
@@ -313,4 +354,12 @@ const styles = StyleSheet.create({
   planCheck   : { color: Colors.green, fontWeight: "800", marginRight: 8, fontSize: 14 },
   planText    : { color: Colors.textSecondary, fontSize: 13 },
   commissionNote: { color: Colors.accent, fontSize: 12, fontStyle: "italic" },
+
+  // Industry picker
+  industryRow       : { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginBottom: 8, backgroundColor: Colors.bgInput },
+  industryRowActive : { borderColor: Colors.primary, backgroundColor: Colors.primary + "12" },
+  industryIcon      : { fontSize: 20, marginRight: 12 },
+  industryLabel     : { flex: 1, color: Colors.textSecondary, fontSize: 14, fontWeight: "600" },
+  industryLabelActive: { color: Colors.primary, fontWeight: "800" },
+  industryCheck     : { color: Colors.primary, fontSize: 16, fontWeight: "900" },
 });
