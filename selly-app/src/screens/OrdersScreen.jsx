@@ -6,13 +6,50 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import OrderRow from "../components/OrderRow";
 import StatusPill from "../components/StatusPill";
 
-const STATUS_FILTERS = ["all", "pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
-const STATUS_FLOW    = ["pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"];
+// ── Industry configuration ────────────────────────────────────────────────────
+const ORDER_CONFIG = {
+  product: {
+    itemLabel    : "order",
+    itemLabelCap : "Order",
+    personLabel  : "Customer",
+    cartLabel    : "Cart Items",
+    filters      : ["all", "pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"],
+    filterLabels : { all: "All", pending_payment: "Pending", confirmed: "Confirmed", packed: "Packed", shipped: "Shipped", out_for_delivery: "Out for Delivery", delivered: "Delivered" },
+    statusFlow   : ["pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"],
+    showTracking : true,
+    showAddress  : true,
+  },
+  education: {
+    itemLabel    : "enrollment",
+    itemLabelCap : "Enrollment",
+    personLabel  : "Student",
+    cartLabel    : "Courses",
+    filters      : ["all", "pending_payment", "confirmed", "shipped", "delivered"],
+    filterLabels : { all: "All", pending_payment: "Pending Fees", confirmed: "Active", shipped: "In Progress", delivered: "Completed" },
+    statusFlow   : ["pending_payment", "confirmed", "shipped", "delivered"],
+    showTracking : false,
+    showAddress  : false,
+  },
+  tourism: {
+    itemLabel    : "booking",
+    itemLabelCap : "Booking",
+    personLabel  : "Traveler",
+    cartLabel    : "Packages",
+    filters      : ["all", "pending_payment", "confirmed", "shipped", "delivered"],
+    filterLabels : { all: "All", pending_payment: "Inquiry", confirmed: "Confirmed", shipped: "Upcoming", delivered: "Completed" },
+    statusFlow   : ["pending_payment", "confirmed", "shipped", "delivered"],
+    showTracking : false,
+    showAddress  : true,
+  },
+};
 
 export default function OrdersScreen({ navigation, route }) {
+  const { industry } = useAuth();
+  const cfg = ORDER_CONFIG[industry] || ORDER_CONFIG.product;
   const [orders, setOrders]       = useState([]);
   const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);
@@ -47,7 +84,11 @@ export default function OrdersScreen({ navigation, route }) {
     }
   };
 
-  useFocusEffect(useCallback(() => { load(true); }, [filter]));
+  useFocusEffect(useCallback(() => {
+    // Reset filter to "all" when industry changes and reload
+    setFilter("all");
+    load(true);
+  }, [industry]));
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
@@ -94,8 +135,8 @@ export default function OrdersScreen({ navigation, route }) {
 
   const advanceStatus = async () => {
     if (!selected) return;
-    const idx  = STATUS_FLOW.indexOf(selected.status);
-    const next = STATUS_FLOW[idx + 1];
+    const idx  = cfg.statusFlow.indexOf(selected.status);
+    const next = cfg.statusFlow[idx + 1];
     if (!next) return;
     setUpdating(true);
     try {
@@ -138,21 +179,21 @@ export default function OrdersScreen({ navigation, route }) {
         style={styles.filterScroll}
         contentContainerStyle={styles.filterContent}
       >
-        {STATUS_FILTERS.map(s => (
+        {cfg.filters.map(s => (
           <TouchableOpacity
             key={s}
             style={[styles.filterChip, filter === s && styles.filterChipActive]}
             onPress={() => setFilter(s)}
           >
             <Text style={[styles.filterText, filter === s && styles.filterTextActive]}>
-              {s === "all" ? "All" : s.replace(/_/g, " ")}
+              {cfg.filterLabels[s] || s}
             </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
       {/* Count */}
-      <Text style={styles.countLabel}>{total} orders</Text>
+      <Text style={styles.countLabel}>{total} {cfg.itemLabel}{total !== 1 ? "s" : ""}</Text>
 
       {/* List */}
       {loading ? (
@@ -164,7 +205,7 @@ export default function OrdersScreen({ navigation, route }) {
           data={filtered}
           keyExtractor={o => String(o.id)}
           renderItem={({ item }) => (
-            <OrderRow order={item} onPress={() => openDetail(item)} />
+            <OrderRow order={item} industry={industry} onPress={() => openDetail(item)} />
           )}
           contentContainerStyle={styles.list}
           onEndReached={loadMore}
@@ -188,21 +229,21 @@ export default function OrdersScreen({ navigation, route }) {
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Order #{selected.id}</Text>
+                  <Text style={styles.modalTitle}>{cfg.itemLabelCap} #{selected.id}</Text>
                   <TouchableOpacity onPress={() => setSelected(null)}>
                     <Text style={styles.closeBtn}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                <StatusPill status={selected.status} />
+                <StatusPill status={selected.status} industry={industry} />
 
-                {/* Customer */}
-                <InfoRow label="Customer"  value={selected.name} />
-                <InfoRow label="Phone"     value={selected.mobile} />
-                <InfoRow label="Address"   value={selected.address} />
+                {/* Customer / Student / Traveler */}
+                <InfoRow label={cfg.personLabel} value={selected.name} />
+                <InfoRow label="Phone"           value={selected.mobile} />
+                {cfg.showAddress && <InfoRow label="Address" value={selected.address} />}
 
-                {/* Cart */}
-                <Text style={styles.subTitle}>Cart Items</Text>
+                {/* Cart / Courses / Packages */}
+                <Text style={styles.subTitle}>{cfg.cartLabel}</Text>
                 {(selected.cart || []).map((item, i) => (
                   <View key={i} style={styles.cartItem}>
                     <Text style={styles.cartName}>{item.name}</Text>
@@ -256,8 +297,8 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 )}
 
-                {/* Tracking (for packing/shipping step) */}
-                {selected.status === "confirmed" || selected.status === "packed" ? (
+                {/* Tracking (product only — not relevant for education/tourism) */}
+                {cfg.showTracking && (selected.status === "confirmed" || selected.status === "packed") ? (
                   <View style={styles.trackingBox}>
                     <Text style={styles.subTitle}>Tracking Info (for shipping)</Text>
                     <TextInput
@@ -277,8 +318,7 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
-                {/* Live tracking for shipped orders */}
-                {selected.trackingNumber && (selected.status === "shipped" || selected.status === "out_for_delivery") ? (
+                {cfg.showTracking && selected.trackingNumber && (selected.status === "shipped" || selected.status === "out_for_delivery") ? (
                   <View style={styles.trackingBox}>
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <Text style={styles.subTitle}>Live Tracking</Text>
@@ -312,8 +352,8 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
-                {/* Advance status button */}
-                {STATUS_FLOW.indexOf(selected.status) < STATUS_FLOW.length - 1 && (
+                {/* Advance status button — uses industry-specific label */}
+                {cfg.statusFlow.indexOf(selected.status) < cfg.statusFlow.length - 1 && (
                   <TouchableOpacity
                     style={[styles.advanceBtn, updating && styles.advanceBtnDisabled]}
                     onPress={advanceStatus}
@@ -321,9 +361,11 @@ export default function OrdersScreen({ navigation, route }) {
                   >
                     {updating
                       ? <ActivityIndicator color="#fff" />
-                      : <Text style={styles.advanceBtnText}>
-                          Mark as {STATUS_FLOW[STATUS_FLOW.indexOf(selected.status) + 1].replace(/_/g, " ")} →
-                        </Text>
+                      : (() => {
+                          const nextRaw = cfg.statusFlow[cfg.statusFlow.indexOf(selected.status) + 1];
+                          const nextLabel = cfg.filterLabels[nextRaw] || nextRaw.replace(/_/g, " ");
+                          return <Text style={styles.advanceBtnText}>Mark as {nextLabel} →</Text>;
+                        })()
                     }
                   </TouchableOpacity>
                 )}
