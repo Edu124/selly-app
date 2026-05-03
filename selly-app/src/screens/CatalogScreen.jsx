@@ -7,9 +7,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "../constants/colors";
+import { useAuth } from "../context/AuthContext";
 import {
   fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct,
-  uploadProductImage, fetchBusinessSettings, saveBusinessSettings,
+  uploadProductImage,
 } from "../lib/api";
 
 // ── Industry Configuration ────────────────────────────────────────────────────
@@ -136,34 +137,6 @@ function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
   );
 }
 
-// ── Industry Picker Modal ─────────────────────────────────────────────────────
-function IndustryPickerModal({ visible, onSelect }) {
-  return (
-    <Modal visible={visible} animationType="fade" transparent>
-      <View style={styles.fullOverlay}>
-        <View style={styles.industrySheet}>
-          <Text style={styles.industryTitle}>What kind of business are you?</Text>
-          <Text style={styles.industrySubtitle}>We'll customize your catalog form for you.</Text>
-
-          {Object.entries(INDUSTRIES).map(([key, cfg]) => (
-            <TouchableOpacity key={key} style={[styles.industryCard, { borderColor: cfg.color + "55" }]} onPress={() => onSelect(key)}>
-              <Text style={styles.industryCardIcon}>{cfg.icon}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.industryCardLabel, { color: cfg.color }]}>{cfg.label}</Text>
-                <Text style={styles.industryCardDesc}>
-                  {key === "education" && "Courses, coaching, tutoring, workshops"}
-                  {key === "product"   && "Clothing, electronics, food, accessories"}
-                  {key === "tourism"   && "Travel packages, tours, itineraries"}
-                </Text>
-              </View>
-              <Text style={{ color: cfg.color, fontSize: 20 }}>›</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 // ── Education Form ────────────────────────────────────────────────────────────
 function EducationForm({ form, set }) {
@@ -553,11 +526,11 @@ function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function CatalogScreen() {
+  const { industry } = useAuth();   // industry is set during onboarding
+
   const [products,    setProducts]    = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [loadError,   setLoadError]   = useState(null);
-  const [industry,    setIndustry]    = useState(null);   // null = not loaded yet
-  const [showPicker,  setShowPicker]  = useState(false);
   const [showAdd,     setShowAdd]     = useState(false);
   const [editProduct, setEditProduct] = useState(null);
   const [search,      setSearch]      = useState("");
@@ -566,14 +539,8 @@ export default function CatalogScreen() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [catalogData, settingsData] = await Promise.all([
-        fetchCatalog(),
-        fetchBusinessSettings(),
-      ]);
+      const catalogData = await fetchCatalog();
       setProducts(catalogData.products || []);
-      const ind = settingsData.settings?.industry || null;
-      setIndustry(ind);
-      if (!ind) setShowPicker(true);
     } catch (e) {
       console.warn("[Catalog] load error:", e.message);
       setLoadError(e.message);
@@ -583,13 +550,6 @@ export default function CatalogScreen() {
   };
 
   useFocusEffect(useCallback(() => { load(); }, []));
-
-  const selectIndustry = async (ind) => {
-    setShowPicker(false);
-    setIndustry(ind);
-    try { await saveBusinessSettings({ industry: ind }); }
-    catch (e) { console.warn("Failed to save industry:", e.message); }
-  };
 
   const toggle = async (id, current) => {
     try {
@@ -628,9 +588,6 @@ export default function CatalogScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Industry picker (first-time) */}
-      <IndustryPickerModal visible={showPicker} onSelect={selectIndustry} />
-
       {/* Top bar */}
       <View style={styles.topBar}>
         <View style={styles.searchWrap}>
@@ -648,15 +605,10 @@ export default function CatalogScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Industry badge + change */}
-      {industry && (
-        <View style={styles.industryBar}>
-          <Text style={[styles.industryBadge, { color: cfg.color }]}>{cfg.icon} {cfg.label}</Text>
-          <TouchableOpacity onPress={() => setShowPicker(true)}>
-            <Text style={styles.changeIndustryBtn}>Change</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Industry badge (read-only — change via Settings) */}
+      <View style={styles.industryBar}>
+        <Text style={[styles.industryBadge, { color: cfg.color }]}>{cfg.icon} {cfg.label}</Text>
+      </View>
 
       <Text style={styles.countLabel}>{filtered.length} {cfg.itemLabel.toLowerCase()}s</Text>
 
@@ -677,7 +629,7 @@ export default function CatalogScreen() {
           renderItem={({ item }) => (
             <ProductCard
               product={item}
-              industry={industry || "product"}
+              industry={industry}
               onToggle={() => toggle(item.id, item.inStock)}
               onDelete={() => del(item.id, item.name)}
               onEdit={() => setEditProduct(item)}
@@ -697,7 +649,7 @@ export default function CatalogScreen() {
       {/* Add modal */}
       <AddEditModal
         visible={showAdd}
-        industry={industry || "product"}
+        industry={industry}
         product={null}
         onClose={() => setShowAdd(false)}
         onDone={(p) => { setProducts(prev => [p, ...prev]); setShowAdd(false); }}
@@ -707,7 +659,7 @@ export default function CatalogScreen() {
       {editProduct && (
         <AddEditModal
           visible={!!editProduct}
-          industry={industry || "product"}
+          industry={industry}
           product={editProduct}
           onClose={() => setEditProduct(null)}
           onDone={(updated) => {
@@ -732,7 +684,6 @@ const styles = StyleSheet.create({
 
   industryBar        : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 4 },
   industryBadge      : { fontSize: 13, fontWeight: "700" },
-  changeIndustryBtn  : { color: Colors.textSecondary, fontSize: 12, textDecorationLine: "underline" },
 
   countLabel : { color: Colors.textMuted, fontSize: 12, paddingHorizontal: 16, marginBottom: 8 },
   list       : { padding: 16, gap: 12, paddingBottom: 40 },
@@ -774,15 +725,6 @@ const styles = StyleSheet.create({
   photoChangeBtn  : { position: "absolute", bottom: 8, right: 8, backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   photoChangeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
 
-  // Industry picker
-  fullOverlay       : { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", padding: 20 },
-  industrySheet     : { backgroundColor: Colors.bgCard, borderRadius: 20, padding: 24, gap: 12 },
-  industryTitle     : { color: Colors.textPrimary, fontSize: 20, fontWeight: "900", marginBottom: 2 },
-  industrySubtitle  : { color: Colors.textSecondary, fontSize: 13, marginBottom: 8 },
-  industryCard      : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgInput, borderRadius: 14, padding: 14, borderWidth: 1, gap: 12 },
-  industryCardIcon  : { fontSize: 28 },
-  industryCardLabel : { fontSize: 15, fontWeight: "800" },
-  industryCardDesc  : { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
 
   // Premium toggle
   premiumRow  : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1a1508", borderRadius: 12, padding: 14, marginTop: 14, borderWidth: 1, borderColor: "#f59e0b33" },
