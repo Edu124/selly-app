@@ -15,13 +15,16 @@ const DEFAULT_SETTINGS = {
 };
 
 const INDUSTRY_OPTIONS = [
-  { id: "product",   icon: "🛍️", label: "Product Business" },
-  { id: "education", icon: "📚", label: "Education"         },
-  { id: "tourism",   icon: "✈️", label: "Tourism & Travel"  },
+  { id: "product",   icon: "🛍️", label: "Product Business"      },
+  { id: "education", icon: "📚", label: "Education"               },
+  { id: "tourism",   icon: "✈️", label: "Tourism & Travel"        },
+  { id: "kirana",    icon: "🛒", label: "Kirana / Grocery"        },
+  { id: "cakes",     icon: "🎂", label: "Cake & Bakery"           },
+  { id: "icecream",  icon: "🍦", label: "Ice Cream & Desserts"    },
 ];
 
 export default function SettingsScreen() {
-  const { industry: activeIndustry, updateIndustry } = useAuth();
+  const { industry: activeIndustry, updateIndustry, profile } = useAuth();
   const [serverUrl, setServerUrl]   = useState("");
   const [saved, setSaved]           = useState(false);
   const [testing, setTesting]       = useState(false);
@@ -34,12 +37,15 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     getServerUrl().then(url => setServerUrl(url));
+    // profile.business_name comes from Supabase auth metadata (set at signup)
+    // and is used as a fallback if business_settings hasn't been written yet.
+    const profileName = profile?.business_name || "";
     fetchBusinessSettings()
       .then(d => {
         if (d?.settings && d.settings.business_id) {
           const s = d.settings;
           setBiz({
-            business_name     : s.business_name       || "",
+            business_name     : s.business_name       || profileName,
             business_gst_no   : s.business_gst_no     || "",
             business_address  : s.business_address    || "",
             gst_enabled       : s.gst_enabled !== false,

@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator,
+  TextInput, Modal, ScrollView, ActivityIndicator, Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
-import { fetchCustomers } from "../lib/api";
+import { fetchCustomers, importContacts } from "../lib/api";
 
 // ── Industry configuration ────────────────────────────────────────────────────
 const CUSTOMER_CONFIG = {
@@ -75,6 +75,67 @@ const CUSTOMER_CONFIG = {
     showReferral: false,
     showIg      : false,
   },
+  kirana: {
+    personLabel      : "Customer",
+    personLabelPlural: "customers",
+    emptyText        : "No customers yet",
+    searchPlaceholder: "Search by name or phone…",
+    orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
+    filters: [
+      { key: "all",     label: "All"             },
+      { key: "daily",   label: "📅 Daily Regular" },
+      { key: "weekly",  label: "📆 Weekly"        },
+      { key: "new",     label: "🆕 New"           },
+      { key: "vip",     label: "⭐ VIP"           },
+    ],
+    stat1Label  : "Orders",
+    stat2Label  : "Total Spent",
+    stat3Label  : "Referrals",
+    stat3Key    : "referralCount",
+    showReferral: true,
+    showIg      : false,
+  },
+  cakes: {
+    personLabel      : "Customer",
+    personLabelPlural: "customers",
+    emptyText        : "No customers yet",
+    searchPlaceholder: "Search by name or phone…",
+    orderCountLabel  : (n) => `${n} cake order${n !== 1 ? "s" : ""}`,
+    filters: [
+      { key: "all",       label: "All"            },
+      { key: "birthday",  label: "🎂 Birthday"    },
+      { key: "wedding",   label: "💒 Wedding"     },
+      { key: "corporate", label: "💼 Corporate"   },
+      { key: "regular",   label: "🔁 Regular"     },
+      { key: "vip",       label: "⭐ VIP"         },
+    ],
+    stat1Label  : "Orders",
+    stat2Label  : "Total Spent",
+    stat3Label  : "Referrals",
+    stat3Key    : "referralCount",
+    showReferral: true,
+    showIg      : false,
+  },
+  icecream: {
+    personLabel      : "Customer",
+    personLabelPlural: "customers",
+    emptyText        : "No customers yet",
+    searchPlaceholder: "Search by name or phone…",
+    orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
+    filters: [
+      { key: "all",     label: "All"          },
+      { key: "regular", label: "🔁 Regular"   },
+      { key: "bulk",    label: "📦 Bulk Order" },
+      { key: "vip",     label: "⭐ VIP"       },
+      { key: "new",     label: "🆕 New"       },
+    ],
+    stat1Label  : "Orders",
+    stat2Label  : "Total Spent",
+    stat3Label  : "Referrals",
+    stat3Key    : "referralCount",
+    showReferral: true,
+    showIg      : false,
+  },
 };
 
 // Tag badge colors — shared + industry-specific
@@ -100,12 +161,21 @@ export default function CustomersScreen() {
   const { industry } = useAuth();
   const cfg = CUSTOMER_CONFIG[industry] || CUSTOMER_CONFIG.product;
 
-  const [customers, setCustomers] = useState([]);
-  const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState("");
-  const [selected,  setSelected]  = useState(null);
-  const [copied,    setCopied]    = useState(false);
-  const [filterTag, setFilterTag] = useState("all");
+  const [customers,   setCustomers]   = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [search,      setSearch]      = useState("");
+  const [selected,    setSelected]    = useState(null);
+  const [copied,      setCopied]      = useState(false);
+  const [filterTag,   setFilterTag]   = useState("all");
+
+  // ── Import contacts state ────────────────────────────────────────────────────
+  const [importModal,   setImportModal]   = useState(false);
+  const [importTab,     setImportTab]     = useState("single"); // "single" | "bulk"
+  const [singleName,    setSingleName]    = useState("");
+  const [singlePhone,   setSinglePhone]   = useState("");
+  const [bulkText,      setBulkText]      = useState("");
+  const [importing,     setImporting]     = useState(false);
+  const [importResult,  setImportResult]  = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -130,6 +200,49 @@ export default function CustomersScreen() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // ── Import handlers ──────────────────────────────────────────────────────────
+  const doImport = async (contacts) => {
+    if (!contacts.length) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const d = await importContacts(contacts);
+      setImportResult({ ok: true, msg: `✅ ${d.imported} ${cfg.personLabelPlural} added!${d.skipped ? `  (${d.skipped} skipped — invalid number)` : ""}` });
+      setSingleName(""); setSinglePhone(""); setBulkText("");
+      load(); // refresh list
+    } catch (e) {
+      setImportResult({ ok: false, msg: "Error: " + e.message });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const importSingle = () => {
+    const phone = singlePhone.replace(/[^0-9]/g, "");
+    if (phone.length < 10) { setImportResult({ ok: false, msg: "Enter a valid 10-digit number." }); return; }
+    doImport([{ name: singleName.trim() || "Contact", phone }]);
+  };
+
+  const importBulk = () => {
+    const lines = bulkText.split("\n").map(l => l.trim()).filter(Boolean);
+    const contacts = lines.map(line => {
+      // Support formats: "Name, Phone" / "Name Phone" / just "Phone"
+      const comma = line.indexOf(",");
+      if (comma > -1) {
+        return { name: line.slice(0, comma).trim(), phone: line.slice(comma + 1).trim() };
+      }
+      // Try to split on last whitespace-group that looks like a phone number
+      const parts = line.split(/\s+/);
+      const lastPart = parts[parts.length - 1];
+      if (/^[+0-9\s-]{9,15}$/.test(lastPart) && parts.length > 1) {
+        return { name: parts.slice(0, -1).join(" "), phone: lastPart };
+      }
+      return { name: "", phone: line };
+    });
+    if (!contacts.length) { setImportResult({ ok: false, msg: "No valid lines found." }); return; }
+    doImport(contacts);
+  };
+
   const filtered = customers.filter(c => {
     const matchSearch = !search.trim() ||
       (c.name     || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -141,21 +254,26 @@ export default function CustomersScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <Text>🔍 </Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={cfg.searchPlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch("")}>
-            <Text style={styles.clearBtn}>✕</Text>
-          </TouchableOpacity>
-        )}
+      {/* Search + Import button row */}
+      <View style={styles.topRow}>
+        <View style={[styles.searchWrap, { flex: 1, marginRight: 8 }]}>
+          <Text>🔍 </Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={cfg.searchPlaceholder}
+            placeholderTextColor={Colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Text style={styles.clearBtn}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity style={styles.addContactBtn} onPress={() => { setImportResult(null); setImportModal(true); }}>
+          <Text style={styles.addContactBtnText}>➕ Add</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filter chips — scrollable */}
@@ -299,6 +417,125 @@ export default function CustomersScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Import / Add Contacts Modal ────────────────────────────────────── */}
+      <Modal visible={importModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                ➕ Add {cfg.personLabelPlural.charAt(0).toUpperCase() + cfg.personLabelPlural.slice(1)}
+              </Text>
+              <TouchableOpacity onPress={() => { setImportModal(false); setImportResult(null); }}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Tab switcher */}
+            <View style={styles.importTabRow}>
+              <TouchableOpacity
+                style={[styles.importTab, importTab === "single" && styles.importTabActive]}
+                onPress={() => { setImportTab("single"); setImportResult(null); }}
+              >
+                <Text style={[styles.importTabText, importTab === "single" && styles.importTabTextActive]}>
+                  👤 Add One
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.importTab, importTab === "bulk" && styles.importTabActive]}
+                onPress={() => { setImportTab("bulk"); setImportResult(null); }}
+              >
+                <Text style={[styles.importTabText, importTab === "bulk" && styles.importTabTextActive]}>
+                  📋 Bulk Import
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Result banner */}
+            {importResult && (
+              <View style={[styles.importResult, { backgroundColor: importResult.ok ? Colors.green + "22" : Colors.red + "22" }]}>
+                <Text style={{ color: importResult.ok ? Colors.green : Colors.red, fontWeight: "700", fontSize: 13 }}>
+                  {importResult.msg}
+                </Text>
+              </View>
+            )}
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 4 }}>
+              {importTab === "single" ? (
+                <>
+                  <Text style={styles.importFieldLabel}>Name (optional)</Text>
+                  <TextInput
+                    style={styles.importInput}
+                    placeholder={`e.g. Rahul Sharma`}
+                    placeholderTextColor={Colors.textMuted}
+                    value={singleName}
+                    onChangeText={setSingleName}
+                    autoCapitalize="words"
+                  />
+                  <Text style={styles.importFieldLabel}>WhatsApp Number *</Text>
+                  <TextInput
+                    style={styles.importInput}
+                    placeholder="e.g. 9876543210 (10-digit, no spaces)"
+                    placeholderTextColor={Colors.textMuted}
+                    value={singlePhone}
+                    onChangeText={setSinglePhone}
+                    keyboardType="phone-pad"
+                    maxLength={15}
+                  />
+                  <Text style={styles.importHint}>
+                    💡 The {cfg.personLabel.toLowerCase()} will be added to your list. They will receive WhatsApp broadcasts you send from Promotions.
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.importBtn, importing && styles.importBtnDisabled]}
+                    onPress={importSingle}
+                    disabled={importing}
+                  >
+                    {importing
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={styles.importBtnText}>Add {cfg.personLabel} →</Text>
+                    }
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.importFieldLabel}>Paste contacts (one per line)</Text>
+                  <Text style={styles.importHint}>
+                    Formats supported:{"\n"}
+                    • <Text style={{ color: Colors.textPrimary }}>9876543210</Text>  (just number){"\n"}
+                    • <Text style={{ color: Colors.textPrimary }}>Rahul, 9876543210</Text>  (name, number){"\n"}
+                    • <Text style={{ color: Colors.textPrimary }}>Priya Verma 9123456789</Text>  (name space number)
+                  </Text>
+                  <TextInput
+                    style={[styles.importInput, { minHeight: 160, textAlignVertical: "top" }]}
+                    placeholder={"9876543210\nRahul Sharma, 9123456789\nPriya 9001234567"}
+                    placeholderTextColor={Colors.textMuted}
+                    value={bulkText}
+                    onChangeText={setBulkText}
+                    multiline
+                    autoCapitalize="none"
+                  />
+                  <Text style={styles.importCountHint}>
+                    {bulkText.split("\n").filter(l => l.trim()).length} line{bulkText.split("\n").filter(l => l.trim()).length !== 1 ? "s" : ""} entered
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.importBtn, importing && styles.importBtnDisabled]}
+                    onPress={importBulk}
+                    disabled={importing}
+                  >
+                    {importing
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={styles.importBtnText}>Import All {cfg.personLabelPlural.charAt(0).toUpperCase() + cfg.personLabelPlural.slice(1)} →</Text>
+                    }
+                  </TouchableOpacity>
+                </>
+              )}
+              <View style={{ height: 32 }} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -325,10 +562,6 @@ function StatBox({ label, value }) {
 const styles = StyleSheet.create({
   container  : { flex: 1, backgroundColor: Colors.bg },
   center     : { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  searchWrap : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgInput, margin: 16, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: Colors.border },
-  searchInput: { flex: 1, color: Colors.textPrimary, paddingVertical: 10, fontSize: 14 },
-  clearBtn   : { color: Colors.textMuted, fontSize: 16, padding: 4 },
 
   filterScroll : { maxHeight: 46 },
   filterContent: { paddingHorizontal: 16, gap: 8, alignItems: "center" },
@@ -383,4 +616,27 @@ const styles = StyleSheet.create({
   referralCodeText : { color: Colors.primary, fontWeight: "800", fontSize: 16, letterSpacing: 2 },
   copyIcon         : { fontSize: 18 },
   referralEarnings : { color: Colors.green, fontSize: 12, marginTop: 8, fontWeight: "600" },
+
+  // Search + Add button row
+  topRow        : { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 16 },
+  searchWrap    : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgInput, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: Colors.border },
+  searchInput   : { flex: 1, color: Colors.textPrimary, paddingVertical: 10, fontSize: 14 },
+  clearBtn      : { color: Colors.textMuted, fontSize: 16, padding: 4 },
+  addContactBtn : { backgroundColor: Colors.primary, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  addContactBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+
+  // Import modal
+  importTabRow      : { flexDirection: "row", backgroundColor: Colors.bgInput, borderRadius: 12, padding: 4, marginBottom: 16 },
+  importTab         : { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 10 },
+  importTabActive   : { backgroundColor: Colors.primary },
+  importTabText     : { color: Colors.textSecondary, fontSize: 13, fontWeight: "700" },
+  importTabTextActive: { color: "#fff" },
+  importFieldLabel  : { color: Colors.textSecondary, fontSize: 12, fontWeight: "700", marginBottom: 6, marginTop: 12, textTransform: "uppercase", letterSpacing: 0.5 },
+  importInput       : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border },
+  importHint        : { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8, marginBottom: 4 },
+  importCountHint   : { color: Colors.textSecondary, fontSize: 12, marginTop: 6, marginBottom: 2 },
+  importResult      : { borderRadius: 10, padding: 12, marginBottom: 8 },
+  importBtn         : { backgroundColor: Colors.primary, borderRadius: 12, padding: 15, alignItems: "center", marginTop: 16 },
+  importBtnDisabled : { opacity: 0.6 },
+  importBtnText     : { color: "#fff", fontWeight: "800", fontSize: 15 },
 });

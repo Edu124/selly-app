@@ -192,6 +192,34 @@ export async function sendVideoBlast(payload) {
   return r.data;
 }
 
+// ── Image Blast ───────────────────────────────────────────────────────────────
+export async function sendImageBlast(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/image", payload);
+  return r.data;
+}
+
+// ── PDF / Notes Blast ─────────────────────────────────────────────────────────
+export async function sendPdfBlast(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/pdf", payload);
+  return r.data;
+}
+
+// ── Upload media file (base64) to backend → get hosted URL ───────────────────
+export async function uploadMedia(payload) {
+  const c = await client();
+  const r = await c.post("/api/promote/upload", payload);
+  return r.data;
+}
+
+// ── Import existing contacts (students / customers) ───────────────────────────
+export async function importContacts(contacts) {
+  const c = await client();
+  const r = await c.post("/api/customers/import", { contacts });
+  return r.data;
+}
+
 // ── Business Settings — Supabase direct ──────────────────────────────────────
 export { fetchBusinessSettings, saveBusinessSettings } from "./supabase_data";
 

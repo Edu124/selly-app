@@ -29,6 +29,21 @@ import SettingsScreen       from "../screens/SettingsScreen";
 import PhotoInquiriesScreen from "../screens/PhotoInquiriesScreen";
 import AdminScreen          from "../screens/AdminScreen";
 import IndustrySetupScreen  from "../screens/IndustrySetupScreen";
+// Education-specific screens
+import EnrollmentsScreen    from "../screens/EnrollmentsScreen";
+import CoursesScreen        from "../screens/CoursesScreen";
+// Tourism-specific screens
+import BookingsScreen       from "../screens/BookingsScreen";
+import PackagesScreen       from "../screens/PackagesScreen";
+// Kirana-specific screens
+import KiranaOrdersScreen   from "../screens/KiranaOrdersScreen";
+import InventoryScreen      from "../screens/InventoryScreen";
+// Cakes-specific screens
+import CakeOrdersScreen     from "../screens/CakeOrdersScreen";
+import CakeMenuScreen       from "../screens/CakeMenuScreen";
+// Ice Cream-specific screens
+import IceCreamOrdersScreen from "../screens/IceCreamOrdersScreen";
+import FlavorsScreen        from "../screens/FlavorsScreen";
 
 const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
@@ -46,14 +61,29 @@ const INDUSTRY_TABS = {
     { name: "Customers", icon: "👥", component: CustomersScreen  },
   ],
   education: [
-    { name: "Enrollments", icon: "🎓", component: OrdersScreen    },
-    { name: "Courses",     icon: "📚", component: CatalogScreen   },
-    { name: "Students",    icon: "👨‍🎓", component: CustomersScreen  },
+    { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen },
+    { name: "Courses",     icon: "📚", component: CoursesScreen     },
+    { name: "Students",    icon: "👨‍🎓", component: CustomersScreen   },
   ],
   tourism: [
-    { name: "Bookings",  icon: "🗓️", component: OrdersScreen    },
-    { name: "Packages",  icon: "🌍", component: CatalogScreen   },
+    { name: "Bookings",  icon: "🗓️", component: BookingsScreen  },
+    { name: "Packages",  icon: "🌍", component: PackagesScreen  },
     { name: "Travelers", icon: "🧳", component: CustomersScreen  },
+  ],
+  kirana: [
+    { name: "Orders",    icon: "🧾", component: KiranaOrdersScreen },
+    { name: "Inventory", icon: "📦", component: InventoryScreen    },
+    { name: "Customers", icon: "👥", component: CustomersScreen     },
+  ],
+  cakes: [
+    { name: "Orders",    icon: "🎂", component: CakeOrdersScreen   },
+    { name: "Menu",      icon: "📋", component: CakeMenuScreen      },
+    { name: "Customers", icon: "👥", component: CustomersScreen     },
+  ],
+  icecream: [
+    { name: "Orders",    icon: "🍦", component: IceCreamOrdersScreen },
+    { name: "Flavors",   icon: "🎨", component: FlavorsScreen        },
+    { name: "Customers", icon: "👥", component: CustomersScreen      },
   ],
 };
 

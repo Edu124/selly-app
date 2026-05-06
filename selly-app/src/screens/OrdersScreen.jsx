@@ -28,9 +28,9 @@ const ORDER_CONFIG = {
     itemLabelCap : "Enrollment",
     personLabel  : "Student",
     cartLabel    : "Courses",
-    filters      : ["all", "pending_payment", "confirmed", "shipped", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Pending Fees", confirmed: "Active", shipped: "In Progress", delivered: "Completed" },
-    statusFlow   : ["pending_payment", "confirmed", "shipped", "delivered"],
+    filters      : ["all", "pending_payment", "confirmed", "in_progress", "completed"],
+    filterLabels : { all: "All", pending_payment: "Pending Fees", confirmed: "Enrolled", in_progress: "In Progress", completed: "Completed" },
+    statusFlow   : ["pending_payment", "confirmed", "in_progress", "completed"],
     showTracking : false,
     showAddress  : false,
   },
@@ -258,7 +258,7 @@ export default function OrdersScreen({ navigation, route }) {
                 <View style={styles.billBox}>
                   <BillRow label="Subtotal"  value={selected.bill?.subtotal} />
                   {selected.bill?.discount > 0 && <BillRow label="Discount" value={`-₹${selected.bill.discount}`} color={Colors.green} />}
-                  <BillRow label="Shipping"  value={selected.bill?.shipping === 0 ? "FREE" : `₹${selected.bill?.shipping}`} />
+                  {cfg.showAddress && <BillRow label="Shipping" value={selected.bill?.delivery === 0 ? "FREE" : `₹${selected.bill?.delivery || 0}`} />}
                   <View style={styles.divider} />
                   <BillRow label="Total"     value={`₹${(selected.bill?.total || 0).toLocaleString("en-IN")}`} bold />
                 </View>
@@ -278,7 +278,7 @@ export default function OrdersScreen({ navigation, route }) {
                     <Text style={styles.subTitle}>🔐 Order OTPs</Text>
                     <View style={styles.otpRow}>
                       <View style={styles.otpItem}>
-                        <Text style={styles.otpLabel}>Delivery OTP</Text>
+                        <Text style={styles.otpLabel}>{cfg.showAddress ? "Delivery OTP" : "Enrollment OTP"}</Text>
                         <Text style={styles.otpCode}>{orderOTPs.cod_otp || "—"}</Text>
                         <Text style={[styles.otpStatus, { color: orderOTPs.cod_otp_verified ? Colors.green : Colors.yellow }]}>
                           {orderOTPs.cod_otp_verified ? "✅ Verified" : "⏳ Pending"}

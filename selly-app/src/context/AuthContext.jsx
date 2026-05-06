@@ -32,7 +32,7 @@ export function AuthProvider({ children }) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          await loadProfile(session.user.id);
+          await loadProfile(session.user);  // pass full user object
         }
       } catch (err) {
         console.error("[Auth] Init error:", err.message);
@@ -44,7 +44,7 @@ export function AuthProvider({ children }) {
       const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (session?.user) {
           setUser(session.user);
-          await loadProfile(session.user.id);
+          await loadProfile(session.user);  // pass full user object
         } else {
           setUser(null);
           setProfile(null);
@@ -64,12 +64,20 @@ export function AuthProvider({ children }) {
   // Supabase is auth-only — all business data lives in Railway PostgreSQL.
   // The Supabase user UUID is used directly as business_id so each client's
   // catalog, orders, customers etc. are completely isolated in Railway.
-  async function loadProfile(userId) {
+  // business_name is stored in Supabase auth user metadata at signup and
+  // synced to business_settings so the WhatsApp bot can read it.
+  async function loadProfile(user) {
     try {
-      const businessId = userId; // Supabase UUID → Railway business_id
+      const businessId = user.id; // Supabase UUID → Railway business_id
+
+      // Read business name from Supabase auth user metadata (set at signup)
+      const metaName   = user.user_metadata?.business_name
+                      || user.raw_user_meta_data?.business_name
+                      || null;
+
       const baseProfile = {
         business_id    : businessId,
-        business_name  : "My Business",
+        business_name  : metaName || "My Business",
         plan           : "trial",
         trial_days_left: 14,
         whatsapp_number: null,
@@ -78,19 +86,31 @@ export function AuthProvider({ children }) {
       await AsyncStorage.setItem(STORAGE_KEY_BID, businessId);
       // Pull live subscription + plan from Railway (non-blocking)
       _refreshSubFromBackend(baseProfile);
-      // Load industry from Supabase (non-blocking, shows splash until done)
-      _loadIndustry();
+      // Load industry + sync business name to business_settings (non-blocking)
+      _loadIndustry(metaName);
     } catch (err) {
       console.error("[Auth] loadProfile error:", err.message);
     }
   }
 
-  // ── Load industry from business_settings ─────────────────────────────────
-  async function _loadIndustry() {
+  // ── Load industry from business_settings & sync business name ────────────
+  // If business_settings doesn't have a business_name yet (first login after
+  // signup), write the name from auth metadata so the bot greeting works.
+  async function _loadIndustry(metaBusinessName = null) {
     setIndustryLoading(true);
     try {
       const { settings } = await fetchBusinessSettings();
       setIndustry(settings?.industry || null);
+
+      // Sync business name to business_settings so the WhatsApp bot can use it
+      const savedName = settings?.business_name;
+      if (!savedName && metaBusinessName) {
+        // First time — write to business_settings for the bot to read
+        await saveBusinessSettings({ business_name: metaBusinessName }).catch(() => {});
+      } else if (savedName) {
+        // Use the name from settings (could have been updated via Settings screen)
+        setProfile(prev => prev ? { ...prev, business_name: savedName } : prev);
+      }
     } catch (e) {
       setIndustry(null);
     } finally {
@@ -221,7 +241,7 @@ export function AuthProvider({ children }) {
       resetPassword,
       updateWhatsappNumber,
       updateIndustry,
-      refreshProfile     : () => user && loadProfile(user.id),
+      refreshProfile     : () => user && loadProfile(user),
       refreshSubscription: () => profile && _refreshSubFromBackend(profile),
     }}>
       {children}

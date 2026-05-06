@@ -170,6 +170,15 @@ function EducationForm({ form, set }) {
       <Text style={styles.fieldLabel}>Mode</Text>
       <ChipRow items={["Online","Offline","Hybrid"]} selected={form.mode} onSelect={v => set("mode", v)} color={cfg.color} />
 
+      {(form.mode === "Online" || form.mode === "Hybrid") && (
+        <>
+          <Text style={styles.fieldLabel}>Online Class Link (Zoom / Meet / etc.)</Text>
+          <TextInput style={styles.input} value={form.classLink} onChangeText={v => set("classLink", v)}
+            placeholder="https://meet.google.com/..." placeholderTextColor={Colors.textMuted}
+            autoCapitalize="none" keyboardType="url" />
+        </>
+      )}
+
       <Text style={styles.fieldLabel}>What's Included</Text>
       <TextInput
         style={[styles.input, { height: 80, textAlignVertical: "top" }]}
@@ -307,7 +316,7 @@ function TourismForm({ form, set }) {
 const BLANK = {
   name:"", price:"", category:"", subCategory:"", description:"", imageUrl:"",
   sizes:[], colors:"", material:"", isPremium:false, inStock:true,
-  duration:"", batchTiming:"", mode:"Online", whatIncluded:"",
+  duration:"", batchTiming:"", mode:"Online", whatIncluded:"", classLink:"",
   destination:"", groupSize:"", inclusions:"",
 };
 
@@ -329,6 +338,7 @@ function toForm(p) {
     batchTiming:  ef.batchTiming || "",
     mode:         ef.mode        || "Online",
     whatIncluded: ef.whatIncluded|| "",
+    classLink:    ef.classLink   || "",
     destination:  ef.destination || p.subCategory || "",
     groupSize:    String(ef.groupSize || ""),
     inclusions:   ef.inclusions  || "",
@@ -369,6 +379,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       if (form.batchTiming)  extraFields.batchTiming  = form.batchTiming;
       if (form.mode)         extraFields.mode         = form.mode;
       if (form.whatIncluded) extraFields.whatIncluded = form.whatIncluded;
+      if (form.classLink)    extraFields.classLink    = form.classLink;
     }
     if (industry === "tourism") {
       if (form.subCategory) extraFields.destination  = form.subCategory;
@@ -392,9 +403,13 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
     };
   };
 
+  // Industry-aware validation labels
+  const nameLbl  = industry === "education" ? "course name" : industry === "tourism" ? "package name" : "product name";
+  const priceLbl = industry === "education" ? "course fees" : industry === "tourism" ? "package price" : "price";
+
   const submit = async () => {
-    if (!form.name.trim()) { Alert.alert("Required", "Please enter a name."); return; }
-    if (!form.price || isNaN(Number(form.price))) { Alert.alert("Required", "Please enter a valid price."); return; }
+    if (!form.name.trim()) { Alert.alert("Required", `Please enter a ${nameLbl}.`); return; }
+    if (!form.price || isNaN(Number(form.price))) { Alert.alert("Required", `Please enter valid ${priceLbl}.`); return; }
     setSaving(true);
     try {
       const payload = buildPayload();
