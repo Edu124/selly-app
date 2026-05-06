@@ -208,6 +208,8 @@ export async function uploadProductImage(localUri, productId) {
 
 export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
   const bid = await _bid();
+
+  // ── Paginated orders (for list display) ──────────────────────────────────
   let query = supabase
     .from("orders")
     .select("*", { count: "exact" })
@@ -221,20 +223,51 @@ export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
   if (error) throw new Error(error.message);
 
   const orders = (data || []).map(_toOrder);
-  const today  = new Date().toDateString();
-  const stats  = {
-    total        : count || 0,
-    pending      : orders.filter(o => o.status === "pending_payment").length,
-    confirmed    : orders.filter(o => o.status === "confirmed").length,
-    shipped      : orders.filter(o => o.status === "shipped").length,
-    delivered    : orders.filter(o => o.status === "delivered").length,
-    todayRevenue : orders
-      .filter(o => new Date(o.createdAt).toDateString() === today && o.status !== "pending_payment")
-      .reduce((s, o) => s + (o.bill?.total || 0), 0),
-    totalRevenue : orders
-      .filter(o => o.status !== "pending_payment" && o.status !== "cancelled")
-      .reduce((s, o) => s + (o.bill?.total || 0), 0),
-  };
+
+  // ── Full stats query — fetches all orders to count per-status correctly ──
+  // (only run when NOT filtering by status, to avoid skewing counts)
+  let stats;
+  if (!status) {
+    const { data: allData } = await supabase
+      .from("orders")
+      .select("status, bill, created_at")
+      .eq("business_id", bid);
+
+    const all   = allData || [];
+    const today = new Date().toDateString();
+    stats = {
+      total    : count || 0,
+      pending  : all.filter(o => o.status === "pending_payment").length,
+      confirmed: all.filter(o => o.status === "confirmed").length,
+      // shipped covers "shipped" + education "in_progress" + tourism equivalents
+      shipped  : all.filter(o => o.status === "shipped" || o.status === "in_progress").length,
+      // delivered covers "delivered" + education "completed"
+      delivered: all.filter(o => o.status === "delivered" || o.status === "completed").length,
+      todayRevenue: all
+        .filter(o => new Date(o.created_at).toDateString() === today && o.status !== "pending_payment")
+        .reduce((s, o) => s + (o.bill?.total || 0), 0),
+      totalRevenue: all
+        .filter(o => o.status !== "pending_payment" && o.status !== "cancelled")
+        .reduce((s, o) => s + (o.bill?.total || 0), 0),
+    };
+  } else {
+    // When filtering by status, stats are approximate from the current page
+    const today = new Date().toDateString();
+    stats = {
+      total    : count || 0,
+      pending  : orders.filter(o => o.status === "pending_payment").length,
+      confirmed: orders.filter(o => o.status === "confirmed").length,
+      shipped  : orders.filter(o => o.status === "shipped" || o.status === "in_progress").length,
+      delivered: orders.filter(o => o.status === "delivered" || o.status === "completed").length,
+      todayRevenue: orders
+        .filter(o => new Date(o.createdAt).toDateString() === today && o.status !== "pending_payment")
+        .reduce((s, o) => s + (o.bill?.total || 0), 0),
+      totalRevenue: orders
+        .filter(o => o.status !== "pending_payment" && o.status !== "cancelled")
+        .reduce((s, o) => s + (o.bill?.total || 0), 0),
+    };
+  }
+
   return { orders, total: count || 0, page, stats };
 }
 
