@@ -554,7 +554,7 @@ export default function CustomersScreen() {
                     }
                   </TouchableOpacity>
                 </>
-              ) : (
+              ) : importTab === "bulk" ? (
                 <>
                   <Text style={styles.importFieldLabel}>Paste contacts (one per line)</Text>
                   <Text style={styles.importHint}>
