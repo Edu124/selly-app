@@ -4,6 +4,11 @@
 // business_id is stored in AsyncStorage for API calls
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Website URL (for auth email redirects) ────────────────────────────────────
+// Password-reset emails link to this URL so users can set a new password.
+// Update this if you change the deployed domain of the selly website.
+const SELLY_WEBSITE_URL = "https://selly.in";
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
@@ -176,7 +181,10 @@ export function AuthProvider({ children }) {
         email,
         password,
         options: {
-          data: { business_name: businessName },
+          data            : { business_name: businessName },
+          // After clicking the confirmation link, redirect to the selly website
+          // (user can then re-open the app and sign in normally)
+          emailRedirectTo : `${SELLY_WEBSITE_URL}/login`,
         },
       });
       if (error) {
@@ -206,7 +214,11 @@ export function AuthProvider({ children }) {
 
   // ── Reset password ────────────────────────────────────────────────────────
   async function resetPassword(email) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Link in the email opens this page — it handles the recovery token
+      // and shows a "set new password" form.
+      redirectTo: `${SELLY_WEBSITE_URL}/reset-password`,
+    });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
   }
