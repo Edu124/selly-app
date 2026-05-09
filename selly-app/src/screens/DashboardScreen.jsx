@@ -43,7 +43,7 @@ const INDUSTRY_CONFIG = {
     quickActions  : [
       { icon: "📢", label: "Batch Alert",   screen: "Promotions",  color: Colors.blue    },
       { icon: "🎓", label: "Add Course",    screen: "Courses",     color: Colors.primary },
-      { icon: "💰", label: "Fee Reminder",  screen: "Promotions",  color: Colors.yellow  },
+      { icon: "💰", label: "Fee Reminder",  screen: "Promotions",  color: Colors.yellow,  params: { action: "feeReminder" } },
       { icon: "📣", label: "Promo Blast",   screen: "Promotions",  color: Colors.accent  },
     ],
   },
@@ -253,7 +253,10 @@ export default function DashboardScreen({ navigation }) {
               icon={action.icon}
               label={action.label}
               color={action.color}
-              onPress={() => navigation.navigate(action.screen)}
+              onPress={() => navigation.navigate(
+                action.screen,
+                action.params || undefined
+              )}
             />
           ))}
         </View>

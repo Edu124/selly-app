@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   TextInput, ActivityIndicator, Modal, FlatList, Image,
@@ -94,18 +94,29 @@ const TEMPLATES_SEGMENT_TOURISM = [
   { label: "😴 Inactive Traveller Nudge",text: "Hey, it's been a while since your last adventure 😊 We'd love to plan your next trip! Here's a special welcome-back deal — just reply and we'll sort you out!" },
 ];
 
+const TEMPLATES_FEE_REMINDER = [
+  { label: "💰 Friendly Fee Reminder",    text: "Hi! 👋 This is a gentle reminder that your course fees are due. Please make the payment at the earliest to continue your classes without interruption. Reply if you need help 🙏" },
+  { label: "⏰ Last Date Reminder",        text: "⏰ Reminder: Your fee payment deadline is approaching! Please pay before [date] to avoid any break in your classes. Reply to confirm or for any queries." },
+  { label: "📅 Monthly Fee Due",           text: "📅 Your monthly course fees are now due. Kindly make the payment at your earliest convenience. Reply if you need any assistance 🙏" },
+  { label: "🔔 Fee Overdue Notice",        text: "🔔 We noticed your fee payment is overdue. Please clear your dues at the earliest to continue accessing classes. Contact us if you're facing any difficulty 🙏" },
+  { label: "🎓 Exam / Result Fees",        text: "🎓 Your exam/certification fees are due. Please make the payment to confirm your seat for the upcoming exam. Reply to confirm or for queries." },
+  { label: "📚 Batch Renewal Reminder",    text: "📚 Your current batch is ending soon! To continue in the next batch, please complete your fee payment and renewal. Reply RENEW to proceed 🙏" },
+  { label: "✅ Payment Confirmation Ask",  text: "Hi! Just checking if you've completed your fee payment. If yes, please share the payment screenshot. If not, let us know if you need any help 🙏" },
+];
+
 // ── Returns the right template set based on industry ─────────────────────────
 function getTemplates(industry) {
   const ind = (industry || "").toLowerCase();
   const isEdu  = ind === "education";
   const isTour = ind === "tourism" || ind === "travel";
   return {
-    flash  : isEdu ? TEMPLATES_EDUCATION.flash : isTour ? TEMPLATES_TOURISM.flash : TEMPLATES_PRODUCT.flash,
-    arrival: isEdu ? TEMPLATES_EDUCATION.arrival : isTour ? TEMPLATES_TOURISM.arrival : TEMPLATES_PRODUCT.arrival,
-    segment: isEdu ? TEMPLATES_SEGMENT_EDUCATION : isTour ? TEMPLATES_SEGMENT_TOURISM : TEMPLATES_SEGMENT_PRODUCT,
-    video  : TEMPLATES_VIDEO,
-    image  : TEMPLATES_IMAGE,
-    pdf    : TEMPLATES_PDF,
+    flash      : isEdu ? TEMPLATES_EDUCATION.flash : isTour ? TEMPLATES_TOURISM.flash : TEMPLATES_PRODUCT.flash,
+    arrival    : isEdu ? TEMPLATES_EDUCATION.arrival : isTour ? TEMPLATES_TOURISM.arrival : TEMPLATES_PRODUCT.arrival,
+    segment    : isEdu ? TEMPLATES_SEGMENT_EDUCATION : isTour ? TEMPLATES_SEGMENT_TOURISM : TEMPLATES_SEGMENT_PRODUCT,
+    feeReminder: TEMPLATES_FEE_REMINDER,
+    video      : TEMPLATES_VIDEO,
+    image      : TEMPLATES_IMAGE,
+    pdf        : TEMPLATES_PDF,
   };
 }
 
@@ -158,11 +169,14 @@ const AUDIENCE_LABEL = { education: "students", tourism: "travelers", default: "
 const audienceOf = (ind) => AUDIENCE_LABEL[ind] || AUDIENCE_LABEL.default;
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
-export default function PromotionsScreen() {
+export default function PromotionsScreen({ route }) {
   const { industry } = useAuth();
   const audience     = audienceOf(industry);
   const isEdu        = industry === "education";
   const templates    = getTemplates(industry);
+
+  const scrollRef        = useRef(null);
+  const feeReminderYRef  = useRef(0);   // Y offset of the fee reminder card
 
   const [products, setProducts]     = useState([]);
   const [customers, setCustomers]   = useState([]);
@@ -216,10 +230,24 @@ export default function PromotionsScreen() {
   const [pdfSegment,  setPdfSegment]  = useState("all");
   const [pdfUploading, setPdfUploading] = useState(false);
 
+  // Fee Reminder (education only)
+  const [feeMsg,     setFeeMsg]     = useState("💰 This is a gentle reminder that your course fees are due. Please make the payment at the earliest to avoid any interruption in your classes. Reply if you need help 🙏");
+  const [feeSeg,     setFeeSeg]     = useState("all");
+
   // Modals
   const [pickModal, setPickModal]   = useState(null);
   const [templateType, setTemplateType] = useState(null);
   const [templateSetter, setTemplateSetter] = useState(null);
+
+  // Auto-scroll to fee reminder if opened via quick action
+  useEffect(() => {
+    if (route?.params?.action === "feeReminder" && feeReminderYRef.current) {
+      const timer = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: feeReminderYRef.current - 16, animated: true });
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [route?.params?.action]);
 
   const load = async () => {
     try {
@@ -359,6 +387,16 @@ export default function PromotionsScreen() {
     finally { setLoading(false); }
   };
 
+  const sendFeeReminder = async () => {
+    if (!feeMsg.trim()) { show("Enter a reminder message.", false); return; }
+    setLoading(true);
+    try {
+      const d = await sendSegmentBroadcast({ segment: feeSeg, message: feeMsg, productIds: [] });
+      show(`✅ Fee reminder sent to ${d.sent || 0} students!`);
+    } catch (e) { show("Error: " + e.message, false); }
+    finally { setLoading(false); }
+  };
+
   const sendVideo = async () => {
     if (!videoUrl.trim())     { show("Paste a hosted video URL first.", false); return; }
     if (!videoCaption.trim()) { show("Enter a caption for the video.", false); return; }
@@ -375,7 +413,7 @@ export default function PromotionsScreen() {
   const selectedNames = products.filter(p => selectedProds.includes(p.id)).map(p => p.name).join(", ");
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.pageTitle}>Promotions</Text>
       <Text style={styles.pageSubtitle}>Blast promotional DMs to your {customers.length} {audience}</Text>
 
@@ -494,6 +532,44 @@ export default function PromotionsScreen() {
               </Text>}
         </TouchableOpacity>
       </PromoCard>
+
+      {/* ─── Fee Reminder (education only) ──────────────────────────────── */}
+      {isEdu && (
+        <View onLayout={e => { feeReminderYRef.current = e.nativeEvent.layout.y; }}>
+          <PromoCard
+            icon="💰"
+            title="Fee Reminder"
+            color={Colors.yellow}
+            description="Send a payment reminder to your students. Choose to send to all students or a specific group."
+            customersCount={customers.length}
+          >
+            <Text style={styles.fieldLabel}>Target Students</Text>
+            <SegmentSelector value={feeSeg} onChange={setFeeSeg} />
+
+            <MsgField
+              label="Reminder Message"
+              value={feeMsg}
+              onChange={setFeeMsg}
+              placeholder="Write your fee reminder message…"
+              onTemplate={() => openTemplates("feeReminder", setFeeMsg)}
+              topMargin
+            />
+
+            <TouchableOpacity
+              style={[styles.sendBtn, { backgroundColor: Colors.yellow }, loading && styles.sendBtnDisabled]}
+              onPress={sendFeeReminder}
+              disabled={loading}
+            >
+              {loading
+                ? <ActivityIndicator color="#000" />
+                : <Text style={[styles.sendBtnText, { color: "#000" }]}>
+                    Send Fee Reminder to {SEGMENTS.find(s => s.key === feeSeg)?.label} Students →
+                  </Text>
+              }
+            </TouchableOpacity>
+          </PromoCard>
+        </View>
+      )}
 
       {/* ─── Segment Broadcast ───────────────────────────────────────────── */}
       <PromoCard icon="🎯" title="Segment Broadcast" color={Colors.primary}
