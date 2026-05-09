@@ -3,9 +3,11 @@ import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, Alert, ActivityIndicator, Switch,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
 import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -286,6 +288,9 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* Business ID — for admin WhatsApp number registration */}
+      <BusinessIdCard />
+
       {/* About */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>ℹ️ About Selly</Text>
@@ -309,6 +314,37 @@ export default function SettingsScreen() {
         </View>
       </View>
     </ScrollView>
+  );
+}
+
+// ── Business ID card — shows the Supabase auth UUID so admin can register the WA number
+function BusinessIdCard() {
+  const [bid, setBid]       = useState("…");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setBid(session.user.id);
+    });
+  }, []);
+
+  const copy = async () => {
+    await Clipboard.setStringAsync(bid);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <View style={[styles.card, { borderColor: "#6C47FF44" }]}>
+      <Text style={styles.cardTitle}>🔑 Your Business ID</Text>
+      <Text style={styles.cardDesc}>
+        Share this ID with the Selly admin when linking your WhatsApp number. It must match exactly.
+      </Text>
+      <TouchableOpacity style={styles.bidBox} onPress={copy}>
+        <Text style={styles.bidText} selectable>{bid}</Text>
+        <Text style={styles.bidCopy}>{copied ? "Copied ✓" : "📋 Copy"}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -348,6 +384,10 @@ const styles = StyleSheet.create({
   infoRow     : { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
   infoLabel   : { color: Colors.textSecondary, fontSize: 13 },
   infoValue   : { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
+
+  bidBox      : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: "#6C47FF44", gap: 8 },
+  bidText     : { flex: 1, color: "#a78bfa", fontSize: 12, fontFamily: "monospace", letterSpacing: 0.5 },
+  bidCopy     : { color: Colors.primary, fontWeight: "700", fontSize: 13 },
 
   switchRow   : { flexDirection: "row", alignItems: "center", marginTop: 14, marginBottom: 4, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
   switchLabel : { color: Colors.textPrimary, fontSize: 14, fontWeight: "700" },

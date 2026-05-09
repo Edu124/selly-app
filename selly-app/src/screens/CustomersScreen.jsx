@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
+import * as Contacts from "expo-contacts";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { fetchCustomers, importContacts } from "../lib/api";
@@ -170,12 +171,18 @@ export default function CustomersScreen() {
 
   // ── Import contacts state ────────────────────────────────────────────────────
   const [importModal,   setImportModal]   = useState(false);
-  const [importTab,     setImportTab]     = useState("single"); // "single" | "bulk"
+  const [importTab,     setImportTab]     = useState("single"); // "single" | "bulk" | "phonebook"
   const [singleName,    setSingleName]    = useState("");
   const [singlePhone,   setSinglePhone]   = useState("");
   const [bulkText,      setBulkText]      = useState("");
   const [importing,     setImporting]     = useState(false);
   const [importResult,  setImportResult]  = useState(null);
+
+  // ── Phone book state ─────────────────────────────────────────────────────────
+  const [phoneContacts,  setPhoneContacts]  = useState([]);
+  const [pbLoading,      setPbLoading]      = useState(false);
+  const [pbSearch,       setPbSearch]       = useState("");
+  const [selectedPb,     setSelectedPb]     = useState(new Set()); // Set of contact IDs
 
   const load = async () => {
     setLoading(true);
@@ -217,9 +224,55 @@ export default function CustomersScreen() {
     }
   };
 
+  // ── Load phone contacts ──────────────────────────────────────────────────────
+  const loadPhoneContacts = async () => {
+    setPbLoading(true);
+    setPbSearch("");
+    setSelectedPb(new Set());
+    try {
+      const { status } = await Contacts.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Required", "Please allow contacts access in your phone settings to use this feature.");
+        setPbLoading(false);
+        return;
+      }
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.Name, Contacts.Fields.PhoneNumbers],
+        sort  : Contacts.SortTypes.FirstName,
+      });
+      // Filter only contacts with phone numbers
+      const withPhone = (data || []).filter(c => c.phoneNumbers?.length);
+      setPhoneContacts(withPhone);
+    } catch (e) {
+      Alert.alert("Error", "Could not load contacts: " + e.message);
+    } finally {
+      setPbLoading(false);
+    }
+  };
+
+  const togglePbSelect = (id) => {
+    setSelectedPb(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const importFromPhonebook = () => {
+    const contacts = phoneContacts
+      .filter(c => selectedPb.has(c.id))
+      .map(c => ({
+        name : c.name || "",
+        phone: (c.phoneNumbers[0].number || "").replace(/[^0-9]/g, ""),
+      }))
+      .filter(c => c.phone.length >= 10);
+    if (!contacts.length) { setImportResult({ ok: false, msg: "Select at least one contact with a valid number." }); return; }
+    doImport(contacts);
+  };
+
   const importSingle = () => {
     const phone = singlePhone.replace(/[^0-9]/g, "");
-    if (phone.length < 10) { setImportResult({ ok: false, msg: "Enter a valid 10-digit number." }); return; }
+    if (phone.length < 10) { setImportResult({ ok: false, msg: "Enter a valid number (at least 10 digits)." }); return; }
     doImport([{ name: singleName.trim() || "Contact", phone }]);
   };
 
@@ -440,7 +493,7 @@ export default function CustomersScreen() {
                 onPress={() => { setImportTab("single"); setImportResult(null); }}
               >
                 <Text style={[styles.importTabText, importTab === "single" && styles.importTabTextActive]}>
-                  👤 Add One
+                  👤 One
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -448,7 +501,15 @@ export default function CustomersScreen() {
                 onPress={() => { setImportTab("bulk"); setImportResult(null); }}
               >
                 <Text style={[styles.importTabText, importTab === "bulk" && styles.importTabTextActive]}>
-                  📋 Bulk Import
+                  📋 Bulk
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.importTab, importTab === "phonebook" && styles.importTabActive]}
+                onPress={() => { setImportTab("phonebook"); setImportResult(null); loadPhoneContacts(); }}
+              >
+                <Text style={[styles.importTabText, importTab === "phonebook" && styles.importTabTextActive]}>
+                  📱 Phone Book
                 </Text>
               </TouchableOpacity>
             </View>
@@ -530,7 +591,73 @@ export default function CustomersScreen() {
                     }
                   </TouchableOpacity>
                 </>
-              )}
+              ) : importTab === "phonebook" ? (
+                <>
+                  {pbLoading ? (
+                    <View style={styles.center}><ActivityIndicator color={Colors.primary} size="large" /></View>
+                  ) : (
+                    <>
+                      <TextInput
+                        style={[styles.importInput, { marginBottom: 8 }]}
+                        placeholder="Search contacts…"
+                        placeholderTextColor={Colors.textMuted}
+                        value={pbSearch}
+                        onChangeText={setPbSearch}
+                        autoCapitalize="none"
+                      />
+                      <Text style={styles.importCountHint}>
+                        {selectedPb.size} selected · {phoneContacts.length} contacts
+                      </Text>
+                      <View style={{ maxHeight: 300 }}>
+                        <FlatList
+                          data={phoneContacts.filter(c =>
+                            !pbSearch.trim() ||
+                            (c.name || "").toLowerCase().includes(pbSearch.toLowerCase()) ||
+                            (c.phoneNumbers?.[0]?.number || "").includes(pbSearch)
+                          )}
+                          keyExtractor={c => c.id}
+                          renderItem={({ item }) => {
+                            const checked = selectedPb.has(item.id);
+                            const phone   = item.phoneNumbers?.[0]?.number || "";
+                            return (
+                              <TouchableOpacity
+                                style={[styles.pbRow, checked && styles.pbRowSelected]}
+                                onPress={() => togglePbSelect(item.id)}
+                              >
+                                <View style={[styles.pbCheck, checked && styles.pbCheckActive]}>
+                                  {checked && <Text style={styles.pbCheckMark}>✓</Text>}
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.pbName}>{item.name || "Unknown"}</Text>
+                                  <Text style={styles.pbPhone}>{phone}</Text>
+                                </View>
+                              </TouchableOpacity>
+                            );
+                          }}
+                          ListEmptyComponent={
+                            <Text style={[styles.importHint, { textAlign: "center", paddingTop: 20 }]}>
+                              {pbSearch ? "No contacts match your search." : "No contacts found."}
+                            </Text>
+                          }
+                          nestedScrollEnabled
+                        />
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.importBtn, (importing || selectedPb.size === 0) && styles.importBtnDisabled]}
+                        onPress={importFromPhonebook}
+                        disabled={importing || selectedPb.size === 0}
+                      >
+                        {importing
+                          ? <ActivityIndicator color="#fff" />
+                          : <Text style={styles.importBtnText}>
+                              Add {selectedPb.size || ""} Selected →
+                            </Text>
+                        }
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              ) : null}
               <View style={{ height: 32 }} />
             </ScrollView>
           </View>
@@ -639,4 +766,13 @@ const styles = StyleSheet.create({
   importBtn         : { backgroundColor: Colors.primary, borderRadius: 12, padding: 15, alignItems: "center", marginTop: 16 },
   importBtnDisabled : { opacity: 0.6 },
   importBtnText     : { color: "#fff", fontWeight: "800", fontSize: 15 },
+
+  // Phone book
+  pbRow         : { flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 10 },
+  pbRowSelected : { backgroundColor: Colors.primary + "11" },
+  pbCheck       : { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.border, alignItems: "center", justifyContent: "center" },
+  pbCheckActive : { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  pbCheckMark   : { color: "#fff", fontWeight: "900", fontSize: 12 },
+  pbName        : { color: Colors.textPrimary, fontSize: 14, fontWeight: "600" },
+  pbPhone       : { color: Colors.textMuted, fontSize: 12, marginTop: 1 },
 });

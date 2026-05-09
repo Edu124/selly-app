@@ -38,7 +38,7 @@ async function client() {
   const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
   return axios.create({
     baseURL : base,
-    timeout : 35000,                   // 35s — handles Railway cold start (~30s)
+    timeout : 60000,                   // 60s — handles Railway cold start (can take up to 45–50s)
     headers : {
       "Content-Type"  : "application/json",
       "X-Business-ID" : bid,          // header for server middleware
@@ -50,8 +50,28 @@ async function client() {
 // ── Dashboard — Supabase direct ───────────────────────────────────────────────
 export { fetchDashboard } from "./supabase_data";
 
-// ── Orders — Supabase direct ──────────────────────────────────────────────────
-export { fetchOrders, updateOrderStatus } from "./supabase_data";
+// ── Orders — via Railway server (uses supabaseAdmin, bypasses RLS) ───────────
+// This ensures orders created by the bot (with any business_id) are visible
+// as long as the phone number was registered with the correct business_id.
+export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
+  try {
+    const c = await client();
+    const params = { page, limit };
+    if (status) params.status = status;
+    const r = await c.get("/api/orders", { params });
+    return r.data;
+  } catch (e) {
+    // Fallback to direct Supabase if server is unavailable
+    const { fetchOrders: _fetch } = await import("./supabase_data");
+    return _fetch({ status, page, limit });
+  }
+}
+
+export async function updateOrderStatus(orderId, status, extra = {}) {
+  const c = await client();
+  const r = await c.post(`/api/orders/${orderId}/status`, { status, ...extra });
+  return r.data;
+}
 
 // ── Catalog — Supabase direct ─────────────────────────────────────────────────
 export { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct, uploadProductImage } from "./supabase_data";
@@ -231,7 +251,7 @@ async function adminClient() {
   const { default: axios } = await import("axios");
   return axios.create({
     baseURL : base,
-    timeout : 35000,                   // 35s — handles Railway cold start (~30s)
+    timeout : 60000,                   // 60s — handles Railway cold start (can take up to 45–50s)
     headers : {
       "Content-Type"  : "application/json",
       "x-admin-token" : ADMIN_TOKEN,
