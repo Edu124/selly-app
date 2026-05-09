@@ -320,10 +320,13 @@ export async function fetchCustomer(id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DASHBOARD
+// DASHBOARD — intentionally NOT exported from here.
+// api.js exports fetchDashboard that routes through Railway (supabaseAdmin)
+// so dashboard stats match what the Enrollments/Orders screens show.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function fetchDashboard() {
+// Internal helper used by api.js's fetchDashboard
+export async function _fetchDashboardDirect() {
   const [ordersData, customersData] = await Promise.all([
     fetchOrders({ limit: 5 }),
     fetchCustomers(),

@@ -18,13 +18,17 @@ const FILTERS = [
   { key: "all",             label: "All"           },
   { key: "pending_payment", label: "Pending Fees"  },
   { key: "confirmed",       label: "Active"        },
-  { key: "shipped",         label: "In Progress"   },
-  { key: "delivered",       label: "Completed"     },
+  { key: "in_progress",     label: "In Progress"   },  // education bot uses "in_progress"
+  { key: "completed",       label: "Completed"     },  // education bot uses "completed"
 ];
-const STATUS_FLOW   = ["pending_payment", "confirmed", "shipped", "delivered"];
+// STATUS_FLOW uses education-native statuses (what the bot actually writes to DB)
+const STATUS_FLOW   = ["pending_payment", "confirmed", "in_progress", "completed"];
 const STATUS_LABELS = {
   pending_payment: "Pending Fees",
   confirmed      : "Active",
+  in_progress    : "In Progress",
+  completed      : "Completed",
+  // also handle product-style statuses so cross-industry orders still display correctly
   shipped        : "In Progress",
   delivered      : "Completed",
   cancelled      : "Cancelled",
@@ -32,6 +36,9 @@ const STATUS_LABELS = {
 const STATUS_STYLE = {
   pending_payment: { bg: "rgba(234,179,8,0.15)",   text: "#eab308" },
   confirmed      : { bg: "rgba(34,197,94,0.15)",   text: "#22c55e" },
+  in_progress    : { bg: "rgba(59,130,246,0.15)",  text: "#3b82f6" },
+  completed      : { bg: "rgba(168,85,247,0.15)",  text: "#a855f7" },
+  // product-style aliases so pills render correctly if status is shipped/delivered
   shipped        : { bg: "rgba(59,130,246,0.15)",  text: "#3b82f6" },
   delivered      : { bg: "rgba(168,85,247,0.15)",  text: "#a855f7" },
   cancelled      : { bg: "rgba(239,68,68,0.15)",   text: "#ef4444" },

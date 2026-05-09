@@ -47,8 +47,28 @@ async function client() {
   });
 }
 
-// ── Dashboard — Supabase direct ───────────────────────────────────────────────
-export { fetchDashboard } from "./supabase_data";
+// ── Dashboard — via Railway server (same data source as Enrollments/Orders) ──
+// Using the server ensures dashboard stats are computed from the same
+// supabaseAdmin query, so stats always match what appears in the list screens.
+export async function fetchDashboard() {
+  try {
+    const c = await client();
+    // Fetch stats + recent 5 orders + customers in parallel
+    const [ordersRes, customersRes] = await Promise.all([
+      c.get("/api/orders", { params: { page: 1, limit: 5 } }),
+      c.get("/api/customers", { params: { page: 1, limit: 200 } }),
+    ]);
+    return {
+      stats    : ordersRes.data.stats     || {},
+      recent   : ordersRes.data.orders    || [],
+      customers: customersRes.data.customers || [],
+    };
+  } catch (e) {
+    // Fallback to direct Supabase if server is unreachable
+    const { _fetchDashboardDirect } = await import("./supabase_data");
+    return _fetchDashboardDirect();
+  }
+}
 
 // ── Orders — via Railway server (uses supabaseAdmin, bypasses RLS) ───────────
 // This ensures orders created by the bot (with any business_id) are visible
