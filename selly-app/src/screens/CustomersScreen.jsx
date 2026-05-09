@@ -40,12 +40,7 @@ const CUSTOMER_CONFIG = {
     searchPlaceholder: "Search by name or phone…",
     orderCountLabel  : (n) => `${n} course${n !== 1 ? "s" : ""} enrolled`,
     filters: [
-      { key: "all",         label: "All"           },
-      { key: "online",      label: "💻 Online"      },
-      { key: "offline",     label: "🏫 Offline"     },
-      { key: "active",      label: "✅ Active"      },
-      { key: "completed",   label: "🏆 Completed"   },
-      { key: "vip",         label: "⭐ VIP"         },
+      { key: "all", label: "All" },
     ],
     stat1Label  : "Courses",
     stat2Label  : "Fees Paid",
