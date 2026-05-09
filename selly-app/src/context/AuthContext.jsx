@@ -7,7 +7,7 @@
 // ── Website URL (for auth email redirects) ────────────────────────────────────
 // Password-reset emails link to this URL so users can set a new password.
 // Update this if you change the deployed domain of the selly website.
-const SELLY_WEBSITE_URL = "https://selly.in";
+const SELLY_WEBSITE_URL = "https://selly.codeforgeai.app";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
