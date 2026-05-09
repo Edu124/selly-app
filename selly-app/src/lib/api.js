@@ -260,6 +260,13 @@ export async function importContacts(contacts) {
   return r.data;
 }
 
+// ── Send custom WhatsApp message to a customer/student ────────────────────────
+export async function sendMessageToCustomer(customerId, message) {
+  const c = await client();
+  const r = await c.post(`/api/customers/${customerId}/message`, { message });
+  return r.data;
+}
+
 // ── Business Settings — Supabase direct ──────────────────────────────────────
 export { fetchBusinessSettings, saveBusinessSettings } from "./supabase_data";
 

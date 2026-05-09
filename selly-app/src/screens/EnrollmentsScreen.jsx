@@ -7,11 +7,11 @@
 import React, { useState, useCallback } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl,
+  TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchOrders, updateOrderStatus } from "../lib/api";
+import { fetchOrders, updateOrderStatus, sendMessageToCustomer } from "../lib/api";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const FILTERS = [
@@ -116,6 +116,9 @@ export default function EnrollmentsScreen() {
   const [refreshing,  setRefreshing]  = useState(false);
   const [selected,    setSelected]    = useState(null);
   const [updating,    setUpdating]    = useState(false);
+  const [msgVisible,  setMsgVisible]  = useState(false);
+  const [msgText,     setMsgText]     = useState("");
+  const [sending,     setSending]     = useState(false);
 
   const load = async (reset = false) => {
     const p = reset ? 1 : page;
@@ -160,6 +163,21 @@ export default function EnrollmentsScreen() {
       setEnrollments(prev => prev.map(e => e.id === selected.id ? { ...e, status: next } : e));
     } catch (e) { console.warn("Update error:", e.message); }
     finally { setUpdating(false); }
+  };
+
+  const sendMsg = async () => {
+    if (!selected || !msgText.trim()) return;
+    setSending(true);
+    try {
+      await sendMessageToCustomer(selected.mobile || selected.customerId, msgText.trim());
+      setMsgText("");
+      setMsgVisible(false);
+      Alert.alert("Sent ✓", "Message delivered to student's WhatsApp.");
+    } catch (e) {
+      Alert.alert("Failed", e.message || "Could not send message.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -224,6 +242,45 @@ export default function EnrollmentsScreen() {
           }
         />
       )}
+
+      {/* Send message modal */}
+      <Modal visible={msgVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { maxHeight: "50%" }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Message Student</Text>
+              <TouchableOpacity onPress={() => setMsgVisible(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            {selected && (
+              <Text style={styles.msgRecipient}>To: {selected.name} ({selected.mobile || selected.customerId})</Text>
+            )}
+            <TextInput
+              style={styles.msgInput}
+              placeholder="Type your message…"
+              placeholderTextColor={Colors.textMuted}
+              value={msgText}
+              onChangeText={setMsgText}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <TouchableOpacity
+              style={[styles.advanceBtn, (!msgText.trim() || sending) && { opacity: 0.5 }]}
+              onPress={sendMsg}
+              disabled={!msgText.trim() || sending}
+            >
+              {sending
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.advanceBtnText}>Send via WhatsApp →</Text>
+              }
+            </TouchableOpacity>
+            <View style={{ height: 16 }} />
+          </View>
+        </View>
+      </Modal>
 
       {/* Detail modal */}
       <Modal visible={!!selected} animationType="slide" transparent>
@@ -326,6 +383,14 @@ export default function EnrollmentsScreen() {
                     </TouchableOpacity>
                   )}
 
+                  {/* Send WhatsApp message to student */}
+                  <TouchableOpacity
+                    style={styles.msgBtn}
+                    onPress={() => { setMsgText(""); setMsgVisible(true); }}
+                  >
+                    <Text style={styles.msgBtnText}>💬 Send WhatsApp Message</Text>
+                  </TouchableOpacity>
+
                   <View style={{ height: 32 }} />
                 </ScrollView>
               );
@@ -412,4 +477,10 @@ const styles = StyleSheet.create({
 
   advanceBtn     : { backgroundColor: "#6C47FF", borderRadius: 12, padding: 16, alignItems: "center", marginTop: 20 },
   advanceBtnText : { color: "#fff", fontWeight: "800", fontSize: 15 },
+
+  // Send message
+  msgBtn         : { borderWidth: 1.5, borderColor: "#25D366", borderRadius: 12, padding: 14, alignItems: "center", marginTop: 12 },
+  msgBtnText     : { color: "#25D366", fontWeight: "700", fontSize: 14 },
+  msgRecipient   : { color: Colors.textSecondary, fontSize: 13, marginBottom: 10, paddingHorizontal: 4 },
+  msgInput       : { backgroundColor: Colors.bgInput, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, color: Colors.textPrimary, padding: 12, fontSize: 14, minHeight: 90, marginBottom: 12 },
 });
