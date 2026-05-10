@@ -14,6 +14,10 @@ const DEFAULT_SETTINGS = {
   gst_enabled: true, gst_rate: "5", delivery_charge: "49",
   free_above: "999", cod_fee: "30",
   whatsapp_number: "", shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
+  // Online payment details (UPI / bank transfer)
+  upi_id: "", bank_details: "",
+  // Bot customisation
+  greeting_message: "", location_url: "",
 };
 
 const INDUSTRY_OPTIONS = [
@@ -59,6 +63,10 @@ export default function SettingsScreen() {
             shiprocket_email  : s.shiprocket_email    || "",
             shiprocket_password: s.shiprocket_password || "",
             delhivery_api_key : s.delhivery_api_key   || "",
+            upi_id            : s.upi_id              || "",
+            bank_details      : s.bank_details        || "",
+            greeting_message  : s.greeting_message    || "",
+            location_url      : s.location_url        || "",
           });
         }
       })
@@ -83,6 +91,10 @@ export default function SettingsScreen() {
         shiprocket_email   : biz.shiprocket_email.trim(),
         shiprocket_password: biz.shiprocket_password.trim(),
         delhivery_api_key  : biz.delhivery_api_key.trim(),
+        upi_id             : biz.upi_id.trim(),
+        bank_details       : biz.bank_details.trim(),
+        greeting_message   : biz.greeting_message.trim(),
+        location_url       : biz.location_url.trim(),
       });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
@@ -230,6 +242,71 @@ export default function SettingsScreen() {
         <Text style={[styles.fieldLabel, { marginTop: 16 }]}>WhatsApp Business Number</Text>
         <Text style={styles.fieldHint}>Customers see a "Chat with us" link after order confirmation</Text>
         <TextInput style={styles.input} value={biz.whatsapp_number} onChangeText={v => setBizField("whatsapp_number", v)} placeholder="+919876543210" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+
+        <View style={styles.sectionDivider} />
+        <Text style={[styles.cardTitle, { marginBottom: 4 }]}>💳 Online Payment Details</Text>
+        <Text style={styles.cardDesc}>
+          When a student / customer chooses to pay online, these details are shown to them so they can transfer the amount directly.
+        </Text>
+
+        <Text style={styles.fieldLabel}>UPI ID / Phone Pay Number</Text>
+        <Text style={styles.fieldHint}>e.g. yourname@paytm · 9876543210@upi · business@okicici</Text>
+        <TextInput
+          style={styles.input}
+          value={biz.upi_id}
+          onChangeText={v => setBizField("upi_id", v)}
+          placeholder="yourname@paytm"
+          placeholderTextColor={Colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Bank Account Details</Text>
+        <Text style={styles.fieldHint}>Optional — shown if you want to accept NEFT/IMPS transfers</Text>
+        <TextInput
+          style={[styles.input, { height: 90, textAlignVertical: "top" }]}
+          value={biz.bank_details}
+          onChangeText={v => setBizField("bank_details", v)}
+          placeholder={"Bank: SBI\nAccount No: 1234567890\nIFSC: SBIN0001234\nName: Your Name"}
+          placeholderTextColor={Colors.textMuted}
+          multiline
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        <View style={[styles.paymentNote, { marginTop: 10, marginBottom: 4 }]}>
+          <Text style={styles.paymentNoteText}>
+            💡 After paying, students reply with a screenshot — you confirm the enrollment manually from the Enrollments screen.
+          </Text>
+        </View>
+
+        <View style={styles.sectionDivider} />
+        <Text style={[styles.cardTitle, { marginBottom: 4 }]}>🤖 Bot Customisation</Text>
+        <Text style={styles.cardDesc}>Personalise how the bot greets customers and responds to location queries.</Text>
+
+        <Text style={styles.fieldLabel}>Custom Greeting Message</Text>
+        <Text style={styles.fieldHint}>Use {"{name}"} where you want the customer's name. Leave blank to use the default greeting.</Text>
+        <TextInput
+          style={[styles.input, { height: 100, textAlignVertical: "top" }]}
+          value={biz.greeting_message}
+          onChangeText={v => setBizField("greeting_message", v)}
+          placeholder={"Hi {name}! 👋 Welcome to DLA Commerce Classes!\n\nExpert coaching for 11th, 12th & Degree Commerce. 📚"}
+          placeholderTextColor={Colors.textMuted}
+          multiline
+          autoCorrect={false}
+        />
+
+        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Location / Maps Link</Text>
+        <Text style={styles.fieldHint}>Shown when a student asks "where are you?" or "location?"</Text>
+        <TextInput
+          style={styles.input}
+          value={biz.location_url}
+          onChangeText={v => setBizField("location_url", v)}
+          placeholder="https://maps.app.goo.gl/..."
+          placeholderTextColor={Colors.textMuted}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
 
         <View style={styles.sectionDivider} />
         <Text style={[styles.cardTitle, { marginBottom: 4 }]}>🚚 Shipping Integration</Text>
@@ -395,6 +472,9 @@ const styles = StyleSheet.create({
 
   fieldHint   : { color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -2 },
   sectionDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 16 },
+
+  paymentNote     : { backgroundColor: Colors.primary + "12", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.primary + "30" },
+  paymentNoteText : { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
 
   planFeature : { flexDirection: "row", alignItems: "flex-start", marginBottom: 6 },
   planCheck   : { color: Colors.green, fontWeight: "800", marginRight: 8, fontSize: 14 },
