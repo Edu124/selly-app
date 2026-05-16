@@ -42,6 +42,8 @@ function _toProduct(row) {
     rating       : row.rating != null ? Number(row.rating) : null,
     inStock      : row.in_stock,
     tags         : row.tags          || [],
+    productNumber: row.product_number || "",
+    stockCount   : row.stock_count != null ? Number(row.stock_count) : -1,
     createdAt    : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
 }
@@ -123,6 +125,8 @@ export async function addProduct(product) {
     rating         : product.rating        || null,
     in_stock       : product.inStock !== false,
     tags           : product.tags          || [],
+    product_number : product.productNumber || "",
+    stock_count    : product.stockCount != null && product.stockCount >= 0 ? product.stockCount : -1,
   };
   const { data, error } = await supabase
     .from("catalog")
@@ -146,8 +150,10 @@ export async function updateProduct(id, changes) {
   if (changes.material    !== undefined) updates.material      = changes.material;
   if (changes.description !== undefined) updates.description   = changes.description;
   if (changes.imageUrl    !== undefined) updates.image_url     = changes.imageUrl;
-  if (changes.inStock     !== undefined) updates.in_stock      = changes.inStock;
-  if (changes.tags        !== undefined) updates.tags          = changes.tags;
+  if (changes.inStock        !== undefined) updates.in_stock       = changes.inStock;
+  if (changes.tags           !== undefined) updates.tags           = changes.tags;
+  if (changes.productNumber  !== undefined) updates.product_number = changes.productNumber;
+  if (changes.stockCount     !== undefined) updates.stock_count    = changes.stockCount >= 0 ? changes.stockCount : -1;
 
   const { data, error } = await supabase
     .from("catalog")
@@ -184,16 +190,27 @@ export async function deleteProduct(id) {
 // Returns the public URL of the uploaded image
 export async function uploadProductImage(localUri, productId) {
   const bid = await _bid();
-  const ext  = (localUri.split(".").pop() || "jpg").split("?")[0].toLowerCase();
-  const path = `${bid}/${productId}.${ext}`;
 
-  // Fetch the local file as a blob
-  const response = await fetch(localUri);
-  const blob     = await response.blob();
+  // Normalise extension — expo sometimes gives .jpeg, sometimes .jpg
+  const rawExt = (localUri.split(".").pop() || "jpg").split("?")[0].toLowerCase();
+  const ext    = rawExt === "jpeg" ? "jpg" : rawExt;
+  const mime   = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
+  const path   = `${bid}/${productId}.${ext}`;
+
+  // Use expo-file-system to read as base64 — most reliable on Android/iOS
+  const FileSystem = require("expo-file-system");
+  const base64 = await FileSystem.readAsStringAsync(localUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  // Decode base64 → Uint8Array for Supabase upload
+  const binary     = atob(base64);
+  const bytes      = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
 
   const { error } = await supabase.storage
     .from("catalog-images")
-    .upload(path, blob, { upsert: true, contentType: `image/${ext === "jpg" ? "jpeg" : ext}` });
+    .upload(path, bytes.buffer, { upsert: true, contentType: mime });
   if (error) throw new Error(error.message);
 
   const { data: { publicUrl } } = supabase.storage
@@ -336,6 +353,28 @@ export async function _fetchDashboardDirect() {
     recent   : ordersData.orders    || [],
     customers: customersData.customers || [],
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function updateCustomerTags(customerId, tags) {
+  const { error } = await supabase
+    .from("bot_customers")
+    .update({ tags })
+    .eq("id", customerId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function deleteCustomer(customerId) {
+  const { error } = await supabase
+    .from("bot_customers")
+    .delete()
+    .eq("id", customerId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

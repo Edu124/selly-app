@@ -98,8 +98,8 @@ function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
     if (!perm.granted) { Alert.alert("Permission needed", "Allow access in device settings."); return; }
 
     const result = source === "camera"
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1] })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: true, aspect: [1, 1], mediaTypes: ImagePicker.MediaTypeOptions.Images });
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: false })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: false, mediaTypes: ImagePicker.MediaTypeOptions.Images });
 
     if (!result.canceled && result.assets?.[0]?.uri) {
       onPicked(result.assets[0].uri);
@@ -236,6 +236,22 @@ function ProductItemForm({ form, set }) {
       <Text style={styles.fieldLabel}>Material / Fabric</Text>
       <TextInput style={styles.input} value={form.material} onChangeText={v => set("material", v)} placeholder="e.g. Cotton, Silk, Denim" placeholderTextColor={Colors.textMuted} />
 
+      <Text style={styles.fieldLabel}>Product Code / SKU</Text>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
+        Internal code visible only to you (e.g. BLU-JNS-32). Shown in orders.
+      </Text>
+      <TextInput style={styles.input} value={form.productNumber} onChangeText={v => set("productNumber", v)}
+        placeholder="e.g. SHIRT-RED-L-001" placeholderTextColor={Colors.textMuted}
+        autoCapitalize="characters" autoCorrect={false} />
+
+      <Text style={styles.fieldLabel}>Stock Count</Text>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
+        How many units in stock? Leave blank to not track. Shows low-stock alert when ≤ 5.
+      </Text>
+      <TextInput style={styles.input} value={form.stockCount} onChangeText={v => set("stockCount", v)}
+        placeholder="e.g. 50 (leave blank = unlimited)" placeholderTextColor={Colors.textMuted}
+        keyboardType="numeric" />
+
       <Text style={styles.fieldLabel}>Description</Text>
       <TextInput
         style={[styles.input, { height: 70, textAlignVertical: "top" }]}
@@ -318,6 +334,8 @@ const BLANK = {
   sizes:[], colors:"", material:"", isPremium:false, inStock:true,
   duration:"", batchTiming:"", mode:"Online", whatIncluded:"", classLink:"",
   destination:"", groupSize:"", inclusions:"",
+  productNumber:"",
+  stockCount: "",
 };
 
 function toForm(p) {
@@ -339,9 +357,11 @@ function toForm(p) {
     mode:         ef.mode        || "Online",
     whatIncluded: ef.whatIncluded|| "",
     classLink:    ef.classLink   || "",
-    destination:  ef.destination || p.subCategory || "",
-    groupSize:    String(ef.groupSize || ""),
-    inclusions:   ef.inclusions  || "",
+    destination:   ef.destination || p.subCategory || "",
+    groupSize:     String(ef.groupSize || ""),
+    inclusions:    ef.inclusions  || "",
+    productNumber: p.productNumber || "",
+    stockCount:   p.stockCount != null && p.stockCount >= 0 ? String(p.stockCount) : "",
   };
 }
 
@@ -397,9 +417,11 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       sizes       : Array.isArray(form.sizes) ? form.sizes : [],
       colors      : form.colors ? form.colors.split(",").map(c => c.trim()).filter(Boolean) : [],
       material    : form.material.trim(),
-      isPremium   : !!form.isPremium,
+      isPremium     : !!form.isPremium,
       extraFields,
-      inStock     : form.inStock,
+      inStock       : form.inStock,
+      productNumber : (form.productNumber || "").trim().toUpperCase(),
+      stockCount    : form.stockCount !== "" && !isNaN(Number(form.stockCount)) ? Number(form.stockCount) : -1,
     };
   };
 
@@ -506,16 +528,30 @@ function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
           </Text>
         )}
         {industry === "product" && (
-          <Text style={styles.productMeta} numberOfLines={1}>
-            {[p.category, p.subCategory].filter(Boolean).join(" › ")}
-            {p.sizes?.length ? `  ·  📏 ${p.sizes.slice(0,4).join(", ")}` : ""}
-          </Text>
+          <>
+            <Text style={styles.productMeta} numberOfLines={1}>
+              {[p.category, p.subCategory].filter(Boolean).join(" › ")}
+              {p.sizes?.length ? `  ·  📏 ${p.sizes.slice(0,4).join(", ")}` : ""}
+            </Text>
+            {p.productNumber ? (
+              <Text style={styles.productCode}>🏷 {p.productNumber}</Text>
+            ) : null}
+          </>
         )}
         {industry === "tourism" && (
           <Text style={styles.productMeta} numberOfLines={1}>
             {[p.category, p.subCategory || ef.destination].filter(Boolean).join(" › ")}
             {ef.duration ? `  ·  ⏱ ${ef.duration}` : ""}
           </Text>
+        )}
+
+        {/* Stock count badge */}
+        {p.stockCount != null && p.stockCount >= 0 && (
+          <View style={[styles.stockCountBadge, p.stockCount <= 5 ? styles.stockLow : styles.stockOk]}>
+            <Text style={[styles.stockCountText, { color: p.stockCount <= 5 ? Colors.red : Colors.green }]}>
+              {p.stockCount <= 5 ? "⚠️" : "📦"} {p.stockCount} in stock
+            </Text>
+          </View>
         )}
 
         <View style={styles.cardActions}>
@@ -715,9 +751,14 @@ const styles = StyleSheet.create({
   cardTop           : { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 },
   productName       : { color: Colors.textPrimary, fontSize: 14, fontWeight: "700", flex: 1, marginRight: 8 },
   productPrice      : { color: Colors.primary, fontSize: 14, fontWeight: "800" },
-  productMeta       : { color: Colors.textSecondary, fontSize: 11, marginBottom: 6 },
+  productMeta       : { color: Colors.textSecondary, fontSize: 11, marginBottom: 2 },
+  productCode       : { color: Colors.textMuted, fontSize: 10, fontFamily: "monospace", marginBottom: 6, letterSpacing: 0.5 },
   premiumBadge      : { color: "#f59e0b", fontSize: 10, fontWeight: "800", marginBottom: 2 },
   cardActions       : { flexDirection: "row", alignItems: "center", gap: 8 },
+  stockCountBadge   : { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, marginBottom: 6, borderWidth: 1 },
+  stockLow          : { backgroundColor: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.3)" },
+  stockOk           : { backgroundColor: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.3)" },
+  stockCountText    : { fontSize: 11, fontWeight: "700" },
   stockBtn          : { flex: 1, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 8, alignItems: "center" },
   stockText         : { fontSize: 11, fontWeight: "700" },
   editBtn           : { padding: 6, backgroundColor: Colors.primary + "15", borderRadius: 8 },
