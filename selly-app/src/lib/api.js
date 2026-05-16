@@ -5,6 +5,7 @@
 
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// saveBusinessSettings routes through the server (supabaseAdmin) — no direct import needed
 
 const DEFAULT_URL = "https://instagram-bot-production-ef01.up.railway.app";
 const KEY_URL     = "@selly_server_url";
@@ -103,7 +104,20 @@ export async function fetchInstaPost(url) {
 }
 
 // ── Customers — Supabase direct ───────────────────────────────────────────────
-export { fetchCustomers, fetchCustomer } from "./supabase_data";
+export { fetchCustomers, fetchCustomer, updateCustomerTags, updateCustomerBatch, deleteCustomer } from "./supabase_data";
+
+// ── Batches (education class/batch grouping) ─────────────────────────────────
+export async function fetchBatches() {
+  const c = await client();
+  const r = await c.get("/api/batches");
+  return r.data; // { batches: ["Class 9", "Class 10", ...] }
+}
+
+export async function assignBatch(customerId, batch) {
+  const c = await client();
+  const r = await c.patch(`/api/customers/${customerId}/batch`, { batch });
+  return r.data;
+}
 
 // ── Promotions ────────────────────────────────────────────────────────────────
 export async function sendFlashSale(payload) {
@@ -267,8 +281,67 @@ export async function sendMessageToCustomer(customerId, message) {
   return r.data;
 }
 
-// ── Business Settings — Supabase direct ──────────────────────────────────────
-export { fetchBusinessSettings, saveBusinessSettings } from "./supabase_data";
+// ── Business Settings ─────────────────────────────────────────────────────────
+// fetchBusinessSettings reads directly from Supabase (fast, RLS-aware).
+// saveBusinessSettings writes to Supabase AND immediately busts the Railway
+// server's in-memory settings cache so the bot picks up the new values right away
+// (otherwise the server cache would hold stale data for up to 3 minutes).
+export { fetchBusinessSettings } from "./supabase_data";
+
+export async function saveBusinessSettings(payload) {
+  // Route through the server which uses supabaseAdmin (bypasses RLS) and
+  // automatically busts its own in-memory settings cache in the same request.
+  const c = await client();
+  const r = await c.post("/api/settings", payload);
+  if (r.data?.error) throw new Error(r.data.error);
+  return { ok: true };
+}
+
+// ── Query Inbox ───────────────────────────────────────────────────────────────
+export async function fetchQueries(status = null) {
+  const c = await client();
+  const r = await c.get("/api/queries", { params: status ? { status } : {} });
+  return r.data;
+}
+
+export async function replyToQuery(queryId, reply) {
+  const c = await client();
+  const r = await c.post(`/api/queries/${queryId}/reply`, { reply });
+  return r.data;
+}
+
+// ── Class Schedules ───────────────────────────────────────────────────────────
+export async function fetchSchedules() {
+  const c = await client();
+  const r = await c.get("/api/schedule");
+  return r.data;
+}
+
+export async function createSchedule(payload) {
+  const c = await client();
+  const r = await c.post("/api/schedule", payload);
+  return r.data;
+}
+
+export async function deleteSchedule(id) {
+  const c = await client();
+  const r = await c.delete(`/api/schedule/${id}`);
+  return r.data;
+}
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+export async function fetchReviews() {
+  const c = await client();
+  const r = await c.get("/api/reviews");
+  return r.data;
+}
+
+// ── Low Stock ─────────────────────────────────────────────────────────────────
+export async function fetchLowStock(threshold = 5) {
+  const c = await client();
+  const r = await c.get("/api/catalog/low-stock", { params: { threshold } });
+  return r.data;
+}
 
 // ── Admin (codeforeai.app@gmail.com only) ─────────────────────────────────────
 const ADMIN_TOKEN = "selly_admin_2024"; // must match ADMIN_SECRET on Railway

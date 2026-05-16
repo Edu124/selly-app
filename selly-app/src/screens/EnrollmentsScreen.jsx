@@ -4,14 +4,14 @@
 // Detail: student info, course details, fees breakdown (no shipping/tracking)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, RefreshControl, Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchOrders, updateOrderStatus, sendMessageToCustomer } from "../lib/api";
+import { fetchOrders, updateOrderStatus, sendMessageToCustomer, fetchCustomer } from "../lib/api";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 const FILTERS = [
@@ -115,10 +115,21 @@ export default function EnrollmentsScreen() {
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
   const [selected,    setSelected]    = useState(null);
+  const [selectedBatch, setSelectedBatch] = useState("");
   const [updating,    setUpdating]    = useState(false);
   const [msgVisible,  setMsgVisible]  = useState(false);
   const [msgText,     setMsgText]     = useState("");
   const [sending,     setSending]     = useState(false);
+
+  // Fetch customer batch when a detail is opened
+  useEffect(() => {
+    setSelectedBatch("");
+    if (selected?.customerId) {
+      fetchCustomer(selected.customerId)
+        .then(d => setSelectedBatch(d.customer?.batch || ""))
+        .catch(() => {});
+    }
+  }, [selected?.id]);
 
   const load = async (reset = false) => {
     const p = reset ? 1 : page;
@@ -310,6 +321,7 @@ export default function EnrollmentsScreen() {
                   <Text style={styles.sectionTitle}>STUDENT</Text>
                   <InfoRow label="Name"     value={selected.name} />
                   <InfoRow label="Phone"    value={selected.mobile} />
+                  <InfoRow label="Class / Batch" value={selectedBatch || null} />
                   <InfoRow label="Enrolled" value={selected.createdAt
                     ? new Date(selected.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })
                     : null} />

@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchSchedules, createSchedule, deleteSchedule } from "../lib/api";
+import { fetchSchedules, createSchedule, deleteSchedule, fetchBatches } from "../lib/api";
 import { fetchCatalog } from "../lib/supabase_data";
 
 function pad(n) { return String(n).padStart(2, "0"); }
@@ -43,6 +43,12 @@ export default function ClassScheduleScreen() {
   const [selectedCourse, setSelectedCourse] = useState(null); // { id, name }
   const [coursePickerOpen, setCoursePickerOpen] = useState(false);
 
+  // Batch mode
+  const [batches,           setBatches]           = useState([]);
+  const [batchesLoading,    setBatchesLoading]     = useState(false);
+  const [selectedBatch,     setSelectedBatch]      = useState(""); // selected batch name
+  const [batchPickerOpen,   setBatchPickerOpen]    = useState(false);
+
   const load = async () => {
     try {
       const r = await fetchSchedules();
@@ -66,18 +72,22 @@ export default function ClassScheduleScreen() {
     setTitle("");
     setNotifyMode("all");
     setSelectedCourse(null);
+    setSelectedBatch("");
     setAddModal(true);
 
-    // Load courses in background
+    // Load courses and batches in parallel
     setCoursesLoading(true);
-    try {
-      const items = await fetchCatalog();
+    setBatchesLoading(true);
+    Promise.all([
+      fetchCatalog().catch(() => []),
+      fetchBatches().catch(() => ({ batches: [] })),
+    ]).then(([items, batchData]) => {
       setCourses((items || []).filter(p => p.in_stock !== false));
-    } catch (e) {
-      console.warn("Courses load:", e.message);
-    } finally {
+      setBatches(batchData.batches || []);
+    }).finally(() => {
       setCoursesLoading(false);
-    }
+      setBatchesLoading(false);
+    });
   };
 
   const save = async () => {
@@ -92,6 +102,10 @@ export default function ClassScheduleScreen() {
       Alert.alert("Select a course", "Choose which course's students to notify, or switch to 'All students'.");
       return;
     }
+    if (notifyMode === "batch" && !selectedBatch) {
+      Alert.alert("Select a batch", "Choose which class/batch to notify, or switch to 'All students'.");
+      return;
+    }
     setSaving(true);
     try {
       await createSchedule({
@@ -99,6 +113,7 @@ export default function ClassScheduleScreen() {
         course_name  : selectedCourse?.name || "",
         course_id    : notifyMode === "course" ? (selectedCourse?.id || null) : null,
         notify_mode  : notifyMode,
+        batch_name   : notifyMode === "batch" ? selectedBatch : "",
         scheduled_at : scheduledAt.toISOString(),
       });
       setAddModal(false);
@@ -155,8 +170,10 @@ export default function ClassScheduleScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           renderItem={({ item }) => {
             const up = isUpcoming(item.scheduled_at);
-            const notifyLabel = item.notify_mode === "course" && item.course_name
-              ? `👥 ${item.course_name} students only`
+            const notifyLabel = item.notify_mode === "batch" && item.batch_name
+              ? `🎓 ${item.batch_name} students only`
+              : item.notify_mode === "course" && item.course_name
+              ? `📚 ${item.course_name} students only`
               : "👥 All enrolled students";
             return (
               <View style={[styles.card, !up && styles.cardPast]}>
@@ -241,21 +258,59 @@ export default function ClassScheduleScreen() {
               <View style={styles.notifyToggleRow}>
                 <TouchableOpacity
                   style={[styles.notifyToggleBtn, notifyMode === "all" && styles.notifyToggleBtnActive]}
-                  onPress={() => { setNotifyMode("all"); setSelectedCourse(null); }}
+                  onPress={() => { setNotifyMode("all"); setSelectedCourse(null); setSelectedBatch(""); }}
                 >
                   <Text style={[styles.notifyToggleTxt, notifyMode === "all" && styles.notifyToggleTxtActive]}>
-                    👥 All enrolled students
+                    👥 All
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.notifyToggleBtn, notifyMode === "batch" && styles.notifyToggleBtnActive]}
+                  onPress={() => { setNotifyMode("batch"); setSelectedCourse(null); }}
+                >
+                  <Text style={[styles.notifyToggleTxt, notifyMode === "batch" && styles.notifyToggleTxtActive]}>
+                    🎓 By Batch
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.notifyToggleBtn, notifyMode === "course" && styles.notifyToggleBtnActive]}
-                  onPress={() => setNotifyMode("course")}
+                  onPress={() => { setNotifyMode("course"); setSelectedBatch(""); }}
                 >
                   <Text style={[styles.notifyToggleTxt, notifyMode === "course" && styles.notifyToggleTxtActive]}>
-                    📚 Specific course only
+                    📚 By Course
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {notifyMode === "batch" && (
+                <View style={{ marginTop: 12 }}>
+                  <Text style={styles.fieldLabel}>Select Class / Batch</Text>
+                  {batchesLoading ? (
+                    <ActivityIndicator color={Colors.primary} style={{ marginVertical: 12 }} />
+                  ) : batches.length === 0 ? (
+                    <Text style={styles.noCourseText}>
+                      No batches assigned yet. Go to Students → assign a batch to your students first.
+                    </Text>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.coursePickerBtn, selectedBatch && { borderColor: "#34d399" }]}
+                        onPress={() => setBatchPickerOpen(true)}
+                      >
+                        <Text style={[styles.coursePickerTxt, selectedBatch && { color: Colors.textPrimary }]}>
+                          {selectedBatch ? `🎓 ${selectedBatch}` : "Tap to select a batch…"}
+                        </Text>
+                        <Text style={styles.coursePickerChevron}>›</Text>
+                      </TouchableOpacity>
+                      {selectedBatch && (
+                        <Text style={styles.courseHint}>
+                          Only students assigned to "{selectedBatch}" will receive the reminder.
+                        </Text>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
 
               {notifyMode === "course" && (
                 <View style={{ marginTop: 12 }}>
@@ -287,7 +342,7 @@ export default function ClassScheduleScreen() {
 
               {notifyMode === "all" && (
                 <Text style={styles.notifyAllHint}>
-                  All students who have confirmed orders will receive the class reminder.
+                  All students with confirmed enrollments will receive the class reminder.
                 </Text>
               )}
 
@@ -312,6 +367,41 @@ export default function ClassScheduleScreen() {
               </TouchableOpacity>
               <View style={{ height: 32 }} />
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Batch picker sub-modal ── */}
+      <Modal visible={batchPickerOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { maxHeight: "70%" }]}>
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Batch / Class</Text>
+              <TouchableOpacity onPress={() => setBatchPickerOpen(false)}>
+                <Text style={styles.closeBtn}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={batches}
+              keyExtractor={b => b}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              renderItem={({ item }) => {
+                const active = selectedBatch === item;
+                return (
+                  <TouchableOpacity
+                    style={[styles.courseItem, active && { backgroundColor: "#0f2218" }]}
+                    onPress={() => {
+                      setSelectedBatch(item);
+                      setBatchPickerOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.courseItemName, active && { color: "#34d399" }]}>🎓 {item}</Text>
+                    {active && <Text style={{ color: "#34d399", fontSize: 18, fontWeight: "700" }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              }}
+            />
           </View>
         </View>
       </Modal>

@@ -86,6 +86,7 @@ function _toCustomer(row) {
     lastActiveAt     : row.last_active_at,
     orderIds         : row.order_ids        || [],
     tags             : row.tags             || [],
+    batch            : row.batch            || "",
   };
 }
 
@@ -363,6 +364,15 @@ export async function updateCustomerTags(customerId, tags) {
   const { error } = await supabase
     .from("bot_customers")
     .update({ tags })
+    .eq("id", customerId);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function updateCustomerBatch(customerId, batch) {
+  const { error } = await supabase
+    .from("bot_customers")
+    .update({ batch: batch || "" })
     .eq("id", customerId);
   if (error) throw new Error(error.message);
   return { ok: true };
