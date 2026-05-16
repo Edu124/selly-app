@@ -91,6 +91,7 @@ function ChipRow({ items, selected, onSelect, color }) {
 
 // ── Photo Picker Button ───────────────────────────────────────────────────────
 function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
+  // pick — no crop (fast, straight to upload)
   const pick = async (source) => {
     const perm = source === "camera"
       ? await ImagePicker.requestCameraPermissionsAsync()
@@ -101,9 +102,21 @@ function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
       ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: false })
       : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: false, mediaTypes: ImagePicker.MediaTypeOptions.Images });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      onPicked(result.assets[0].uri);
-    }
+    if (!result.canceled && result.assets?.[0]?.uri) onPicked(result.assets[0].uri);
+  };
+
+  // crop — re-open gallery with allowsEditing so owner can manually crop
+  const crop = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { Alert.alert("Permission needed", "Allow access in device settings."); return; }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      quality      : 0.8,
+      allowsEditing: true,
+      aspect       : [1, 1],
+      mediaTypes   : ImagePicker.MediaTypeOptions.Images,
+    });
+    if (!result.canceled && result.assets?.[0]?.uri) onPicked(result.assets[0].uri);
   };
 
   return (
@@ -111,9 +124,14 @@ function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
       {imageUrl ? (
         <View style={styles.photoPreviewWrap}>
           <Image source={{ uri: imageUrl }} style={styles.photoPreview} />
-          <TouchableOpacity style={styles.photoChangeBtn} onPress={() => pick("gallery")}>
-            <Text style={styles.photoChangeBtnText}>✏️ Change</Text>
-          </TouchableOpacity>
+          <View style={styles.photoActionRow}>
+            <TouchableOpacity style={styles.photoChangeBtn} onPress={() => pick("gallery")}>
+              <Text style={styles.photoChangeBtnText}>✏️ Change</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.photoChangeBtn, { backgroundColor: "#1e293b" }]} onPress={crop}>
+              <Text style={styles.photoChangeBtnText}>✂️ Crop</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.photoEmpty}>
@@ -777,8 +795,9 @@ const styles = StyleSheet.create({
   photoBtnIcon    : { fontSize: 26, marginBottom: 4 },
   photoBtnText    : { color: Colors.textSecondary, fontSize: 12, fontWeight: "600" },
   photoPreviewWrap: { position: "relative" },
+  photoActionRow  : { position: "absolute", bottom: 8, right: 8, flexDirection: "row", gap: 6 },
   photoPreview    : { width: "100%", height: 180, borderRadius: 12 },
-  photoChangeBtn  : { position: "absolute", bottom: 8, right: 8, backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  photoChangeBtn  : { backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
   photoChangeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
 
 
