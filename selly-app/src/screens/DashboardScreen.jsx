@@ -278,7 +278,7 @@ export default function DashboardScreen({ navigation }) {
 
 function ShopUrlCard({ slug, navigation }) {
   const [copied, setCopied] = useState(false);
-  const shopUrl = slug ? `https://selly.in/shop/${slug}` : null;
+  const shopUrl = slug ? `https://selly.codeforgeai.app/shop/${slug}` : null;
 
   if (!shopUrl) {
     return (

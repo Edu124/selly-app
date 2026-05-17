@@ -215,7 +215,7 @@ export default function SettingsScreen() {
         <TextInput style={styles.input} value={biz.business_name} onChangeText={v => setBizField("business_name", v)} placeholder="Your Store Name" placeholderTextColor={Colors.textMuted} />
 
         <Text style={styles.fieldLabel}>City</Text>
-        <Text style={styles.fieldHint}>Used to generate your public shop page URL on selly.in</Text>
+        <Text style={styles.fieldHint}>Used to generate your public shop page URL on selly.codeforgeai.app</Text>
         <TextInput style={styles.input} value={biz.city} onChangeText={v => setBizField("city", v)} placeholder="Mumbai" placeholderTextColor={Colors.textMuted} />
 
         <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Instagram Handle</Text>
@@ -225,7 +225,7 @@ export default function SettingsScreen() {
         <View style={[styles.paymentNote, { marginTop: 12, marginBottom: 4 }]}>
           <Text style={styles.paymentNoteText}>
             🌐 Once saved, your shop page goes live at{"\n"}
-            selly.in/shop/your-store-name — discoverable by Google &amp; AI platforms.
+            selly.codeforgeai.app/shop/your-store-name — discoverable by Google &amp; AI platforms.
           </Text>
         </View>
 
