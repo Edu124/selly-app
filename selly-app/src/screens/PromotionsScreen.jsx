@@ -188,13 +188,14 @@ export default function PromotionsScreen({ route }) {
     isEdu ? "🎓 Early Bird Offer! Enroll before seats fill up and get a special fee discount. Reply ENROLL to secure your spot!"
           : "⚡ Flash Sale! Limited time offer on selected items."
   );
-  const [selectedProds, setSelectedProds] = useState([]);
+  const [flashProds,    setFlashProds]    = useState([]);
 
   // New Arrival
-  const [arrivalMsg, setArrivalMsg] = useState(
+  const [arrivalMsg,  setArrivalMsg]  = useState(
     isEdu ? "📚 New Batch Starting Soon! Limited seats available — reply ENROLL to know fees, schedule & get a free demo class!"
           : "✨ New Arrivals are here! Check out our latest collection."
   );
+  const [arrivalProds, setArrivalProds] = useState([]);
 
   // Segment Broadcast
   const [segMsg, setSegMsg]         = useState("");
@@ -346,23 +347,23 @@ export default function PromotionsScreen({ route }) {
 
   // ── Send handlers ─────────────────────────────────────────────────────────
   const sendFlash = async () => {
-    if (selectedProds.length === 0) { show("Select at least one product.", false); return; }
+    if (flashProds.length === 0) { show(`Select at least one ${isEdu ? "course" : "product"}.`, false); return; }
     setLoading(true);
     try {
-      const d = await sendFlashSale({ productIds: selectedProds, message: flashMsg });
-      show(`✅ Flash sale sent to ${d.sent || 0} customers!`);
-      setSelectedProds([]);
+      const d = await sendFlashSale({ productIds: flashProds, message: flashMsg });
+      show(`✅ Flash ${isEdu ? "offer" : "sale"} sent to ${d.sent || 0} ${audience}!`);
+      setFlashProds([]);
     } catch (e) { show("Error: " + e.message, false); }
     finally { setLoading(false); }
   };
 
   const sendArrival = async () => {
-    if (selectedProds.length === 0) { show("Select at least one product.", false); return; }
+    if (arrivalProds.length === 0) { show(`Select at least one ${isEdu ? "course" : "product"}.`, false); return; }
     setLoading(true);
     try {
-      const d = await sendNewArrival({ productIds: selectedProds, message: arrivalMsg });
-      show(`✅ New arrival sent to ${d.sent || 0} customers!`);
-      setSelectedProds([]);
+      const d = await sendNewArrival({ productIds: arrivalProds, message: arrivalMsg });
+      show(`✅ New ${isEdu ? "batch" : "arrival"} sent to ${d.sent || 0} ${audience}!`);
+      setArrivalProds([]);
     } catch (e) { show("Error: " + e.message, false); }
     finally { setLoading(false); }
   };
@@ -410,7 +411,8 @@ export default function PromotionsScreen({ route }) {
   };
 
   // ── Product list helpers ──────────────────────────────────────────────────
-  const selectedNames = products.filter(p => selectedProds.includes(p.id)).map(p => p.name).join(", ");
+  const flashNames   = products.filter(p => flashProds.includes(p.id)).map(p => p.name).join(", ");
+  const arrivalNames = products.filter(p => arrivalProds.includes(p.id)).map(p => p.name).join(", ");
 
   return (
     <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
@@ -428,22 +430,6 @@ export default function PromotionsScreen({ route }) {
         </TouchableOpacity>
       )}
 
-      {/* Shared product/course picker box (for Flash + New Arrival) */}
-      <View style={styles.pickerBox}>
-        <Text style={styles.pickerLabel}>
-          {isEdu ? `Selected Courses (${selectedProds.length})` : `Selected Products (${selectedProds.length})`}
-        </Text>
-        {selectedNames
-          ? <Text style={styles.pickerNames} numberOfLines={2}>{selectedNames}</Text>
-          : <Text style={styles.pickerEmpty}>
-              {isEdu ? 'No courses selected — tap "Choose" below' : 'No products selected — tap "Choose" below'}
-            </Text>
-        }
-        <TouchableOpacity style={styles.chooseBtn} onPress={() => setPickModal("flash")}>
-          <Text style={styles.chooseBtnText}>{isEdu ? "Choose Courses" : "Choose Products"}</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* ─── Flash Sale / Early Bird ─────────────────────────────────────── */}
       <PromoCard
         icon={isEdu ? "🎓" : "⚡"}
@@ -456,11 +442,21 @@ export default function PromotionsScreen({ route }) {
         }
         customersCount={customers.length}
       >
+        {/* Inline product/course picker */}
+        <Text style={styles.fieldLabel}>{isEdu ? "Courses to promote" : "Products to promote"}</Text>
+        {flashNames
+          ? <Text style={styles.pickerNames} numberOfLines={2}>{flashNames}</Text>
+          : <Text style={styles.pickerEmpty}>{isEdu ? "No courses selected" : "No products selected"}</Text>}
+        <TouchableOpacity style={[styles.chooseBtn, { marginBottom: 10 }]} onPress={() => setPickModal("flash")}>
+          <Text style={styles.chooseBtnText}>{flashProds.length > 0 ? `${flashProds.length} selected — change` : isEdu ? "Choose Courses" : "Choose Products"}</Text>
+        </TouchableOpacity>
+
         <MsgField
           label="Message"
           value={flashMsg}
           onChange={setFlashMsg}
           onTemplate={() => openTemplates("flash", setFlashMsg)}
+          topMargin
         />
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: Colors.yellow }, loading && styles.sendBtnDisabled]}
@@ -485,11 +481,21 @@ export default function PromotionsScreen({ route }) {
         }
         customersCount={customers.length}
       >
+        {/* Inline product/course picker */}
+        <Text style={styles.fieldLabel}>{isEdu ? "Courses to announce" : "Products to announce"}</Text>
+        {arrivalNames
+          ? <Text style={styles.pickerNames} numberOfLines={2}>{arrivalNames}</Text>
+          : <Text style={styles.pickerEmpty}>{isEdu ? "No courses selected" : "No products selected"}</Text>}
+        <TouchableOpacity style={[styles.chooseBtn, { marginBottom: 10 }]} onPress={() => setPickModal("arrival")}>
+          <Text style={styles.chooseBtnText}>{arrivalProds.length > 0 ? `${arrivalProds.length} selected — change` : isEdu ? "Choose Courses" : "Choose Products"}</Text>
+        </TouchableOpacity>
+
         <MsgField
           label="Message"
           value={arrivalMsg}
           onChange={setArrivalMsg}
           onTemplate={() => openTemplates("arrival", setArrivalMsg)}
+          topMargin
         />
         <TouchableOpacity
           style={[styles.sendBtn, { backgroundColor: Colors.blue }, loading && styles.sendBtnDisabled]}
@@ -845,9 +851,10 @@ export default function PromotionsScreen({ route }) {
               data={products}
               keyExtractor={p => String(p.id)}
               renderItem={({ item }) => {
-                const isSegMode = pickModal === "segment";
-                const list    = isSegMode ? segProds : selectedProds;
-                const setList = isSegMode ? setSegProds : setSelectedProds;
+                const isSegMode     = pickModal === "segment";
+                const isArrivalMode = pickModal === "arrival";
+                const list    = isSegMode ? segProds : isArrivalMode ? arrivalProds : flashProds;
+                const setList = isSegMode ? setSegProds : isArrivalMode ? setArrivalProds : setFlashProds;
                 const sel = list.includes(item.id);
                 return (
                   <TouchableOpacity
@@ -904,8 +911,8 @@ export default function PromotionsScreen({ route }) {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function PromoCard({ icon, title, color, description, customersCount, children }) {
-  const [open, setOpen] = useState(true);
+function PromoCard({ icon, title, color, description, customersCount, initialOpen = false, children }) {
+  const [open, setOpen] = useState(initialOpen);
   return (
     <View style={[styles.promoCard, { borderColor: color + "33" }]}>
       <TouchableOpacity style={styles.promoCardHeader} onPress={() => setOpen(o => !o)}>

@@ -246,10 +246,15 @@ export default function OrdersScreen({ navigation, route }) {
                 <Text style={styles.subTitle}>{cfg.cartLabel}</Text>
                 {(selected.cart || []).map((item, i) => (
                   <View key={i} style={styles.cartItem}>
-                    <Text style={styles.cartName}>{item.name}</Text>
-                    <Text style={styles.cartMeta}>
-                      {item.size ? `Size: ${item.size}  ` : ""} Qty: {item.qty || 1}
-                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cartName}>{item.name}</Text>
+                      {item.productNumber ? (
+                        <Text style={styles.cartCode}>🏷 {item.productNumber}</Text>
+                      ) : null}
+                      <Text style={styles.cartMeta}>
+                        {item.size ? `Size: ${item.size}  ` : ""}Qty: {item.qty || 1}
+                      </Text>
+                    </View>
                     <Text style={styles.cartPrice}>₹{(item.price || 0).toLocaleString("en-IN")}</Text>
                   </View>
                 ))}
@@ -437,9 +442,10 @@ const styles = StyleSheet.create({
   infoValue     : { color: Colors.textPrimary, fontSize: 13, fontWeight: "600", flex: 1, textAlign: "right" },
 
   cartItem      : { flexDirection: "row", alignItems: "center", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  cartName      : { color: Colors.textPrimary, fontSize: 14, fontWeight: "600", flex: 1 },
-  cartMeta      : { color: Colors.textSecondary, fontSize: 12, marginHorizontal: 8 },
-  cartPrice     : { color: Colors.primary, fontSize: 14, fontWeight: "700" },
+  cartName      : { color: Colors.textPrimary, fontSize: 14, fontWeight: "600" },
+  cartCode      : { color: Colors.textMuted, fontSize: 10, fontFamily: "monospace", letterSpacing: 0.5, marginTop: 1 },
+  cartMeta      : { color: Colors.textSecondary, fontSize: 12, marginTop: 2 },
+  cartPrice     : { color: Colors.primary, fontSize: 14, fontWeight: "700", marginLeft: 8 },
 
   billBox       : { backgroundColor: Colors.bgCard, borderRadius: 12, padding: 14, marginTop: 16 },
   billRow       : { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },

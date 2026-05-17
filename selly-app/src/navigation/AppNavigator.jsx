@@ -26,8 +26,11 @@ import CustomersScreen      from "../screens/CustomersScreen";
 import PromotionsScreen     from "../screens/PromotionsScreen";
 import BillingScreen        from "../screens/BillingScreen";
 import SettingsScreen       from "../screens/SettingsScreen";
-import PhotoInquiriesScreen from "../screens/PhotoInquiriesScreen";
-import AdminScreen          from "../screens/AdminScreen";
+import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
+import QueryInboxScreen      from "../screens/QueryInboxScreen";
+import ClassScheduleScreen   from "../screens/ClassScheduleScreen";
+import ReviewsScreen         from "../screens/ReviewsScreen";
+import AdminScreen           from "../screens/AdminScreen";
 import IndustrySetupScreen  from "../screens/IndustrySetupScreen";
 // Education-specific screens
 import EnrollmentsScreen    from "../screens/EnrollmentsScreen";
@@ -103,8 +106,11 @@ function MoreStack() {
       <MoreStack_.Screen name="Billing"        component={BillingScreen}       options={{ title: "Billing" }} />
       <MoreStack_.Screen name="Settings"       component={SettingsScreen}      options={{ title: "Settings" }} />
       <MoreStack_.Screen name="Profile"        component={ProfileScreen}       options={{ title: "My Profile" }} />
-      <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen} options={{ title: "Photo Inquiries" }} />
-      <MoreStack_.Screen name="Admin"          component={AdminScreen}          options={{ title: "Admin Panel" }} />
+      <MoreStack_.Screen name="PhotoInquiries"  component={PhotoInquiriesScreen}  options={{ title: "Photo Inquiries" }} />
+      <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}      options={{ title: "Query Inbox" }} />
+      <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}   options={{ title: "Class Schedule" }} />
+      <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}         options={{ title: "Customer Reviews" }} />
+      <MoreStack_.Screen name="Admin"          component={AdminScreen}           options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
 }
@@ -112,12 +118,16 @@ function MoreStack() {
 // ── More Hub ──────────────────────────────────────────────────────────────────
 function MoreHubScreen() {
   const nav              = useNavigation();
-  const { user, profile } = useAuth();
+  const { user, profile, industry } = useAuth();
   const isAdminUser      = user?.email === ADMIN_EMAIL;
+  const isEducation      = (industry || "").toLowerCase() === "education";
 
   const items = [
     { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",    screen: "Promotions"     },
+    { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",   screen: "QueryInbox"     },
     { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",          screen: "PhotoInquiries" },
+    { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",    screen: "Reviews"        },
+    ...(isEducation ? [{ icon: "📅", label: "Class Schedule", desc: "Schedule classes & auto-send reminders", screen: "ClassSchedule" }] : []),
     { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
     { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },
     { icon: "⚙️",  label: "Settings",       desc: "Server, GST, delivery, tracking APIs",   screen: "Settings"       },

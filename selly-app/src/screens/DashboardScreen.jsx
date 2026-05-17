@@ -1,12 +1,13 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
-import { fetchDashboard } from "../lib/api";
+import { fetchDashboard, fetchBusinessSettings } from "../lib/api";
 import StatCard from "../components/StatCard";
 import OrderRow from "../components/OrderRow";
 
@@ -126,6 +127,13 @@ export default function DashboardScreen({ navigation }) {
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState(null);
+  const [shopSlug,   setShopSlug]   = useState(null);
+
+  useEffect(() => {
+    fetchBusinessSettings()
+      .then(d => { if (d?.settings?.business_slug) setShopSlug(d.settings.business_slug); })
+      .catch(() => {});
+  }, []);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -187,6 +195,9 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.sellyText}>selly</Text>
         </View>
       </View>
+
+      {/* Shop page card */}
+      <ShopUrlCard slug={shopSlug} navigation={navigation} />
 
       {/* Revenue / top card */}
       <View style={styles.revenueCard}>
@@ -264,6 +275,73 @@ export default function DashboardScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+function ShopUrlCard({ slug, navigation }) {
+  const [copied, setCopied] = useState(false);
+  const shopUrl = slug ? `https://selly.in/shop/${slug}` : null;
+
+  if (!shopUrl) {
+    return (
+      <TouchableOpacity
+        style={shopStyles.pendingCard}
+        onPress={() => navigation.navigate("Settings")}
+        activeOpacity={0.8}
+      >
+        <Text style={shopStyles.pendingIcon}>🌐</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={shopStyles.pendingTitle}>Create your shop page</Text>
+          <Text style={shopStyles.pendingDesc}>Tap to open Settings → add City → get discoverable on AI platforms</Text>
+        </View>
+        <Text style={{ color: Colors.textMuted, fontSize: 16 }}>›</Text>
+      </TouchableOpacity>
+    );
+  }
+
+  const copy = async () => {
+    await Clipboard.setStringAsync(shopUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <View style={shopStyles.liveCard}>
+      <View style={shopStyles.liveBadgeRow}>
+        <View style={shopStyles.liveBadge}>
+          <Text style={shopStyles.liveBadgeText}>✓ Shop page live</Text>
+        </View>
+      </View>
+      <Text style={shopStyles.liveUrl} numberOfLines={1}>{shopUrl}</Text>
+      <View style={shopStyles.liveButtons}>
+        <TouchableOpacity style={shopStyles.liveCopyBtn} onPress={copy}>
+          <Text style={[shopStyles.liveCopyText, copied && { color: Colors.green }]}>
+            {copied ? "Copied ✓" : "📋 Copy link"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={shopStyles.liveViewBtn} onPress={() => Linking.openURL(shopUrl)}>
+          <Text style={shopStyles.liveViewText}>View →</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const shopStyles = StyleSheet.create({
+  pendingCard : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgCard, borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, gap: 10, borderStyle: "dashed" },
+  pendingIcon : { fontSize: 22 },
+  pendingTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: "700", marginBottom: 2 },
+  pendingDesc : { color: Colors.textSecondary, fontSize: 12, lineHeight: 16 },
+
+  liveCard    : { backgroundColor: "#0e1f12", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.green + "55" },
+  liveBadgeRow: { marginBottom: 8 },
+  liveBadge   : { alignSelf: "flex-start", backgroundColor: Colors.green + "22", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: Colors.green + "44" },
+  liveBadgeText: { color: Colors.green, fontSize: 11, fontWeight: "700" },
+  liveUrl     : { color: Colors.textSecondary, fontSize: 12, fontFamily: "monospace", marginBottom: 10 },
+  liveButtons : { flexDirection: "row", gap: 8 },
+  liveCopyBtn : { flex: 1, backgroundColor: Colors.bgCard, borderRadius: 8, paddingVertical: 8, alignItems: "center", borderWidth: 1, borderColor: Colors.border },
+  liveCopyText: { color: Colors.textSecondary, fontSize: 12, fontWeight: "600" },
+  liveViewBtn : { flex: 1, backgroundColor: Colors.green + "22", borderRadius: 8, paddingVertical: 8, alignItems: "center", borderWidth: 1, borderColor: Colors.green + "44" },
+  liveViewText: { color: Colors.green, fontSize: 12, fontWeight: "700" },
+});
 
 function getGreeting() {
   const h = new Date().getHours();

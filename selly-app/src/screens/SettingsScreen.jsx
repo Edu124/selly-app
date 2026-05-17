@@ -14,10 +14,14 @@ const DEFAULT_SETTINGS = {
   gst_enabled: true, gst_rate: "5", delivery_charge: "49",
   free_above: "999", cod_fee: "30",
   whatsapp_number: "", shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
+  // AI Discovery fields
+  instagram_handle: "", city: "",
   // Online payment details (UPI / bank transfer)
   upi_id: "", bank_details: "",
   // Bot customisation
   greeting_message: "", location_url: "",
+  // AI FAQ context
+  faq_text: "",
 };
 
 const INDUSTRY_OPTIONS = [
@@ -54,7 +58,7 @@ export default function SettingsScreen() {
             business_name     : s.business_name       || profileName,
             business_gst_no   : s.business_gst_no     || "",
             business_address  : s.business_address    || "",
-            gst_enabled       : s.gst_enabled !== false,
+            gst_enabled       : s.gst_enabled !== false && s.gst_enabled !== "false" && s.gst_enabled !== 0,
             gst_rate          : String(s.gst_rate          ?? 5),
             delivery_charge   : String(s.delivery_charge   ?? 49),
             free_above        : String(s.free_above         ?? 999),
@@ -65,8 +69,11 @@ export default function SettingsScreen() {
             delhivery_api_key : s.delhivery_api_key   || "",
             upi_id            : s.upi_id              || "",
             bank_details      : s.bank_details        || "",
+            instagram_handle  : s.instagram_handle    || "",
+            city              : s.city               || "",
             greeting_message  : s.greeting_message    || "",
             location_url      : s.location_url        || "",
+            faq_text          : s.faq_text            || "",
           });
         }
       })
@@ -87,6 +94,8 @@ export default function SettingsScreen() {
         delivery_charge    : Number(biz.delivery_charge) || 49,
         free_above         : Number(biz.free_above)      || 999,
         cod_fee            : Number(biz.cod_fee)         || 30,
+        instagram_handle   : biz.instagram_handle.trim(),
+        city               : biz.city.trim(),
         whatsapp_number    : biz.whatsapp_number.trim(),
         shiprocket_email   : biz.shiprocket_email.trim(),
         shiprocket_password: biz.shiprocket_password.trim(),
@@ -95,6 +104,7 @@ export default function SettingsScreen() {
         bank_details       : biz.bank_details.trim(),
         greeting_message   : biz.greeting_message.trim(),
         location_url       : biz.location_url.trim(),
+        faq_text           : biz.faq_text.trim(),
       });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
@@ -204,6 +214,23 @@ export default function SettingsScreen() {
         <Text style={styles.fieldLabel}>Business Name</Text>
         <TextInput style={styles.input} value={biz.business_name} onChangeText={v => setBizField("business_name", v)} placeholder="Your Store Name" placeholderTextColor={Colors.textMuted} />
 
+        <Text style={styles.fieldLabel}>City</Text>
+        <Text style={styles.fieldHint}>Used to generate your public shop page URL on selly.in</Text>
+        <TextInput style={styles.input} value={biz.city} onChangeText={v => setBizField("city", v)} placeholder="Mumbai" placeholderTextColor={Colors.textMuted} />
+
+        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Instagram Handle</Text>
+        <Text style={styles.fieldHint}>Customers on your shop page can tap "Message on Instagram" to DM you</Text>
+        <TextInput style={styles.input} value={biz.instagram_handle} onChangeText={v => setBizField("instagram_handle", v)} placeholder="@yourshop" placeholderTextColor={Colors.textMuted} autoCapitalize="none" autoCorrect={false} />
+
+        <View style={[styles.paymentNote, { marginTop: 12, marginBottom: 4 }]}>
+          <Text style={styles.paymentNoteText}>
+            🌐 Once saved, your shop page goes live at{"\n"}
+            selly.in/shop/your-store-name — discoverable by Google &amp; AI platforms.
+          </Text>
+        </View>
+
+        <View style={styles.sectionDivider} />
+
         <Text style={styles.fieldLabel}>GST Number</Text>
         <TextInput style={styles.input} value={biz.business_gst_no} onChangeText={v => setBizField("business_gst_no", v)} placeholder="22AAAAA0000A1Z5" placeholderTextColor={Colors.textMuted} autoCapitalize="characters" />
 
@@ -305,6 +332,21 @@ export default function SettingsScreen() {
           placeholder="https://maps.app.goo.gl/..."
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="none"
+          autoCorrect={false}
+        />
+
+        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>AI FAQ Context</Text>
+        <Text style={styles.fieldHint}>
+          Write common Q&As here. The AI will use these to answer customer questions automatically.{"\n"}
+          Format: "Q: Do you deliver to Pune? A: Yes, 2–3 days."
+        </Text>
+        <TextInput
+          style={[styles.input, { height: 120, textAlignVertical: "top" }]}
+          value={biz.faq_text}
+          onChangeText={v => setBizField("faq_text", v)}
+          placeholder={"Q: Do you deliver outside the city? A: Yes, shipping available pan-India.\nQ: What is your return policy? A: 7-day easy return."}
+          placeholderTextColor={Colors.textMuted}
+          multiline
           autoCorrect={false}
         />
 
