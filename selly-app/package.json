@@ -23,6 +23,7 @@
     "expo-device": "~7.0.3",
     "expo-notifications": "~0.29.13",
     "expo-document-picker": "~13.0.3",
+    "expo-updates": "~0.27.0",
     "expo-file-system": "~18.0.12",
     "expo-image-picker": "~16.0.6",
     "expo-status-bar": "~2.0.1",

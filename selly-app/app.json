@@ -8,6 +8,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0a0a0f",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/085c3fc3-9b68-45ef-a873-c35236d8ff45",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 15000
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -50,7 +59,8 @@
           "androidMode": "default",
           "androidCollapsedTitle": "Selly"
         }
-      ]
+      ],
+      "expo-updates"
     ],
     "extra": {
       "eas": {
