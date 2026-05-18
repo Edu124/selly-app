@@ -395,6 +395,16 @@ export async function fetchAdminNumbers() {
   return r.data;
 }
 
+// ── Expo Push Token ───────────────────────────────────────────────────────────
+// Registers the device's Expo push token with the server so the owner
+// receives in-app push notifications for new orders, etc.
+export async function registerPushToken(token) {
+  try {
+    const c = await client();
+    await c.post("/api/owner/push-token", { token });
+  } catch (_) { /* non-fatal */ }
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 export async function saveServerUrl(url) {
   await AsyncStorage.setItem(KEY_URL, url);

@@ -40,6 +40,16 @@
         {
           "contactsPermission": "Allow Selly to access your contacts to easily add students and customers."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7c3aed",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "Selly"
+        }
       ]
     ],
     "extra": {
