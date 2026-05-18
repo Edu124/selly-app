@@ -30,6 +30,7 @@ import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
 import QueryInboxScreen      from "../screens/QueryInboxScreen";
 import ClassScheduleScreen   from "../screens/ClassScheduleScreen";
 import ReviewsScreen         from "../screens/ReviewsScreen";
+import ReturnsScreen         from "../screens/ReturnsScreen";
 import AdminScreen           from "../screens/AdminScreen";
 import IndustrySetupScreen  from "../screens/IndustrySetupScreen";
 // Education-specific screens
@@ -110,6 +111,7 @@ function MoreStack() {
       <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}      options={{ title: "Query Inbox" }} />
       <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}   options={{ title: "Class Schedule" }} />
       <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}         options={{ title: "Customer Reviews" }} />
+      <MoreStack_.Screen name="Returns"        component={ReturnsScreen}         options={{ title: "Returns & Refunds" }} />
       <MoreStack_.Screen name="Admin"          component={AdminScreen}           options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
@@ -127,6 +129,7 @@ function MoreHubScreen() {
     { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",   screen: "QueryInbox"     },
     { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",          screen: "PhotoInquiries" },
     { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",    screen: "Reviews"        },
+    { icon: "↩",  label: "Returns",         desc: "Return, refund & complaint requests",     screen: "Returns"        },
     ...(isEducation ? [{ icon: "📅", label: "Class Schedule", desc: "Schedule classes & auto-send reminders", screen: "ClassSchedule" }] : []),
     { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
     { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },

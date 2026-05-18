@@ -329,6 +329,19 @@ export async function deleteSchedule(id) {
   return r.data;
 }
 
+// ── Returns / Refunds ─────────────────────────────────────────────────────────
+export async function fetchReturns(status = null) {
+  const c = await client();
+  const r = await c.get("/api/returns", { params: status ? { status } : {} });
+  return r.data;
+}
+
+export async function updateReturn(returnId, status, ownerNote = "") {
+  const c = await client();
+  const r = await c.patch(`/api/returns/${returnId}`, { status, owner_note: ownerNote });
+  return r.data;
+}
+
 // ── Reviews ───────────────────────────────────────────────────────────────────
 export async function fetchReviews() {
   const c = await client();

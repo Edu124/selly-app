@@ -89,68 +89,83 @@ function ChipRow({ items, selected, onSelect, color }) {
   );
 }
 
-// ── Photo Picker Button ───────────────────────────────────────────────────────
-function PhotoPickerButton({ imageUrl, onPicked, uploading }) {
-  // pick — no crop (fast, straight to upload)
-  const pick = async (source) => {
-    const perm = source === "camera"
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) { Alert.alert("Permission needed", "Allow access in device settings."); return; }
+// ── Multi-Photo Picker ────────────────────────────────────────────────────────
+const MAX_IMAGES = 4;
 
-    const result = source === "camera"
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: false })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.7, allowsEditing: false, mediaTypes: ImagePicker.MediaTypeOptions.Images });
+function MultiPhotoPicker({ imageUrls = [], onAdd, onRemove, uploadingIdx }) {
+  const slots = Array.from({ length: MAX_IMAGES }, (_, i) => imageUrls[i] || null);
 
-    if (!result.canceled && result.assets?.[0]?.uri) onPicked(result.assets[0].uri);
-  };
-
-  // crop — re-open gallery with allowsEditing so owner can manually crop
-  const crop = async () => {
+  const pickForSlot = async (slotIndex, withCrop = false) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert("Permission needed", "Allow access in device settings."); return; }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       quality      : 0.8,
-      allowsEditing: true,
-      aspect       : [1, 1],
+      allowsEditing: withCrop,   // crop = free-form (no forced aspect ratio)
       mediaTypes   : ImagePicker.MediaTypeOptions.Images,
     });
-    if (!result.canceled && result.assets?.[0]?.uri) onPicked(result.assets[0].uri);
+    if (!result.canceled && result.assets?.[0]?.uri) onAdd(result.assets[0].uri, slotIndex);
+  };
+
+  const fromCamera = async (slotIndex) => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) { Alert.alert("Permission needed", "Allow access in device settings."); return; }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: false });
+    if (!result.canceled && result.assets?.[0]?.uri) onAdd(result.assets[0].uri, slotIndex);
+  };
+
+  const promptSlot = (idx, hasImage) => {
+    const nextEmpty = imageUrls.length;
+    if (!hasImage) {
+      Alert.alert("Add Photo", undefined, [
+        { text: "📷 Camera",  onPress: () => fromCamera(nextEmpty) },
+        { text: "🖼️ Gallery", onPress: () => pickForSlot(nextEmpty, false) },
+        { text: "Cancel",     style: "cancel" },
+      ]);
+    } else {
+      Alert.alert("Photo Options", undefined, [
+        { text: "✂️ Crop / Replace",    onPress: () => pickForSlot(idx, true) },
+        { text: "🖼️ Replace (no crop)", onPress: () => pickForSlot(idx, false) },
+        { text: "🗑 Remove",   style: "destructive", onPress: () => onRemove(idx) },
+        { text: "Cancel",      style: "cancel" },
+      ]);
+    }
   };
 
   return (
-    <View style={styles.photoPickerWrap}>
-      {imageUrl ? (
-        <View style={styles.photoPreviewWrap}>
-          <Image source={{ uri: imageUrl }} style={styles.photoPreview} />
-          <View style={styles.photoActionRow}>
-            <TouchableOpacity style={styles.photoChangeBtn} onPress={() => pick("gallery")}>
-              <Text style={styles.photoChangeBtnText}>✏️ Change</Text>
+    <View>
+      <View style={styles.imgGrid}>
+        {slots.map((url, i) => {
+          const isLoading = uploadingIdx === i;
+          const canTap    = url || i === imageUrls.length; // only tap next empty slot
+          return (
+            <TouchableOpacity
+              key={i}
+              style={[styles.imgSlot, url ? styles.imgSlotFilled : styles.imgSlotEmpty, !canTap && { opacity: 0.3 }]}
+              onPress={() => canTap && promptSlot(i, !!url)}
+              activeOpacity={0.75}
+              disabled={isLoading}
+            >
+              {url ? (
+                <>
+                  <Image source={{ uri: url }} style={styles.imgSlotImg} />
+                  {i === 0 && <View style={styles.imgPrimaryBadge}><Text style={styles.imgPrimaryText}>Main</Text></View>}
+                  {isLoading && <View style={styles.imgLoadOverlay}><ActivityIndicator color="#fff" /></View>}
+                </>
+              ) : (
+                <View style={styles.imgSlotPlaceholder}>
+                  {isLoading
+                    ? <ActivityIndicator color={Colors.primary} />
+                    : <Text style={styles.imgSlotPlus}>+</Text>
+                  }
+                </View>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.photoChangeBtn, { backgroundColor: "#1e293b" }]} onPress={crop}>
-              <Text style={styles.photoChangeBtnText}>✂️ Crop</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ) : (
-        <View style={styles.photoEmpty}>
-          {uploading ? (
-            <ActivityIndicator color={Colors.primary} />
-          ) : (
-            <>
-              <TouchableOpacity style={styles.photoBtn} onPress={() => pick("camera")}>
-                <Text style={styles.photoBtnIcon}>📷</Text>
-                <Text style={styles.photoBtnText}>Camera</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.photoBtn} onPress={() => pick("gallery")}>
-                <Text style={styles.photoBtnIcon}>🖼️</Text>
-                <Text style={styles.photoBtnText}>Gallery</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      )}
+          );
+        })}
+      </View>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4, marginBottom: 8 }}>
+        First photo = main image · Tap filled photo to crop or swap · Up to 4 photos
+      </Text>
     </View>
   );
 }
@@ -217,10 +232,28 @@ function EducationForm({ form, set }) {
 }
 
 // ── Product Form ──────────────────────────────────────────────────────────────
+// Categories that need size options and what sizes to show
+const CATEGORY_SIZES = {
+  "Clothing"         : ["XS","S","M","L","XL","XXL","XXXL"],
+  // Waist-size subcategories within Clothing
+  "_waist"           : ["28","30","32","34","36","38","40","42","Free Size"],
+};
+const WAIST_SUBCATS  = ["Jeans","Pants","Cargo","Shorts"];
+// Categories that need a Material/Fabric field
+const NEEDS_MATERIAL = new Set(["Clothing","Accessories","Home Decor","Sports"]);
+
 function ProductItemForm({ form, set }) {
   const cfg     = INDUSTRIES.product;
   const subCats = cfg.subCategories[form.category] || [];
-  const sizeOpts = form.category === "Clothing" ? cfg.sizes["Clothing"] : cfg.sizes["default"];
+
+  // Only Clothing gets size chips; waist sub-cats get waist sizes
+  const isClothing   = form.category === "Clothing";
+  const isWaistSubCat = isClothing && WAIST_SUBCATS.includes(form.subCategory);
+  const sizeOpts     = isClothing
+    ? (isWaistSubCat ? CATEGORY_SIZES["_waist"] : CATEGORY_SIZES["Clothing"])
+    : null; // null = hide size section
+
+  const showMaterial = NEEDS_MATERIAL.has(form.category);
 
   const toggleSize = (s) => {
     const current = form.sizes || [];
@@ -245,14 +278,22 @@ function ProductItemForm({ form, set }) {
       <Text style={styles.fieldLabel}>Price (₹) *</Text>
       <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="e.g. 1299" placeholderTextColor={Colors.textMuted} />
 
-      <Text style={styles.fieldLabel}>Available Sizes</Text>
-      <ChipRow items={sizeOpts} selected={form.sizes || []} onSelect={toggleSize} color={cfg.color} />
+      {sizeOpts && (
+        <>
+          <Text style={styles.fieldLabel}>Available Sizes</Text>
+          <ChipRow items={sizeOpts} selected={form.sizes || []} onSelect={toggleSize} color={cfg.color} />
+        </>
+      )}
 
       <Text style={styles.fieldLabel}>Colors (comma-separated)</Text>
       <TextInput style={styles.input} value={form.colors} onChangeText={v => set("colors", v)} placeholder="Red, Black, Navy Blue" placeholderTextColor={Colors.textMuted} />
 
-      <Text style={styles.fieldLabel}>Material / Fabric</Text>
-      <TextInput style={styles.input} value={form.material} onChangeText={v => set("material", v)} placeholder="e.g. Cotton, Silk, Denim" placeholderTextColor={Colors.textMuted} />
+      {showMaterial && (
+        <>
+          <Text style={styles.fieldLabel}>Material / Fabric</Text>
+          <TextInput style={styles.input} value={form.material} onChangeText={v => set("material", v)} placeholder="e.g. Cotton, Silk, Denim" placeholderTextColor={Colors.textMuted} />
+        </>
+      )}
 
       <Text style={styles.fieldLabel}>Product Code / SKU</Text>
       <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
@@ -348,7 +389,8 @@ function TourismForm({ form, set }) {
 
 // ── Add / Edit Modal ──────────────────────────────────────────────────────────
 const BLANK = {
-  name:"", price:"", category:"", subCategory:"", description:"", imageUrl:"",
+  name:"", price:"", category:"", subCategory:"", description:"",
+  imageUrl:"", imageUrls:[],
   sizes:[], colors:"", material:"", isPremium:false, inStock:true,
   duration:"", batchTiming:"", mode:"Online", whatIncluded:"", classLink:"",
   destination:"", groupSize:"", inclusions:"",
@@ -365,6 +407,7 @@ function toForm(p) {
     subCategory:  p.subCategory || "",
     description:  p.description || "",
     imageUrl:     p.imageUrl    || "",
+    imageUrls:    p.imageUrls   || (p.imageUrl ? [p.imageUrl] : []),
     sizes:        p.sizes       || [],
     colors:       (p.colors || []).join(", "),
     material:     p.material    || "",
@@ -385,9 +428,9 @@ function toForm(p) {
 
 function AddEditModal({ visible, industry, product, onClose, onDone }) {
   const isEdit  = !!product;
-  const [form, setForm]       = useState(product ? toForm(product) : { ...BLANK });
-  const [saving, setSaving]   = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [form, setForm]         = useState(product ? toForm(product) : { ...BLANK });
+  const [saving, setSaving]     = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState(-1);
 
   React.useEffect(() => {
     setForm(product ? toForm(product) : { ...BLANK });
@@ -397,17 +440,30 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
 
   const cfg = INDUSTRIES[industry] || INDUSTRIES.product;
 
-  const handlePhoto = async (localUri) => {
-    setUploading(true);
+  // Add or replace image at slot index
+  const handlePhotoAdd = async (localUri, slotIndex) => {
+    setUploadingIdx(slotIndex);
     try {
-      const tmpId = Date.now().toString();
-      const url = await uploadProductImage(localUri, product?.id || tmpId);
-      set("imageUrl", url);
+      const tmpId = product?.id || Date.now().toString();
+      const url   = await uploadProductImage(localUri, tmpId, slotIndex);
+      setForm(f => {
+        const newUrls = [...(f.imageUrls || [])];
+        newUrls[slotIndex] = url;
+        return { ...f, imageUrls: newUrls, imageUrl: newUrls[0] || "" };
+      });
     } catch (e) {
       Alert.alert("Upload failed", e.message);
     } finally {
-      setUploading(false);
+      setUploadingIdx(-1);
     }
+  };
+
+  // Remove image at index
+  const handlePhotoRemove = (slotIndex) => {
+    setForm(f => {
+      const newUrls = (f.imageUrls || []).filter((_, i) => i !== slotIndex);
+      return { ...f, imageUrls: newUrls, imageUrl: newUrls[0] || "" };
+    });
   };
 
   const buildPayload = () => {
@@ -425,13 +481,17 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       if (form.groupSize)   extraFields.groupSize    = form.groupSize;
       if (form.inclusions)  extraFields.inclusions   = form.inclusions;
     }
+    const imageUrls = form.imageUrls && form.imageUrls.length > 0
+      ? form.imageUrls
+      : (form.imageUrl ? [form.imageUrl] : []);
     return {
       name        : form.name.trim(),
       price       : Number(form.price) || 0,
       category    : form.category  || cfg.categories[0] || "general",
       subCategory : form.subCategory || null,
       description : form.description.trim(),
-      imageUrl    : form.imageUrl.trim(),
+      imageUrl    : imageUrls[0] || "",
+      imageUrls,
       sizes       : Array.isArray(form.sizes) ? form.sizes : [],
       colors      : form.colors ? form.colors.split(",").map(c => c.trim()).filter(Boolean) : [],
       material    : form.material.trim(),
@@ -475,9 +535,14 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Photo picker */}
-            <Text style={styles.fieldLabel}>Photo</Text>
-            <PhotoPickerButton imageUrl={form.imageUrl} onPicked={handlePhoto} uploading={uploading} />
+            {/* Multi-photo picker */}
+            <Text style={styles.fieldLabel}>Photos (up to 4)</Text>
+            <MultiPhotoPicker
+              imageUrls={form.imageUrls || []}
+              onAdd={handlePhotoAdd}
+              onRemove={handlePhotoRemove}
+              uploadingIdx={uploadingIdx}
+            />
 
             {/* Industry-specific form */}
             {industry === "education" && <EducationForm form={form} set={set} />}
@@ -499,7 +564,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
               </>
             )}
 
-            <TouchableOpacity style={[styles.submitBtn, (saving || uploading) && styles.submitBtnDisabled]} onPress={submit} disabled={saving || uploading}>
+            <TouchableOpacity style={[styles.submitBtn, (saving || uploadingIdx >= 0) && styles.submitBtnDisabled]} onPress={submit} disabled={saving || uploadingIdx >= 0}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{isEdit ? "Save Changes" : `Add ${cfg.itemLabel}`}</Text>}
             </TouchableOpacity>
             <View style={{ height: 32 }} />
@@ -788,17 +853,17 @@ const styles = StyleSheet.create({
   chip     : { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border },
   chipText : { color: Colors.textSecondary, fontSize: 12 },
 
-  // Photo picker
-  photoPickerWrap : { borderRadius: 12, overflow: "hidden", marginBottom: 8 },
-  photoEmpty      : { flexDirection: "row", gap: 10, marginBottom: 4 },
-  photoBtn        : { flex: 1, backgroundColor: Colors.bgInput, borderRadius: 12, padding: 16, alignItems: "center", borderWidth: 1, borderColor: Colors.border },
-  photoBtnIcon    : { fontSize: 26, marginBottom: 4 },
-  photoBtnText    : { color: Colors.textSecondary, fontSize: 12, fontWeight: "600" },
-  photoPreviewWrap: { position: "relative" },
-  photoActionRow  : { position: "absolute", bottom: 8, right: 8, flexDirection: "row", gap: 6 },
-  photoPreview    : { width: "100%", height: 180, borderRadius: 12 },
-  photoChangeBtn  : { backgroundColor: "rgba(0,0,0,0.7)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  photoChangeBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  // Multi-image grid
+  imgGrid         : { flexDirection: "row", gap: 8, marginBottom: 4 },
+  imgSlot         : { flex: 1, aspectRatio: 1, borderRadius: 10, overflow: "hidden" },
+  imgSlotFilled   : { borderWidth: 0 },
+  imgSlotEmpty    : { borderWidth: 1.5, borderColor: Colors.border, borderStyle: "dashed", backgroundColor: Colors.bgInput },
+  imgSlotImg      : { width: "100%", height: "100%" },
+  imgSlotPlaceholder: { flex: 1, alignItems: "center", justifyContent: "center" },
+  imgSlotPlus     : { fontSize: 28, color: Colors.textMuted, fontWeight: "300" },
+  imgPrimaryBadge : { position: "absolute", top: 4, left: 4, backgroundColor: Colors.primary, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  imgPrimaryText  : { color: "#fff", fontSize: 9, fontWeight: "700" },
+  imgLoadOverlay  : { position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center" },
 
 
   // Premium toggle

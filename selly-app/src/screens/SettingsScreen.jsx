@@ -13,7 +13,9 @@ const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
   gst_enabled: true, gst_rate: "5", delivery_charge: "49",
   free_above: "999", cod_fee: "30",
-  whatsapp_number: "", shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
+  whatsapp_number: "", bot_whatsapp: "", whatsapp_enabled: false, instagram_enabled: false,
+  instagram_access_token: "", instagram_account_id: "",
+  shiprocket_email: "", shiprocket_password: "", delhivery_api_key: "",
   // AI Discovery fields
   instagram_handle: "", city: "",
   // Online payment details (UPI / bank transfer)
@@ -22,6 +24,8 @@ const DEFAULT_SETTINGS = {
   greeting_message: "", location_url: "",
   // AI FAQ context
   faq_text: "",
+  // Return / refund policy shown on shop page
+  return_policy: "",
 };
 
 const INDUSTRY_OPTIONS = [
@@ -63,7 +67,12 @@ export default function SettingsScreen() {
             delivery_charge   : String(s.delivery_charge   ?? 49),
             free_above        : String(s.free_above         ?? 999),
             cod_fee           : String(s.cod_fee            ?? 30),
-            whatsapp_number   : s.whatsapp_number     || "",
+            whatsapp_number        : s.whatsapp_number        || "",
+            bot_whatsapp           : s.bot_whatsapp           || "",
+            whatsapp_enabled       : s.whatsapp_enabled  === true || s.whatsapp_enabled  === "true",
+            instagram_enabled      : s.instagram_enabled === true || s.instagram_enabled === "true",
+            instagram_access_token : s.instagram_access_token || "",
+            instagram_account_id   : s.instagram_account_id   || "",
             shiprocket_email  : s.shiprocket_email    || "",
             shiprocket_password: s.shiprocket_password || "",
             delhivery_api_key : s.delhivery_api_key   || "",
@@ -74,6 +83,7 @@ export default function SettingsScreen() {
             greeting_message  : s.greeting_message    || "",
             location_url      : s.location_url        || "",
             faq_text          : s.faq_text            || "",
+            return_policy     : s.return_policy       || "",
           });
         }
       })
@@ -97,6 +107,11 @@ export default function SettingsScreen() {
         instagram_handle   : biz.instagram_handle.trim(),
         city               : biz.city.trim(),
         whatsapp_number    : biz.whatsapp_number.trim(),
+        bot_whatsapp       : biz.bot_whatsapp.trim(),
+        whatsapp_enabled        : biz.whatsapp_enabled,
+        instagram_enabled       : biz.instagram_enabled,
+        instagram_access_token  : biz.instagram_access_token.trim(),
+        instagram_account_id    : biz.instagram_account_id.trim(),
         shiprocket_email   : biz.shiprocket_email.trim(),
         shiprocket_password: biz.shiprocket_password.trim(),
         delhivery_api_key  : biz.delhivery_api_key.trim(),
@@ -105,6 +120,7 @@ export default function SettingsScreen() {
         greeting_message   : biz.greeting_message.trim(),
         location_url       : biz.location_url.trim(),
         faq_text           : biz.faq_text.trim(),
+        return_policy      : biz.return_policy.trim(),
       });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
@@ -266,9 +282,45 @@ export default function SettingsScreen() {
         <Text style={styles.fieldLabel}>COD Extra Charge (₹)</Text>
         <TextInput style={styles.input} value={biz.cod_fee} onChangeText={v => setBizField("cod_fee", v)} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textMuted} />
 
-        <Text style={[styles.fieldLabel, { marginTop: 16 }]}>WhatsApp Business Number</Text>
-        <Text style={styles.fieldHint}>Customers see a "Chat with us" link after order confirmation</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Your Personal WhatsApp Number</Text>
+        <Text style={styles.fieldHint}>Complex customer queries are forwarded to this number</Text>
         <TextInput style={styles.input} value={biz.whatsapp_number} onChangeText={v => setBizField("whatsapp_number", v)} placeholder="+919876543210" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+
+        <Text style={[styles.fieldLabel, { marginTop: 16 }]}>WhatsApp Bot Number</Text>
+        <Text style={styles.fieldHint}>The Meta API number customers contact on your shop page</Text>
+        <TextInput style={styles.input} value={biz.bot_whatsapp} onChangeText={v => setBizField("bot_whatsapp", v)} placeholder="+919876543210" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+
+        <View style={styles.sectionDivider} />
+        <Text style={[styles.cardTitle, { marginBottom: 4 }]}>📡 Active Channels</Text>
+        <Text style={styles.cardDesc}>Choose which channels your bot is active on. Only enabled channels will show contact buttons on your shop page.</Text>
+
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+          <View>
+            <Text style={styles.fieldLabel}>WhatsApp Bot</Text>
+            <Text style={styles.fieldHint}>Customers can order via WhatsApp</Text>
+          </View>
+          <Switch value={biz.whatsapp_enabled} onValueChange={v => setBizField("whatsapp_enabled", v)} trackColor={{ true: Colors.primary }} />
+        </View>
+
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
+          <View>
+            <Text style={styles.fieldLabel}>Instagram Bot</Text>
+            <Text style={styles.fieldHint}>Customers can order via Instagram DM</Text>
+          </View>
+          <Switch value={biz.instagram_enabled} onValueChange={v => setBizField("instagram_enabled", v)} trackColor={{ true: Colors.primary }} />
+        </View>
+
+        {biz.instagram_enabled && (
+          <>
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Instagram Account ID</Text>
+            <Text style={styles.fieldHint}>Numeric ID of your Instagram business account (e.g. 17841459744700340). Find it in Meta Business Suite → Instagram Account → About.</Text>
+            <TextInput style={styles.input} value={biz.instagram_account_id} onChangeText={v => setBizField("instagram_account_id", v)} placeholder="17841459744700340" placeholderTextColor={Colors.textMuted} keyboardType="numeric" />
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Instagram Access Token</Text>
+            <Text style={styles.fieldHint}>Long-lived access token from Graph API Explorer. Used to show your latest posts on your shop page.</Text>
+            <TextInput style={[styles.input, { fontSize: 11 }]} value={biz.instagram_access_token} onChangeText={v => setBizField("instagram_access_token", v)} placeholder="EAAxxxxx..." placeholderTextColor={Colors.textMuted} multiline numberOfLines={2} />
+          </>
+        )}
 
         <View style={styles.sectionDivider} />
         <Text style={[styles.cardTitle, { marginBottom: 4 }]}>💳 Online Payment Details</Text>
@@ -345,6 +397,20 @@ export default function SettingsScreen() {
           value={biz.faq_text}
           onChangeText={v => setBizField("faq_text", v)}
           placeholder={"Q: Do you deliver outside the city? A: Yes, shipping available pan-India.\nQ: What is your return policy? A: 7-day easy return."}
+          placeholderTextColor={Colors.textMuted}
+          multiline
+          autoCorrect={false}
+        />
+
+        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Return / Refund Policy</Text>
+        <Text style={styles.fieldHint}>
+          Shown on your public shop page and in the return request form. Leave blank to use a default message.
+        </Text>
+        <TextInput
+          style={[styles.input, { height: 100, textAlignVertical: "top" }]}
+          value={biz.return_policy}
+          onChangeText={v => setBizField("return_policy", v)}
+          placeholder={"e.g. We accept returns within 7 days of delivery. Items must be unused and in original condition."}
           placeholderTextColor={Colors.textMuted}
           multiline
           autoCorrect={false}

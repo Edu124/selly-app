@@ -24,6 +24,9 @@ async function _bid() {
 }
 
 function _toProduct(row) {
+  const imageUrls = row.image_urls && row.image_urls.length > 0
+    ? row.image_urls
+    : (row.image_url ? [row.image_url] : []);
   return {
     id           : row.id,
     name         : row.name,
@@ -37,7 +40,8 @@ function _toProduct(row) {
     hasSizes     : row.has_sizes     || false,
     material     : row.material      || "",
     description  : row.description   || "",
-    imageUrl     : row.image_url     || "",
+    imageUrl     : imageUrls[0]      || "",    // primary image (backward compat)
+    imageUrls    : imageUrls,                  // all images
     instaPostUrl : row.insta_post_url || "",
     rating       : row.rating != null ? Number(row.rating) : null,
     inStock      : row.in_stock,
@@ -121,7 +125,8 @@ export async function addProduct(product) {
     has_sizes      : (product.sizes || []).length > 0,
     material       : product.material      || "",
     description    : product.description   || "",
-    image_url      : product.imageUrl      || "",
+    image_url      : (product.imageUrls || [])[0] || product.imageUrl || "",
+    image_urls     : product.imageUrls     || (product.imageUrl ? [product.imageUrl] : []),
     insta_post_url : product.instaPostUrl  || "",
     rating         : product.rating        || null,
     in_stock       : product.inStock !== false,
@@ -150,7 +155,12 @@ export async function updateProduct(id, changes) {
   if (changes.sizes       !== undefined) { updates.sizes = changes.sizes; updates.has_sizes = changes.sizes.length > 0; }
   if (changes.material    !== undefined) updates.material      = changes.material;
   if (changes.description !== undefined) updates.description   = changes.description;
-  if (changes.imageUrl    !== undefined) updates.image_url     = changes.imageUrl;
+  if (changes.imageUrls   !== undefined) {
+    updates.image_urls = changes.imageUrls;
+    updates.image_url  = changes.imageUrls[0] || "";
+  } else if (changes.imageUrl !== undefined) {
+    updates.image_url = changes.imageUrl;
+  }
   if (changes.inStock        !== undefined) updates.in_stock       = changes.inStock;
   if (changes.tags           !== undefined) updates.tags           = changes.tags;
   if (changes.productNumber  !== undefined) updates.product_number = changes.productNumber;
@@ -188,15 +198,16 @@ export async function deleteProduct(id) {
 
 // ── Image Upload ──────────────────────────────────────────────────────────────
 // Uploads a local image URI to Supabase Storage bucket "catalog-images"
+// index = 0..4 for multi-image support (0 = primary/hero image)
 // Returns the public URL of the uploaded image
-export async function uploadProductImage(localUri, productId) {
+export async function uploadProductImage(localUri, productId, index = 0) {
   const bid = await _bid();
 
   // Normalise extension — expo sometimes gives .jpeg, sometimes .jpg
   const rawExt = (localUri.split(".").pop() || "jpg").split("?")[0].toLowerCase();
   const ext    = rawExt === "jpeg" ? "jpg" : rawExt;
   const mime   = ext === "jpg" ? "image/jpeg" : `image/${ext}`;
-  const path   = `${bid}/${productId}.${ext}`;
+  const path   = `${bid}/${productId}_${index}.${ext}`;
 
   // Use expo-file-system to read as base64 — most reliable on Android/iOS
   const FileSystem = require("expo-file-system");
