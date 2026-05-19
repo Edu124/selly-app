@@ -26,6 +26,8 @@ const DEFAULT_SETTINGS = {
   faq_text: "",
   // Return / refund policy shown on shop page
   return_policy: "",
+  // Payment methods offered to web customers: "both" | "cod_only" | "online_only"
+  payment_modes: "both",
 };
 
 const INDUSTRY_OPTIONS = [
@@ -84,6 +86,7 @@ export default function SettingsScreen() {
             location_url      : s.location_url        || "",
             faq_text          : s.faq_text            || "",
             return_policy     : s.return_policy       || "",
+            payment_modes     : s.payment_modes       || "both",
           });
         }
       })
@@ -121,6 +124,7 @@ export default function SettingsScreen() {
         location_url       : biz.location_url.trim(),
         faq_text           : biz.faq_text.trim(),
         return_policy      : biz.return_policy.trim(),
+        payment_modes      : biz.payment_modes || "both",
       });
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
@@ -281,6 +285,30 @@ export default function SettingsScreen() {
 
         <Text style={styles.fieldLabel}>COD Extra Charge (₹)</Text>
         <TextInput style={styles.input} value={biz.cod_fee} onChangeText={v => setBizField("cod_fee", v)} keyboardType="numeric" placeholder="30" placeholderTextColor={Colors.textMuted} />
+
+        <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Payment Methods on Shop Page</Text>
+        <Text style={styles.fieldHint}>Which payment options to offer customers when they checkout online</Text>
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+          {[
+            { val: "both",        label: "COD + Online" },
+            { val: "cod_only",    label: "COD Only"     },
+            { val: "online_only", label: "Online Only"  },
+          ].map(opt => (
+            <TouchableOpacity key={opt.val}
+              onPress={() => setBizField("payment_modes", opt.val)}
+              style={{
+                flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: "center",
+                borderWidth: 1.5,
+                borderColor: biz.payment_modes === opt.val ? Colors.primary : Colors.border,
+                backgroundColor: biz.payment_modes === opt.val ? Colors.primary + "18" : Colors.bgInput,
+              }}>
+              <Text style={{
+                fontSize: 12, fontWeight: "700",
+                color: biz.payment_modes === opt.val ? Colors.primary : Colors.textSecondary,
+              }}>{opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Your Personal WhatsApp Number</Text>
         <Text style={styles.fieldHint}>Complex customer queries are forwarded to this number</Text>
