@@ -7,7 +7,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // saveBusinessSettings routes through the server (supabaseAdmin) — no direct import needed
 
-const DEFAULT_URL = "https://instagram-bot-production-ef01.up.railway.app";
+const DEFAULT_URL = "https://instagram-bot-production-b993.up.railway.app";
 const KEY_URL     = "@selly_server_url";
 const KEY_BID     = "@selly_business_id";
 
