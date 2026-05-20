@@ -6,7 +6,7 @@
 import * as Updates from "expo-updates";
 
 const VERSION_CHECK_URL =
-  "https://instagram-bot-production-b993.up.railway.app/api/app/version";
+  "https://instagram-bot-production-04ae.up.railway.app/api/app/version";
 
 // Current APK version — keep in sync with app.json "version" field.
 // Update this string every time you cut a new APK build.
