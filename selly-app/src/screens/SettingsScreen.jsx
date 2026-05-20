@@ -148,10 +148,7 @@ export default function SettingsScreen() {
     setTesting(true);
     setTestResult(null);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      const resp = await fetch(`${url}/`, { signal: controller.signal });
-      clearTimeout(timeout);
+      const resp = await fetch(`${url}/`);
       if (resp.ok) {
         setTestResult({ ok: true, msg: "✅ Connected successfully!" });
       } else {
