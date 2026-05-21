@@ -48,6 +48,7 @@ function _toProduct(row) {
     tags         : row.tags          || [],
     productNumber: row.product_number || "",
     stockCount   : row.stock_count != null ? Number(row.stock_count) : -1,
+    videoUrl     : row.video_url     || "",
     createdAt    : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
 }
@@ -133,6 +134,7 @@ export async function addProduct(product) {
     tags           : product.tags          || [],
     product_number : product.productNumber || "",
     stock_count    : product.stockCount != null && product.stockCount >= 0 ? product.stockCount : -1,
+    video_url      : product.videoUrl      || "",
   };
   const { data, error } = await supabase
     .from("catalog")
@@ -165,6 +167,7 @@ export async function updateProduct(id, changes) {
   if (changes.tags           !== undefined) updates.tags           = changes.tags;
   if (changes.productNumber  !== undefined) updates.product_number = changes.productNumber;
   if (changes.stockCount     !== undefined) updates.stock_count    = changes.stockCount >= 0 ? changes.stockCount : -1;
+  if (changes.videoUrl       !== undefined) updates.video_url      = changes.videoUrl || "";
 
   const { data, error } = await supabase
     .from("catalog")

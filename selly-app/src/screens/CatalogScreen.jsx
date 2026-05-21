@@ -311,6 +311,14 @@ function ProductItemForm({ form, set }) {
         placeholder="e.g. 50 (leave blank = unlimited)" placeholderTextColor={Colors.textMuted}
         keyboardType="numeric" />
 
+      <Text style={styles.fieldLabel}>Product Video URL</Text>
+      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
+        Paste a YouTube, Instagram Reel, or direct video link. Shown on your shop page.
+      </Text>
+      <TextInput style={styles.input} value={form.videoUrl} onChangeText={v => set("videoUrl", v)}
+        placeholder="https://youtube.com/..." placeholderTextColor={Colors.textMuted}
+        autoCapitalize="none" autoCorrect={false} keyboardType="url" />
+
       <Text style={styles.fieldLabel}>Description</Text>
       <TextInput
         style={[styles.input, { height: 70, textAlignVertical: "top" }]}
@@ -396,6 +404,7 @@ const BLANK = {
   destination:"", groupSize:"", inclusions:"",
   productNumber:"",
   stockCount: "",
+  videoUrl: "",
 };
 
 function toForm(p) {
@@ -423,6 +432,7 @@ function toForm(p) {
     inclusions:    ef.inclusions  || "",
     productNumber: p.productNumber || "",
     stockCount:   p.stockCount != null && p.stockCount >= 0 ? String(p.stockCount) : "",
+    videoUrl:     p.videoUrl     || "",
   };
 }
 
@@ -500,6 +510,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       inStock       : form.inStock,
       productNumber : (form.productNumber || "").trim().toUpperCase(),
       stockCount    : form.stockCount !== "" && !isNaN(Number(form.stockCount)) ? Number(form.stockCount) : -1,
+      videoUrl      : (form.videoUrl || "").trim(),
     };
   };
 
