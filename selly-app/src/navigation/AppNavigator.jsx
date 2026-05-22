@@ -2,7 +2,7 @@
 // Auth-gated:
 //   • No user  → LoginScreen
 //   • User, no industry set → IndustrySetupScreen (first-time onboarding)
-//   • User + industry set  → industry-specific MainTabs
+//   • User + industry set  → 4-tab MainTabs (AI / Catalog / Customers / Settings / More)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from "react";
@@ -18,36 +18,37 @@ import * as Clipboard                     from "expo-clipboard";
 import { Colors }  from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 
-import LoginScreen          from "../screens/LoginScreen";
-import DashboardScreen      from "../screens/DashboardScreen";
-import OrdersScreen         from "../screens/OrdersScreen";
-import CatalogScreen        from "../screens/CatalogScreen";
-import CustomersScreen      from "../screens/CustomersScreen";
-import PromotionsScreen     from "../screens/PromotionsScreen";
-import BillingScreen        from "../screens/BillingScreen";
-import SettingsScreen       from "../screens/SettingsScreen";
+import LoginScreen           from "../screens/LoginScreen";
+import DashboardScreen       from "../screens/DashboardScreen";
+import AIStudioScreen        from "../screens/AIStudioScreen";
+import OrdersScreen          from "../screens/OrdersScreen";
+import CatalogScreen         from "../screens/CatalogScreen";
+import CustomersScreen       from "../screens/CustomersScreen";
+import PromotionsScreen      from "../screens/PromotionsScreen";
+import BillingScreen         from "../screens/BillingScreen";
+import SettingsScreen        from "../screens/SettingsScreen";
 import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
 import QueryInboxScreen      from "../screens/QueryInboxScreen";
 import ClassScheduleScreen   from "../screens/ClassScheduleScreen";
 import ReviewsScreen         from "../screens/ReviewsScreen";
 import ReturnsScreen         from "../screens/ReturnsScreen";
 import AdminScreen           from "../screens/AdminScreen";
-import IndustrySetupScreen  from "../screens/IndustrySetupScreen";
+import IndustrySetupScreen   from "../screens/IndustrySetupScreen";
 // Education-specific screens
-import EnrollmentsScreen    from "../screens/EnrollmentsScreen";
-import CoursesScreen        from "../screens/CoursesScreen";
+import EnrollmentsScreen     from "../screens/EnrollmentsScreen";
+import CoursesScreen         from "../screens/CoursesScreen";
 // Tourism-specific screens
-import BookingsScreen       from "../screens/BookingsScreen";
-import PackagesScreen       from "../screens/PackagesScreen";
+import BookingsScreen        from "../screens/BookingsScreen";
+import PackagesScreen        from "../screens/PackagesScreen";
 // Kirana-specific screens
-import KiranaOrdersScreen   from "../screens/KiranaOrdersScreen";
-import InventoryScreen      from "../screens/InventoryScreen";
+import KiranaOrdersScreen    from "../screens/KiranaOrdersScreen";
+import InventoryScreen       from "../screens/InventoryScreen";
 // Cakes-specific screens
-import CakeOrdersScreen     from "../screens/CakeOrdersScreen";
-import CakeMenuScreen       from "../screens/CakeMenuScreen";
+import CakeOrdersScreen      from "../screens/CakeOrdersScreen";
+import CakeMenuScreen        from "../screens/CakeMenuScreen";
 // Ice Cream-specific screens
-import IceCreamOrdersScreen from "../screens/IceCreamOrdersScreen";
-import FlavorsScreen        from "../screens/FlavorsScreen";
+import IceCreamOrdersScreen  from "../screens/IceCreamOrdersScreen";
+import FlavorsScreen         from "../screens/FlavorsScreen";
 
 const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
@@ -55,44 +56,60 @@ const Tab        = createBottomTabNavigator();
 const RootStack  = createStackNavigator();
 const MoreStack_ = createStackNavigator();
 
-// ── Industry tab configuration ────────────────────────────────────────────────
-// Each industry maps the same 3 core screens to industry-specific names/icons.
-// Custom screens per industry will be swapped in here when built.
-const INDUSTRY_TABS = {
-  product: [
-    { name: "Orders",    icon: "📦", component: OrdersScreen    },
-    { name: "Catalog",   icon: "🛍️", component: CatalogScreen   },
-    { name: "Customers", icon: "👥", component: CustomersScreen  },
-  ],
-  education: [
-    { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen },
-    { name: "Courses",     icon: "📚", component: CoursesScreen     },
-    { name: "Students",    icon: "👨‍🎓", component: CustomersScreen   },
-  ],
-  tourism: [
-    { name: "Bookings",  icon: "🗓️", component: BookingsScreen  },
-    { name: "Packages",  icon: "🌍", component: PackagesScreen  },
-    { name: "Travelers", icon: "🧳", component: CustomersScreen  },
-  ],
-  kirana: [
-    { name: "Orders",    icon: "🧾", component: KiranaOrdersScreen },
-    { name: "Inventory", icon: "📦", component: InventoryScreen    },
-    { name: "Customers", icon: "👥", component: CustomersScreen     },
-  ],
-  cakes: [
-    { name: "Orders",    icon: "🎂", component: CakeOrdersScreen   },
-    { name: "Menu",      icon: "📋", component: CakeMenuScreen      },
-    { name: "Customers", icon: "👥", component: CustomersScreen     },
-  ],
-  icecream: [
-    { name: "Orders",    icon: "🍦", component: IceCreamOrdersScreen },
-    { name: "Flavors",   icon: "🎨", component: FlavorsScreen        },
-    { name: "Customers", icon: "👥", component: CustomersScreen      },
-  ],
+// ── Industry-aware screen config ──────────────────────────────────────────────
+const INDUSTRY_CONFIG = {
+  product: {
+    catalog  : { name: "Catalog",   icon: "🛍️", component: CatalogScreen         },
+    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
+    orders   : { name: "Orders",    icon: "📦", component: OrdersScreen           },
+  },
+  education: {
+    catalog  : { name: "Courses",     icon: "📚", component: CoursesScreen        },
+    customers: { name: "Students",    icon: "👨‍🎓", component: CustomersScreen      },
+    orders   : { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen    },
+  },
+  tourism: {
+    catalog  : { name: "Packages",  icon: "🌍", component: PackagesScreen         },
+    customers: { name: "Travelers", icon: "🧳", component: CustomersScreen        },
+    orders   : { name: "Bookings",  icon: "🗓️", component: BookingsScreen         },
+  },
+  kirana: {
+    catalog  : { name: "Inventory", icon: "📦", component: InventoryScreen        },
+    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
+    orders   : { name: "Orders",    icon: "🧾", component: KiranaOrdersScreen     },
+  },
+  cakes: {
+    catalog  : { name: "Menu",      icon: "📋", component: CakeMenuScreen         },
+    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
+    orders   : { name: "Orders",    icon: "🎂", component: CakeOrdersScreen       },
+  },
+  icecream: {
+    catalog  : { name: "Flavors",   icon: "🎨", component: FlavorsScreen          },
+    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
+    orders   : { name: "Orders",    icon: "🍦", component: IceCreamOrdersScreen   },
+  },
 };
 
+// ── Placeholder screen for features under construction ────────────────────────
+function ComingSoonScreen({ route }) {
+  const title = route?.params?.title || "Feature";
+  const desc  = route?.params?.desc  || "This feature is coming soon.";
+  const icon  = route?.params?.icon  || "🚀";
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: Colors.bg }} contentContainerStyle={{ padding: 24, alignItems: "center", justifyContent: "center", minHeight: 400 }}>
+      <Text style={{ fontSize: 64, marginBottom: 20 }}>{icon}</Text>
+      <Text style={{ color: Colors.textPrimary, fontSize: 22, fontWeight: "900", textAlign: "center", marginBottom: 10 }}>{title}</Text>
+      <Text style={{ color: Colors.textSecondary, fontSize: 14, textAlign: "center", lineHeight: 22, maxWidth: 280 }}>{desc}</Text>
+      <View style={{ marginTop: 24, backgroundColor: Colors.primary + "22", borderRadius: 12, paddingHorizontal: 18, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + "44" }}>
+        <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: "700" }}>Coming Soon</Text>
+      </View>
+    </ScrollView>
+  );
+}
+
 // ── More Stack ────────────────────────────────────────────────────────────────
-function MoreStack() {
+function MoreStack({ industry }) {
+  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG.product;
   return (
     <MoreStack_.Navigator
       screenOptions={{
@@ -102,39 +119,90 @@ function MoreStack() {
         cardStyle       : { backgroundColor: Colors.bg },
       }}
     >
-      <MoreStack_.Screen name="MoreHub"        component={MoreHubScreen}       options={{ title: "More" }} />
-      <MoreStack_.Screen name="Promotions"     component={PromotionsScreen}    options={{ title: "Promotions" }} />
-      <MoreStack_.Screen name="Billing"        component={BillingScreen}       options={{ title: "Billing" }} />
-      <MoreStack_.Screen name="Settings"       component={SettingsScreen}      options={{ title: "Settings" }} />
-      <MoreStack_.Screen name="Profile"        component={ProfileScreen}       options={{ title: "My Profile" }} />
-      <MoreStack_.Screen name="PhotoInquiries"  component={PhotoInquiriesScreen}  options={{ title: "Photo Inquiries" }} />
-      <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}      options={{ title: "Query Inbox" }} />
-      <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}   options={{ title: "Class Schedule" }} />
-      <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}         options={{ title: "Customer Reviews" }} />
-      <MoreStack_.Screen name="Returns"        component={ReturnsScreen}         options={{ title: "Returns & Refunds" }} />
-      <MoreStack_.Screen name="Admin"          component={AdminScreen}           options={{ title: "Admin Panel" }} />
+      <MoreStack_.Screen name="MoreHub"        component={MoreHubScreen}             options={{ title: "More" }} />
+
+      {/* Orders / Enrollments / Bookings — industry-routed */}
+      <MoreStack_.Screen
+        name="OrdersHub"
+        component={cfg.orders.component}
+        options={{ title: cfg.orders.name }}
+      />
+
+      {/* Dashboard summary */}
+      <MoreStack_.Screen name="Dashboard"      component={DashboardScreen}           options={{ title: "Dashboard" }} />
+
+      {/* Marketing & CRM */}
+      <MoreStack_.Screen name="Promotions"     component={PromotionsScreen}          options={{ title: "Promotions" }} />
+      <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}          options={{ title: "Query Inbox" }} />
+      <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen}      options={{ title: "Photo Inquiries" }} />
+      <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}             options={{ title: "Customer Reviews" }} />
+      <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Returns & Refunds" }} />
+      <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}       options={{ title: "Class Schedule" }} />
+
+      {/* Finance */}
+      <MoreStack_.Screen
+        name="Accounting"
+        component={ComingSoonScreen}
+        initialParams={{ title: "Accounting & Reports", desc: "Track expenses, purchases, P&L, GST reports and supplier ledger — all in one place.", icon: "📊" }}
+        options={{ title: "Accounting" }}
+      />
+      <MoreStack_.Screen
+        name="Payroll"
+        component={ComingSoonScreen}
+        initialParams={{ title: "Payroll & Staff", desc: "Manage employees, attendance, salary calculations and generate payslips.", icon: "💰" }}
+        options={{ title: "Payroll" }}
+      />
+
+      {/* Account */}
+      <MoreStack_.Screen name="Billing"        component={BillingScreen}             options={{ title: "Billing" }} />
+      <MoreStack_.Screen name="Profile"        component={ProfileScreen}             options={{ title: "My Profile" }} />
+      <MoreStack_.Screen name="Admin"          component={AdminScreen}               options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
 }
 
 // ── More Hub ──────────────────────────────────────────────────────────────────
 function MoreHubScreen() {
-  const nav              = useNavigation();
+  const nav = useNavigation();
   const { user, profile, industry } = useAuth();
-  const isAdminUser      = user?.email === ADMIN_EMAIL;
-  const isEducation      = (industry || "").toLowerCase() === "education";
+  const isAdminUser = user?.email === ADMIN_EMAIL;
+  const cfg         = INDUSTRY_CONFIG[(industry || "").toLowerCase()] || INDUSTRY_CONFIG.product;
+  const isEducation = (industry || "").toLowerCase() === "education";
 
-  const items = [
-    { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",    screen: "Promotions"     },
-    { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",   screen: "QueryInbox"     },
-    { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",          screen: "PhotoInquiries" },
-    { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",    screen: "Reviews"        },
-    { icon: "↩",  label: "Returns",         desc: "Return, refund & complaint requests",     screen: "Returns"        },
-    ...(isEducation ? [{ icon: "📅", label: "Class Schedule", desc: "Schedule classes & auto-send reminders", screen: "ClassSchedule" }] : []),
-    { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",     screen: "Billing"        },
-    { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",          screen: "Profile"        },
-    { icon: "⚙️",  label: "Settings",       desc: "Server, GST, delivery, tracking APIs",   screen: "Settings"       },
-    ...(isAdminUser ? [{ icon: "🔐", label: "Admin Panel", desc: "Manage client subscriptions", screen: "Admin" }] : []),
+  const sections = [
+    {
+      title: "Transactions",
+      items: [
+        { icon: cfg.orders.icon, label: cfg.orders.name, desc: `Manage all ${cfg.orders.name.toLowerCase()} and update status`, screen: "OrdersHub" },
+        { icon: "🏠", label: "Dashboard",      desc: "Sales summary, revenue charts, quick stats",          screen: "Dashboard"      },
+      ],
+    },
+    {
+      title: "Marketing",
+      items: [
+        { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",               screen: "Promotions"     },
+        { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",              screen: "QueryInbox"     },
+        { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",                     screen: "PhotoInquiries" },
+        { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",               screen: "Reviews"        },
+        { icon: "↩",  label: "Returns",         desc: "Return, refund & complaint requests",                screen: "Returns"        },
+        ...(isEducation ? [{ icon: "📅", label: "Class Schedule", desc: "Schedule classes & auto-send reminders", screen: "ClassSchedule" }] : []),
+      ],
+    },
+    {
+      title: "Finance",
+      items: [
+        { icon: "📊", label: "Accounting",      desc: "Expenses, P&L, GST reports, supplier ledger",       screen: "Accounting"     },
+        { icon: "💰", label: "Payroll",          desc: "Staff, attendance, salary & payslips",              screen: "Payroll"        },
+      ],
+    },
+    {
+      title: "Account",
+      items: [
+        { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",                screen: "Billing"        },
+        { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",                    screen: "Profile"        },
+        ...(isAdminUser ? [{ icon: "🔐", label: "Admin Panel", desc: "Manage client subscriptions", screen: "Admin" }] : []),
+      ],
+    },
   ];
 
   return (
@@ -169,15 +237,20 @@ function MoreHubScreen() {
         </View>
       </View>
 
-      {items.map(item => (
-        <TouchableOpacity key={item.screen} style={styles.item} onPress={() => nav.navigate(item.screen)}>
-          <Text style={styles.itemIcon}>{item.icon}</Text>
-          <View style={styles.itemMeta}>
-            <Text style={styles.itemLabel}>{item.label}</Text>
-            <Text style={styles.itemDesc}>{item.desc}</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
+      {sections.map(section => (
+        <View key={section.title}>
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+          {section.items.map(item => (
+            <TouchableOpacity key={item.screen} style={styles.item} onPress={() => nav.navigate(item.screen)}>
+              <Text style={styles.itemIcon}>{item.icon}</Text>
+              <View style={styles.itemMeta}>
+                <Text style={styles.itemLabel}>{item.label}</Text>
+                <Text style={styles.itemDesc}>{item.desc}</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       ))}
     </ScrollView>
   );
@@ -341,20 +414,34 @@ function ProfileScreen() {
   );
 }
 
-// ── Main Tabs — industry-aware ─────────────────────────────────────────────────
+// ── Main Tabs — unified 4+More structure for all industries ───────────────────
 function MainTabs({ industry }) {
-  const tabs   = INDUSTRY_TABS[industry] || INDUSTRY_TABS.product;
-  const iconMap = { Dashboard: "🏠", More: "☰" };
-  tabs.forEach(t => { iconMap[t.name] = t.icon; });
+  const ind = (industry || "product").toLowerCase();
+  const cfg = INDUSTRY_CONFIG[ind] || INDUSTRY_CONFIG.product;
+
+  // Wrap MoreStack so it receives industry
+  const MoreStackWithIndustry = React.useCallback(
+    () => <MoreStack industry={ind} />,
+    [ind]
+  );
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.45 }}>
-            {iconMap[route.name] || "•"}
-          </Text>
-        ),
+        tabBarIcon: ({ focused }) => {
+          const icons = {
+            AI        : "🤖",
+            [cfg.catalog.name]  : cfg.catalog.icon,
+            [cfg.customers.name]: cfg.customers.icon,
+            Settings  : "⚙️",
+            More      : "☰",
+          };
+          return (
+            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.45 }}>
+              {icons[route.name] || "•"}
+            </Text>
+          );
+        },
         tabBarActiveTintColor  : Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
@@ -365,7 +452,7 @@ function MainTabs({ industry }) {
           paddingTop     : 6,
           height         : 62,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 2 },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginTop: 2 },
         headerStyle: {
           backgroundColor: Colors.bg,
           elevation: 0, shadowOpacity: 0,
@@ -382,16 +469,40 @@ function MainTabs({ industry }) {
         ),
       })}
     >
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: "Dashboard" }} />
-      {tabs.map(tab => (
-        <Tab.Screen
-          key={tab.name}
-          name={tab.name}
-          component={tab.component}
-          options={{ title: tab.name }}
-        />
-      ))}
-      <Tab.Screen name="More" component={MoreStack} options={{ headerShown: false }} />
+      {/* Tab 1 — AI Studio */}
+      <Tab.Screen
+        name="AI"
+        component={AIStudioScreen}
+        options={{ title: "AI Studio", tabBarLabel: "AI" }}
+      />
+
+      {/* Tab 2 — Catalog (industry label) */}
+      <Tab.Screen
+        name={cfg.catalog.name}
+        component={cfg.catalog.component}
+        options={{ title: cfg.catalog.name }}
+      />
+
+      {/* Tab 3 — Customers (industry label) */}
+      <Tab.Screen
+        name={cfg.customers.name}
+        component={cfg.customers.component}
+        options={{ title: cfg.customers.name }}
+      />
+
+      {/* Tab 4 — Settings (direct) */}
+      <Tab.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{ title: "Settings" }}
+      />
+
+      {/* Tab 5 — More (orders, dashboard, promotions, finance…) */}
+      <Tab.Screen
+        name="More"
+        component={MoreStackWithIndustry}
+        options={{ headerShown: false, tabBarLabel: "More" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -445,6 +556,9 @@ const styles = StyleSheet.create({
   content   : { padding: 16, gap: 10, paddingBottom: 40 },
   splash    : { flex: 1, backgroundColor: Colors.bg, justifyContent: "center", alignItems: "center" },
   splashLogo: { fontSize: 52, fontWeight: "900", color: Colors.textPrimary },
+
+  // Section headers in More hub
+  sectionTitle: { color: Colors.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase", marginTop: 8, marginBottom: 4, paddingHorizontal: 4 },
 
   // More hub mini profile
   miniProfile  : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border, marginBottom: 6, gap: 12 },

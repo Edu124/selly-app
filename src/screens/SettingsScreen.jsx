@@ -97,7 +97,7 @@ export default function SettingsScreen() {
           style={styles.resetBtn}
           onPress={async () => {
             const { getServerUrl: _ , saveServerUrl } = await import("../lib/api");
-            const DEFAULT = "https://instagram-bot-production-ef01.up.railway.app";
+            const DEFAULT = "https://instagram-bot-production-04ae.up.railway.app";
             await saveServerUrl(DEFAULT);
             setServerUrl(DEFAULT);
             setTestResult({ ok: true, msg: "✅ Reset to default server URL" });
