@@ -12,7 +12,7 @@ const KEY_URL     = "@selly_server_url";
 const KEY_BID     = "@selly_business_id";
 
 // ── Base URL ──────────────────────────────────────────────────────────────────
-async function getBaseUrl() {
+export async function getBaseUrl() {
   try {
     const saved = await AsyncStorage.getItem(KEY_URL);
     if (!saved || saved.includes("localhost") || saved.includes("127.0.0.1")) {
@@ -26,7 +26,7 @@ async function getBaseUrl() {
 }
 
 // ── Business ID ───────────────────────────────────────────────────────────────
-async function getBusinessId() {
+export async function getBusinessId() {
   try {
     return (await AsyncStorage.getItem(KEY_BID)) || "default";
   } catch {
