@@ -10,6 +10,7 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { getBaseUrl, getBusinessId } from "../lib/api";
 
 // ── Feature Cards Config ──────────────────────────────────────────────────────
 const AI_FEATURES = [
@@ -148,7 +149,7 @@ function CaptionWriterModal({ visible, onClose, industry }) {
         broadcast : `You are a marketing expert for Indian small businesses. Write a WhatsApp broadcast message that's personal, warm, and drives action. Keep it under 100 words. Industry: ${industry}.`,
         reel      : `You are a content creator for Indian small businesses. Write a 30-second Reel script with a hook, main content, and CTA. Use simple Hindi-English mix. Industry: ${industry}.`,
       };
-      const { getBaseUrl } = await import("../lib/api");
+
       const base = await getBaseUrl();
       const res = await fetch(`${base}/api/ai/generate`, {
         method : "POST",
@@ -275,7 +276,7 @@ function ImageGeneratorModal({ visible, onClose }) {
     setLoading(true);
     setImageUrl("");
     try {
-      const { getBaseUrl } = await import("../lib/api");
+
       const base = await getBaseUrl();
 
       if (mode === "text") {
@@ -459,7 +460,7 @@ function InsightsModal({ visible, onClose, industry }) {
   async function loadInsights() {
     setLoading(true);
     try {
-      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+
       const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
       const res = await fetch(`${base}/api/ai/insights?bid=${bid}`, {
         method : "POST",
@@ -548,7 +549,7 @@ function InstagramPostModal({ visible, onClose, mediaUrl, mediaType = "IMAGE", d
   async function generateCaption() {
     setGenning(true);
     try {
-      const { getBaseUrl } = await import("../lib/api");
+
       const base = await getBaseUrl();
       const res = await fetch(`${base}/api/ai/generate`, {
         method : "POST",
@@ -572,7 +573,7 @@ function InstagramPostModal({ visible, onClose, mediaUrl, mediaType = "IMAGE", d
     if (!caption.trim()) return Alert.alert("Add a caption first");
     setPosting(true);
     try {
-      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+
       const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
       const res = await fetch(`${base}/api/instagram/post`, {
         method : "POST",
@@ -679,7 +680,7 @@ function VideoGeneratorModal({ visible, onClose, industry }) {
     setLoading(true);
     setVideoUrl("");
     try {
-      const { getBaseUrl } = await import("../lib/api");
+
       const base = await getBaseUrl();
       const res = await fetch(`${base}/api/ai/video`, {
         method : "POST",
@@ -859,7 +860,7 @@ function FlashcardModal({ visible, onClose, industry }) {
     setLoading(true);
     setCards([]);
     try {
-      const { getBaseUrl } = await import("../lib/api");
+
       const base = await getBaseUrl();
       const res = await fetch(`${base}/api/ai/generate`, {
         method : "POST",
@@ -954,7 +955,7 @@ function BulkImportModal({ visible, onClose }) {
     setLoading(true);
     setResult(null);
     try {
-      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+
       const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
       const res = await fetch(`${base}/api/catalog/parse-import`, {
         method : "POST",
@@ -974,7 +975,7 @@ function BulkImportModal({ visible, onClose }) {
     if (!result?.products?.length) return;
     setImporting(true);
     try {
-      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+
       const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
       const res = await fetch(`${base}/api/catalog/bulk-import`, {
         method : "POST",
@@ -1062,7 +1063,7 @@ function SmartPricingModal({ visible, onClose, industry }) {
     setLoading(true);
     setResult("");
     try {
-      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+
       const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
       const res = await fetch(`${base}/api/ai/pricing`, {
         method : "POST",
