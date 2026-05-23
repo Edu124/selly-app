@@ -418,6 +418,104 @@ export async function registerPushToken(token) {
   } catch (_) { /* non-fatal */ }
 }
 
+// ── Accounting — Expenses ─────────────────────────────────────────────────────
+export async function fetchExpenses({ category, limit = 100 } = {}) {
+  const c = await client();
+  const params = { limit };
+  if (category) params.category = category;
+  const r = await c.get("/api/accounting/expenses", { params });
+  return r.data; // { expenses: [...] }
+}
+
+export async function addExpense({ amount, category, description, vendor, date }) {
+  const c = await client();
+  const r = await c.post("/api/accounting/expenses", { amount, category, description, vendor, date });
+  return r.data;
+}
+
+export async function deleteExpense(id) {
+  const c = await client();
+  const r = await c.delete(`/api/accounting/expenses/${id}`);
+  return r.data;
+}
+
+export async function fetchAccountingSummary(period = "30d") {
+  const c = await client();
+  const r = await c.get("/api/accounting/summary", { params: { period } });
+  return r.data; // { summary: { revenue, expenses, gst_collected, gst_paid, by_category: [...] } }
+}
+
+// ── Payroll — Employees ───────────────────────────────────────────────────────
+export async function fetchEmployees() {
+  const c = await client();
+  const r = await c.get("/api/payroll/employees");
+  return r.data; // { employees: [...] }
+}
+
+export async function addEmployee({ name, role, salary, mobile }) {
+  const c = await client();
+  const r = await c.post("/api/payroll/employees", { name, role, salary, mobile });
+  return r.data;
+}
+
+export async function updateEmployee(id, payload) {
+  const c = await client();
+  const r = await c.put(`/api/payroll/employees/${id}`, payload);
+  return r.data;
+}
+
+export async function deleteEmployee(id) {
+  const c = await client();
+  const r = await c.delete(`/api/payroll/employees/${id}`);
+  return r.data;
+}
+
+// ── Payroll — Attendance ──────────────────────────────────────────────────────
+export async function fetchAttendance(date) {
+  const c = await client();
+  const r = await c.get("/api/payroll/attendance", { params: { date } });
+  return r.data; // { records: [{ employee_id, status }] }
+}
+
+export async function markAttendance(employeeId, date, status) {
+  const c = await client();
+  const r = await c.post("/api/payroll/attendance", { employee_id: employeeId, date, status });
+  return r.data;
+}
+
+// ── Payroll — Salary ──────────────────────────────────────────────────────────
+export async function fetchPayrollReport(month) {
+  const c = await client();
+  const r = await c.get("/api/payroll/report", { params: { month } });
+  return r.data; // { records: [...] }
+}
+
+export async function processPayroll(month) {
+  const c = await client();
+  const r = await c.post("/api/payroll/process", { month });
+  return r.data;
+}
+
+// ── Bulk Catalog Import ───────────────────────────────────────────────────────
+export async function parseBulkImport(text) {
+  const c = await client();
+  const r = await c.post("/api/catalog/parse-import", { text });
+  return r.data; // { products: [{ name, price, description }] }
+}
+
+export async function bulkImportProducts(products) {
+  const c = await client();
+  const r = await c.post("/api/catalog/bulk-import", { products });
+  return r.data; // { imported: N }
+}
+
+// ── Smart Pricing ─────────────────────────────────────────────────────────────
+export async function getSmartPricing({ product, cost_price, market_info, industry }) {
+  const c = await client();
+  const r = await c.post("/api/ai/pricing", { product, cost_price, market_info, industry });
+  return r.data; // { suggestion: "..." }
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 export async function saveServerUrl(url) {
   await AsyncStorage.setItem(KEY_URL, url);

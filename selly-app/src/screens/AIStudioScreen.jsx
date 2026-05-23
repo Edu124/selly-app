@@ -46,10 +46,10 @@ const AI_FEATURES = [
     id       : "voice",
     icon     : "🎙️",
     title    : "Voice Ordering",
-    desc     : "Customers send voice notes — bot auto-transcribes",
+    desc     : "Customers send voice notes — bot auto-transcribes & orders",
     badge    : "Free",
     badgeColor: "#22c55e",
-    comingSoon: true,
+    comingSoon: false,
     industries: "all",
   },
   {
@@ -69,47 +69,47 @@ const AI_FEATURES = [
     desc     : "Upload notes → AI answers student doubts on WhatsApp",
     badge    : "Free",
     badgeColor: "#22c55e",
-    comingSoon: true,
+    comingSoon: false,
     industries: "education",
   },
   {
     id       : "flashcard",
     icon     : "🃏",
     title    : "Flashcard Generator",
-    desc     : "Upload chapter → AI creates study flashcards",
+    desc     : "Upload chapter → AI creates study flashcards instantly",
     badge    : "Free",
     badgeColor: "#22c55e",
-    comingSoon: true,
+    comingSoon: false,
     industries: "education",
   },
   {
     id       : "bulkimport",
     icon     : "📦",
     title    : "Bulk Product Import",
-    desc     : "Photo of price list or Excel → auto-add all products",
+    desc     : "Paste price list or describe products → auto-add all",
     badge    : "Free",
     badgeColor: "#22c55e",
-    comingSoon: true,
+    comingSoon: false,
     industries: "all",
   },
   {
     id       : "scanner",
     icon     : "📷",
     title    : "Scan & Sell",
-    desc     : "Scan product barcode to add inventory or create bill",
+    desc     : "Barcode/SKU lookup → quick bill generation",
     badge    : "Free",
     badgeColor: "#22c55e",
-    comingSoon: true,
-    industries: "kirana,medical",
+    comingSoon: false,
+    industries: "kirana,icecream,cakes,product",
   },
   {
     id       : "pricing",
     icon     : "💰",
     title    : "Smart Pricing",
-    desc     : "AI suggests optimal prices based on demand & competitors",
-    badge    : "Soon",
-    badgeColor: "#f59e0b",
-    comingSoon: true,
+    desc     : "AI suggests optimal prices based on demand & competition",
+    badge    : "Free",
+    badgeColor: "#22c55e",
+    comingSoon: false,
     industries: "all",
   },
 ];
@@ -352,12 +352,411 @@ function InsightsModal({ visible, onClose, industry }) {
   );
 }
 
+// ── Voice Ordering Info Modal ─────────────────────────────────────────────────
+function VoiceModal({ visible, onClose }) {
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>🎙️ Voice Ordering</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody}>
+          <View style={[styles.resultBox, { marginTop: 0 }]}>
+            <Text style={styles.resultLabel}>How it works</Text>
+            <Text style={styles.resultText}>
+              {`Your customers can already send voice notes on WhatsApp!\n\n` +
+               `1️⃣  Customer sends a voice note saying what they want\n` +
+               `2️⃣  Bot transcribes using Groq Whisper AI\n` +
+               `3️⃣  Intent is extracted from the speech\n` +
+               `4️⃣  Order flow continues automatically\n\n` +
+               `✅  This feature is active by default on your bot — no setup needed!`}
+            </Text>
+          </View>
+          <View style={[styles.resultBox, { marginTop: 12 }]}>
+            <Text style={styles.resultLabel}>Tip for better results</Text>
+            <Text style={styles.resultText}>
+              {`Train your customers to say clear product names. Example:\n\n` +
+               `"Mujhe 2 blue cotton kurta chahiye size M"\n` +
+               `("I want 2 blue cotton kurta size M")\n\n` +
+               `The AI understands Hindi, English, and Hinglish!`}
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── AI Notebooks Info Modal ───────────────────────────────────────────────────
+function NotebookModal({ visible, onClose }) {
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>📚 AI Notebooks</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody}>
+          <View style={[styles.resultBox, { marginTop: 0 }]}>
+            <Text style={styles.resultLabel}>How it works</Text>
+            <Text style={styles.resultText}>
+              {`Students can ask doubts directly on WhatsApp!\n\n` +
+               `1️⃣  Student sends a question: "What is photosynthesis?"\n` +
+               `2️⃣  Bot answers using Groq AI with subject context\n` +
+               `3️⃣  Answers are subject-aware (biology, maths, history, etc.)\n` +
+               `4️⃣  Responses in the student's language (Hindi/English)\n\n` +
+               `✅  Active on your bot — set your subject/topics in Settings → FAQ field`}
+            </Text>
+          </View>
+          <View style={[styles.resultBox, { marginTop: 12 }]}>
+            <Text style={styles.resultLabel}>How to set subject context</Text>
+            <Text style={styles.resultText}>
+              {`Go to Settings → scroll to "FAQ / AI Context" and add your subjects:\n\n` +
+               `Example:\n` +
+               `"We teach Class 9–12 Physics, Chemistry, Biology, Maths. Our specialty is NEET and JEE preparation. Focus on NCERT concepts."\n\n` +
+               `The AI will use this context to answer student doubts accurately.`}
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Flashcard Generator Modal ─────────────────────────────────────────────────
+function FlashcardModal({ visible, onClose, industry }) {
+  const [topic,   setTopic]   = useState("");
+  const [cards,   setCards]   = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  async function generate() {
+    if (!topic.trim()) return Alert.alert("Enter a topic or chapter name");
+    setLoading(true);
+    setCards([]);
+    try {
+      const { getBaseUrl } = await import("../lib/api");
+      const base = await getBaseUrl();
+      const res = await fetch(`${base}/api/ai/generate`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          type    : "flashcards",
+          context : topic.trim(),
+          industry,
+          systemPrompt: `You are an expert teacher. Create 8 flashcards for the topic: "${topic}". Return ONLY a JSON array like: [{"q":"Question?","a":"Answer"},...]. No extra text, just valid JSON.`,
+        }),
+      });
+      const data = await res.json();
+      try {
+        // Try to parse JSON from result
+        const raw = data.result || "";
+        const jsonStart = raw.indexOf("[");
+        const jsonEnd   = raw.lastIndexOf("]") + 1;
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const parsed = JSON.parse(raw.substring(jsonStart, jsonEnd));
+          setCards(parsed);
+        } else {
+          setCards([{ q: "Could not parse flashcards", a: raw }]);
+        }
+      } catch (_) {
+        setCards([{ q: "Error parsing response", a: data.result || "" }]);
+      }
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const [flipped, setFlipped] = useState({});
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>🃏 Flashcard Generator</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <Text style={styles.fieldLabel}>Chapter / Topic</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Photosynthesis, Quadratic Equations, World War 2"
+            placeholderTextColor={Colors.textMuted}
+            value={topic}
+            onChangeText={setTopic}
+          />
+          <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
+            {loading
+              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Generating...</Text></>
+              : <Text style={styles.generateBtnText}>✨ Generate 8 Flashcards</Text>
+            }
+          </TouchableOpacity>
+
+          {cards.length > 0 && (
+            <>
+              <Text style={[styles.fieldLabel, { marginTop: 20 }]}>Tap a card to flip it 👇</Text>
+              {cards.map((card, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.flashCard}
+                  onPress={() => setFlipped(prev => ({ ...prev, [i]: !prev[i] }))}
+                >
+                  <Text style={styles.flashCardNum}>Card {i + 1}</Text>
+                  <Text style={styles.flashCardText}>
+                    {flipped[i] ? card.a : card.q}
+                  </Text>
+                  <Text style={styles.flashCardHint}>{flipped[i] ? "📖 Answer — tap to see Q" : "❓ Question — tap to see A"}</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Bulk Import Modal ─────────────────────────────────────────────────────────
+function BulkImportModal({ visible, onClose }) {
+  const [text,    setText]    = useState("");
+  const [result,  setResult]  = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  async function parseProducts() {
+    if (!text.trim()) return Alert.alert("Enter product list text first");
+    setLoading(true);
+    setResult(null);
+    try {
+      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
+      const res = await fetch(`${base}/api/catalog/parse-import`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
+        body   : JSON.stringify({ text: text.trim(), bid }),
+      });
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function doImport() {
+    if (!result?.products?.length) return;
+    setImporting(true);
+    try {
+      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
+      const res = await fetch(`${base}/api/catalog/bulk-import`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
+        body   : JSON.stringify({ products: result.products, bid }),
+      });
+      const data = await res.json();
+      Alert.alert("Success!", `${data.imported || result.products.length} products added to catalog!`, [
+        { text: "Done", onPress: () => { setText(""); setResult(null); onClose(); } }
+      ]);
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>📦 Bulk Product Import</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <Text style={styles.fieldLabel}>Paste your product list</Text>
+          <Text style={styles.hintText}>
+            {"Format: Name - Price - Description (one per line)\nExample:\nBlue Cotton Kurta - 499 - Premium cotton, summer wear\nRed Silk Saree - 1299 - Pure silk, festival special"}
+          </Text>
+          <TextInput
+            style={[styles.input, { height: 140, textAlignVertical: "top" }]}
+            placeholder={"Product Name - Price - Description\nAnother Product - Price"}
+            placeholderTextColor={Colors.textMuted}
+            value={text}
+            onChangeText={setText}
+            multiline
+          />
+          <TouchableOpacity style={styles.generateBtn} onPress={parseProducts} disabled={loading}>
+            {loading
+              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Parsing...</Text></>
+              : <Text style={styles.generateBtnText}>🔍 Parse Products</Text>
+            }
+          </TouchableOpacity>
+
+          {result?.products?.length > 0 && (
+            <View style={[styles.resultBox, { marginTop: 16 }]}>
+              <Text style={styles.resultLabel}>Found {result.products.length} products — preview:</Text>
+              {result.products.slice(0, 5).map((p, i) => (
+                <View key={i} style={{ borderBottomWidth: 1, borderBottomColor: Colors.border, paddingVertical: 8 }}>
+                  <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{p.name}</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>₹{p.price} · {p.description}</Text>
+                </View>
+              ))}
+              {result.products.length > 5 && (
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 6 }}>...and {result.products.length - 5} more</Text>
+              )}
+              <TouchableOpacity
+                style={[styles.generateBtn, { marginTop: 12, backgroundColor: "#22c55e" }]}
+                onPress={doImport}
+                disabled={importing}
+              >
+                {importing
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.generateBtnText}>✅ Import {result.products.length} Products</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Smart Pricing Modal ───────────────────────────────────────────────────────
+function SmartPricingModal({ visible, onClose, industry }) {
+  const [product,  setProduct]  = useState("");
+  const [cost,     setCost]     = useState("");
+  const [market,   setMarket]   = useState("");
+  const [result,   setResult]   = useState("");
+  const [loading,  setLoading]  = useState(false);
+
+  async function analyse() {
+    if (!product.trim()) return Alert.alert("Enter product name first");
+    setLoading(true);
+    setResult("");
+    try {
+      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
+      const res = await fetch(`${base}/api/ai/pricing`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
+        body   : JSON.stringify({
+          product    : product.trim(),
+          cost_price : cost ? Number(cost) : null,
+          market_info: market.trim(),
+          industry,
+          bid,
+        }),
+      });
+      const data = await res.json();
+      setResult(data.suggestion || data.result || data.error || "No response");
+    } catch (e) {
+      setResult("Error: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>💰 Smart Pricing AI</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <Text style={styles.fieldLabel}>Product Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Blue Cotton Kurta"
+            placeholderTextColor={Colors.textMuted}
+            value={product}
+            onChangeText={setProduct}
+          />
+
+          <Text style={styles.fieldLabel}>Your Cost Price (₹)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 250"
+            placeholderTextColor={Colors.textMuted}
+            value={cost}
+            onChangeText={setCost}
+            keyboardType="numeric"
+          />
+
+          <Text style={styles.fieldLabel}>Market / Competition Info (optional)</Text>
+          <TextInput
+            style={[styles.input, { height: 70, textAlignVertical: "top" }]}
+            placeholder="e.g. Competitors sell similar at ₹499, local demand is high during festivals"
+            placeholderTextColor={Colors.textMuted}
+            value={market}
+            onChangeText={setMarket}
+            multiline
+          />
+
+          <TouchableOpacity style={styles.generateBtn} onPress={analyse} disabled={loading}>
+            {loading
+              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Analysing...</Text></>
+              : <Text style={styles.generateBtnText}>✨ Get Price Recommendation</Text>
+            }
+          </TouchableOpacity>
+
+          {result ? (
+            <View style={styles.resultBox}>
+              <Text style={styles.resultLabel}>AI Pricing Recommendation:</Text>
+              <Text style={styles.resultText}>{result}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Scan & Sell Modal (redirect info) ────────────────────────────────────────
+function ScanSellInfoModal({ visible, onClose }) {
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>📷 Scan & Sell</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody}>
+          <View style={[styles.resultBox, { marginTop: 0 }]}>
+            <Text style={styles.resultLabel}>Quick Bill from Barcode/SKU</Text>
+            <Text style={styles.resultText}>
+              {`Find it in the More tab!\n\n` +
+               `Go to: More → Scan & Sell\n\n` +
+               `Features:\n` +
+               `• Type or scan product barcode/SKU\n` +
+               `• Instantly add to bill\n` +
+               `• Adjust quantities\n` +
+               `• Generate bill with total\n\n` +
+               `💡 Add SKU/Product Numbers to your Catalog/Inventory items to enable barcode search.`}
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
 // ── Main AI Studio Screen ─────────────────────────────────────────────────────
 export default function AIStudioScreen() {
   const { industry } = useAuth();
   const [captionOpen,  setCaptionOpen]  = useState(false);
   const [imageOpen,    setImageOpen]    = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [voiceOpen,    setVoiceOpen]    = useState(false);
+  const [notebookOpen, setNotebookOpen] = useState(false);
+  const [flashcardOpen,setFlashcardOpen]= useState(false);
+  const [bulkOpen,     setBulkOpen]     = useState(false);
+  const [pricingOpen,  setPricingOpen]  = useState(false);
+  const [scanOpen,     setScanOpen]     = useState(false);
 
   function handleFeature(id, comingSoon) {
     if (comingSoon) {
@@ -367,6 +766,12 @@ export default function AIStudioScreen() {
     if (id === "caption" || id === "reel") setCaptionOpen(true);
     if (id === "image")    setImageOpen(true);
     if (id === "insights") setInsightsOpen(true);
+    if (id === "voice")    setVoiceOpen(true);
+    if (id === "notebook") setNotebookOpen(true);
+    if (id === "flashcard")setFlashcardOpen(true);
+    if (id === "bulkimport") setBulkOpen(true);
+    if (id === "pricing")  setPricingOpen(true);
+    if (id === "scanner")  setScanOpen(true);
   }
 
   const visibleFeatures = AI_FEATURES.filter(f =>
@@ -425,9 +830,15 @@ export default function AIStudioScreen() {
       ))}
 
       {/* Modals */}
-      <CaptionWriterModal  visible={captionOpen}  onClose={() => setCaptionOpen(false)}  industry={industry} />
-      <ImageGeneratorModal visible={imageOpen}    onClose={() => setImageOpen(false)} />
-      <InsightsModal       visible={insightsOpen} onClose={() => setInsightsOpen(false)} industry={industry} />
+      <CaptionWriterModal  visible={captionOpen}   onClose={() => setCaptionOpen(false)}   industry={industry} />
+      <ImageGeneratorModal visible={imageOpen}     onClose={() => setImageOpen(false)} />
+      <InsightsModal       visible={insightsOpen}  onClose={() => setInsightsOpen(false)}  industry={industry} />
+      <VoiceModal          visible={voiceOpen}     onClose={() => setVoiceOpen(false)} />
+      <NotebookModal       visible={notebookOpen}  onClose={() => setNotebookOpen(false)} />
+      <FlashcardModal      visible={flashcardOpen} onClose={() => setFlashcardOpen(false)} industry={industry} />
+      <BulkImportModal     visible={bulkOpen}      onClose={() => setBulkOpen(false)} />
+      <SmartPricingModal   visible={pricingOpen}   onClose={() => setPricingOpen(false)}   industry={industry} />
+      <ScanSellInfoModal   visible={scanOpen}      onClose={() => setScanOpen(false)} />
     </ScrollView>
   );
 }

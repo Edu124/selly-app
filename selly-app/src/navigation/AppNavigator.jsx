@@ -49,6 +49,10 @@ import CakeMenuScreen        from "../screens/CakeMenuScreen";
 // Ice Cream-specific screens
 import IceCreamOrdersScreen  from "../screens/IceCreamOrdersScreen";
 import FlavorsScreen         from "../screens/FlavorsScreen";
+// Finance screens
+import AccountingScreen      from "../screens/AccountingScreen";
+import PayrollScreen         from "../screens/PayrollScreen";
+import ScanAndSellScreen     from "../screens/ScanAndSellScreen";
 
 const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
@@ -140,18 +144,9 @@ function MoreStack({ industry }) {
       <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}       options={{ title: "Class Schedule" }} />
 
       {/* Finance */}
-      <MoreStack_.Screen
-        name="Accounting"
-        component={ComingSoonScreen}
-        initialParams={{ title: "Accounting & Reports", desc: "Track expenses, purchases, P&L, GST reports and supplier ledger — all in one place.", icon: "📊" }}
-        options={{ title: "Accounting" }}
-      />
-      <MoreStack_.Screen
-        name="Payroll"
-        component={ComingSoonScreen}
-        initialParams={{ title: "Payroll & Staff", desc: "Manage employees, attendance, salary calculations and generate payslips.", icon: "💰" }}
-        options={{ title: "Payroll" }}
-      />
+      <MoreStack_.Screen name="Accounting"   component={AccountingScreen}   options={{ title: "Accounting & Reports" }} />
+      <MoreStack_.Screen name="Payroll"      component={PayrollScreen}      options={{ title: "Payroll & Staff" }} />
+      <MoreStack_.Screen name="ScanAndSell"  component={ScanAndSellScreen}  options={{ title: "Scan & Sell" }} />
 
       {/* Account */}
       <MoreStack_.Screen name="Billing"        component={BillingScreen}             options={{ title: "Billing" }} />
@@ -193,6 +188,7 @@ function MoreHubScreen() {
       items: [
         { icon: "📊", label: "Accounting",      desc: "Expenses, P&L, GST reports, supplier ledger",       screen: "Accounting"     },
         { icon: "💰", label: "Payroll",          desc: "Staff, attendance, salary & payslips",              screen: "Payroll"        },
+        { icon: "📷", label: "Scan & Sell",      desc: "Barcode/SKU lookup → quick bill generation",        screen: "ScanAndSell"    },
       ],
     },
     {
