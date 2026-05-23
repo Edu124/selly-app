@@ -88,9 +88,24 @@ const INDUSTRY_CONFIG = {
     orders   : { name: "Orders",    icon: "🎂", component: CakeOrdersScreen       },
   },
   icecream: {
-    catalog  : { name: "Flavors",   icon: "🎨", component: FlavorsScreen          },
-    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
-    orders   : { name: "Orders",    icon: "🍦", component: IceCreamOrdersScreen   },
+    catalog  : { name: "Flavors",      icon: "🎨", component: FlavorsScreen         },
+    customers: { name: "Customers",    icon: "👥", component: CustomersScreen       },
+    orders   : { name: "Orders",       icon: "🍦", component: IceCreamOrdersScreen  },
+  },
+  restaurant: {
+    catalog  : { name: "Menu",         icon: "🍽️", component: CatalogScreen         },
+    customers: { name: "Customers",    icon: "👥", component: CustomersScreen       },
+    orders   : { name: "Orders",       icon: "🍕", component: OrdersScreen          },
+  },
+  salon: {
+    catalog  : { name: "Services",     icon: "💅", component: CatalogScreen         },
+    customers: { name: "Clients",      icon: "👤", component: CustomersScreen       },
+    orders   : { name: "Appointments", icon: "📅", component: BookingsScreen        },
+  },
+  medical: {
+    catalog  : { name: "Medicines",    icon: "💊", component: InventoryScreen       },
+    customers: { name: "Patients",     icon: "🏥", component: CustomersScreen       },
+    orders   : { name: "Orders",       icon: "🧾", component: KiranaOrdersScreen    },
   },
 };
 

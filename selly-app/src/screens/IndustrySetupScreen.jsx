@@ -44,11 +44,17 @@ const INDUSTRIES = [
     id      : "food",          // parent ID — not saved directly
     icon    : "🍽️",
     title   : "Food & Local Shop",
-    subtitle: "Kirana, bakery, ice cream & food businesses",
-    examples: ["Kirana / Grocery", "Cake & Bakery", "Ice Cream Shop", "Tiffin / Cloud kitchen"],
+    subtitle: "Restaurant, kirana, bakery, ice cream & food businesses",
+    examples: ["Restaurant / Cafe", "Kirana / Grocery", "Cake & Bakery", "Ice Cream Shop"],
     color   : "#F59E0B",
     bg      : "rgba(245,158,11,0.10)",
     subtypes: [
+      {
+        id      : "restaurant",
+        icon    : "🍽️",
+        title   : "Restaurant / Cafe",
+        desc    : "Menu orders, table booking, home delivery, daily specials",
+      },
       {
         id      : "kirana",
         icon    : "🛒",
@@ -69,23 +75,44 @@ const INDUSTRIES = [
       },
     ],
   },
+  {
+    id      : "salon",
+    icon    : "💅",
+    title   : "Salon & Spa",
+    subtitle: "Beauty services, appointments & wellness",
+    examples: ["Hair salon", "Beauty parlour", "Spa & massage", "Nail art studio"],
+    color   : "#EC4899",
+    bg      : "rgba(236,72,153,0.10)",
+  },
+  {
+    id      : "medical",
+    icon    : "💊",
+    title   : "Medical & Pharmacy",
+    subtitle: "Medicines, pharmacy & healthcare services",
+    examples: ["Medical store", "Pharmacy", "Ayurvedic shop", "Diagnostic centre"],
+    color   : "#06B6D4",
+    bg      : "rgba(6,182,212,0.10)",
+  },
 ];
 
 // Helper — which top-level card does a given industry ID belong to?
 function getParentId(industryId) {
-  if (["kirana", "cakes", "icecream"].includes(industryId)) return "food";
+  if (["kirana", "cakes", "icecream", "restaurant"].includes(industryId)) return "food";
   return industryId;
 }
 
 // Human-readable name for confirm button
 function getDisplayName(industryId) {
   const flat = {
-    education: "Education",
-    product  : "Product Business",
-    tourism  : "Tourism & Travel",
-    kirana   : "Kirana / Grocery",
-    cakes    : "Cake & Bakery",
-    icecream : "Ice Cream & Desserts",
+    education : "Education",
+    product   : "Product Business",
+    tourism   : "Tourism & Travel",
+    kirana    : "Kirana / Grocery",
+    cakes     : "Cake & Bakery",
+    icecream  : "Ice Cream & Desserts",
+    restaurant: "Restaurant / Cafe",
+    salon     : "Salon & Spa",
+    medical   : "Medical & Pharmacy",
   };
   return flat[industryId] || industryId;
 }

@@ -31,12 +31,15 @@ const DEFAULT_SETTINGS = {
 };
 
 const INDUSTRY_OPTIONS = [
-  { id: "product",   icon: "🛍️", label: "Product Business"      },
-  { id: "education", icon: "📚", label: "Education"               },
-  { id: "tourism",   icon: "✈️", label: "Tourism & Travel"        },
-  { id: "kirana",    icon: "🛒", label: "Kirana / Grocery"        },
-  { id: "cakes",     icon: "🎂", label: "Cake & Bakery"           },
-  { id: "icecream",  icon: "🍦", label: "Ice Cream & Desserts"    },
+  { id: "product",    icon: "🛍️", label: "Product Business"      },
+  { id: "education",  icon: "📚", label: "Education"               },
+  { id: "tourism",    icon: "✈️", label: "Tourism & Travel"        },
+  { id: "kirana",     icon: "🛒", label: "Kirana / Grocery"        },
+  { id: "cakes",      icon: "🎂", label: "Cake & Bakery"           },
+  { id: "icecream",   icon: "🍦", label: "Ice Cream & Desserts"    },
+  { id: "restaurant", icon: "🍽️", label: "Restaurant / Cafe"      },
+  { id: "salon",      icon: "💅", label: "Salon & Spa"             },
+  { id: "medical",    icon: "💊", label: "Medical & Pharmacy"      },
 ];
 
 export default function SettingsScreen() {
