@@ -330,7 +330,7 @@ export default function CakeMenuScreen() {
 
   async function load() {
     setLoading(true);
-    try { setItems((await fetchCatalog()) || []); }
+    try { setItems((await fetchCatalog())?.products || []); }
     catch { Alert.alert("Error", "Could not load menu."); }
     finally { setLoading(false); }
   }

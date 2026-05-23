@@ -373,11 +373,11 @@ export default function KiranaOrdersScreen() {
         fetchOrders(),
         fetchCatalog(),
       ]);
-      setOrders(ordersData || []);
+      setOrders(ordersData?.orders || []);
 
       // Build lowercase name → item map for auto-pricing
       const map = {};
-      (catalogData || []).forEach(item => {
+      (catalogData?.products || []).forEach(item => {
         if (item.name) {
           map[item.name.toLowerCase().trim()] = {
             price: item.price,

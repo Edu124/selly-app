@@ -377,8 +377,29 @@ export default function AIStudioScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🤖 AI Studio</Text>
-        <Text style={styles.headerSub}>Powered by Groq · Free for all features</Text>
+        <View style={styles.headerGlow} />
+        <View style={styles.headerTop}>
+          <View style={styles.headerLogoWrap}>
+            <Text style={styles.headerLogoIcon}>⚡</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>AI Studio</Text>
+            <Text style={styles.headerSub}>Grow faster with artificial intelligence</Text>
+          </View>
+        </View>
+        <View style={styles.headerBadgeRow}>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeDot}>●</Text>
+            <Text style={styles.headerBadgeText}>Groq Llama 3</Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeDot}>●</Text>
+            <Text style={styles.headerBadgeText}>Flux Images</Text>
+          </View>
+          <View style={[styles.headerBadge, styles.headerBadgeFree]}>
+            <Text style={styles.headerBadgeFreeText}>✦ FREE</Text>
+          </View>
+        </View>
       </View>
 
       {/* Feature cards */}
@@ -416,9 +437,20 @@ const styles = StyleSheet.create({
   container : { flex: 1, backgroundColor: Colors.bg },
   content   : { padding: 16, gap: 10, paddingBottom: 40 },
 
-  header    : { backgroundColor: Colors.bgCard, borderRadius: 16, padding: 20, marginBottom: 6, borderWidth: 1, borderColor: Colors.border, alignItems: "center" },
-  headerTitle: { color: Colors.textPrimary, fontSize: 24, fontWeight: "900", letterSpacing: 0.5 },
-  headerSub  : { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
+  // Header — professional gradient card
+  header         : { backgroundColor: "#0f0a1e", borderRadius: 20, padding: 20, marginBottom: 6, borderWidth: 1, borderColor: Colors.primary + "55", overflow: "hidden" },
+  headerGlow     : { position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: Colors.primary + "25" },
+  headerTop      : { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
+  headerLogoWrap : { width: 52, height: 52, borderRadius: 16, backgroundColor: Colors.primary + "33", borderWidth: 1, borderColor: Colors.primary + "66", alignItems: "center", justifyContent: "center" },
+  headerLogoIcon : { fontSize: 26 },
+  headerTitle    : { color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
+  headerSub      : { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
+  headerBadgeRow : { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  headerBadge    : { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  headerBadgeDot : { color: "#22c55e", fontSize: 7 },
+  headerBadgeText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "600" },
+  headerBadgeFree: { backgroundColor: Colors.primary + "33", borderColor: Colors.primary + "66" },
+  headerBadgeFreeText: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
 
   featureCard    : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgCard, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border, gap: 14 },
   featureCardDim : { opacity: 0.65 },

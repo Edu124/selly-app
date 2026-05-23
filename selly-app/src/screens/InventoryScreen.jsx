@@ -319,7 +319,7 @@ export default function InventoryScreen() {
     setLoading(true);
     try {
       const data = await fetchCatalog();
-      setItems(data || []);
+      setItems(data?.products || []);
     } catch {
       Alert.alert("Error", "Could not load inventory.");
     } finally {

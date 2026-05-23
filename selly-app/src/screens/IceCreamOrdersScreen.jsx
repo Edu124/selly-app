@@ -218,7 +218,7 @@ export default function IceCreamOrdersScreen() {
 
   async function load() {
     setLoading(true);
-    try { setOrders((await fetchOrders()) || []); }
+    try { setOrders((await fetchOrders())?.orders || []); }
     catch { Alert.alert("Error", "Could not load orders."); }
     finally { setLoading(false); }
   }
