@@ -5,8 +5,9 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, TextInput, Modal,
+  ActivityIndicator, Alert, TextInput, Modal, Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 
@@ -202,27 +203,95 @@ function CaptionWriterModal({ visible, onClose, industry }) {
   );
 }
 
-// ── Image Generator Modal ─────────────────────────────────────────────────────
+// ── Image Generator Modal (Text→Image + Image→Image) ─────────────────────────
 function ImageGeneratorModal({ visible, onClose }) {
-  const [prompt,  setPrompt]  = useState("");
-  const [loading, setLoading] = useState(false);
-  const [imageUrl,setImageUrl]= useState("");
+  const [mode,      setMode]      = useState("text");   // "text" | "transform"
+  const [prompt,    setPrompt]    = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [imageUrl,  setImageUrl]  = useState("");
+  const [srcImage,  setSrcImage]  = useState(null);     // { uri, base64 }
+  const [strength,  setStrength]  = useState("0.75");   // 0-1
+
+  const MODES = [
+    { id: "text",      label: "✨ Text → Image" },
+    { id: "transform", label: "🔄 Transform Image" },
+  ];
+
+  // Pick image from gallery or camera for img2img
+  async function pickImage() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo access to use this feature.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setSrcImage({
+        uri   : asset.uri,
+        base64: `data:image/jpeg;base64,${asset.base64}`,
+      });
+    }
+  }
+
+  async function takePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow camera access to use this feature.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setSrcImage({
+        uri   : asset.uri,
+        base64: `data:image/jpeg;base64,${asset.base64}`,
+      });
+    }
+  }
 
   async function generate() {
     if (!prompt.trim()) return Alert.alert("Enter a prompt first");
+    if (mode === "transform" && !srcImage) return Alert.alert("Pick a source image first");
     setLoading(true);
     setImageUrl("");
     try {
       const { getBaseUrl } = await import("../lib/api");
       const base = await getBaseUrl();
-      const res = await fetch(`${base}/api/ai/image`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({ prompt: prompt.trim() }),
-      });
-      const data = await res.json();
-      setImageUrl(data.imageUrl || "");
-      if (data.error) Alert.alert("Error", data.error);
+
+      if (mode === "text") {
+        const res = await fetch(`${base}/api/ai/image`, {
+          method : "POST",
+          headers: { "Content-Type": "application/json" },
+          body   : JSON.stringify({ prompt: prompt.trim() }),
+        });
+        const data = await res.json();
+        if (data.error) return Alert.alert("Error", data.error);
+        setImageUrl(data.imageUrl || "");
+      } else {
+        // img2img — sends base64 source + prompt
+        const res = await fetch(`${base}/api/ai/image-transform`, {
+          method : "POST",
+          headers: { "Content-Type": "application/json" },
+          body   : JSON.stringify({
+            image   : srcImage.base64,
+            prompt  : prompt.trim(),
+            strength: Number(strength) || 0.75,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) return Alert.alert("Error", data.error);
+        setImageUrl(data.imageUrl || "");
+      }
     } catch (e) {
       Alert.alert("Error", e.message);
     } finally {
@@ -230,36 +299,123 @@ function ImageGeneratorModal({ visible, onClose }) {
     }
   }
 
+  const isTransform = mode === "transform";
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.modal}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>🖼️ AI Image Generator</Text>
+          <Text style={styles.modalTitle}>🖼️ AI Image Studio</Text>
           <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
         </View>
-        <ScrollView style={styles.modalBody}>
-          <Text style={styles.fieldLabel}>Describe the image you want</Text>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+
+          {/* Mode selector */}
+          <View style={styles.typeRow}>
+            {MODES.map(m => (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.typeBtn, mode === m.id && styles.typeBtnActive]}
+                onPress={() => { setMode(m.id); setImageUrl(""); }}
+              >
+                <Text style={[styles.typeBtnText, mode === m.id && styles.typeBtnTextActive]}>{m.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Source image picker (img2img mode only) */}
+          {isTransform && (
+            <>
+              <Text style={styles.fieldLabel}>Source Image</Text>
+              {srcImage ? (
+                <View style={styles.srcImageWrap}>
+                  <Image source={{ uri: srcImage.uri }} style={styles.srcImagePreview} resizeMode="cover" />
+                  <TouchableOpacity style={styles.changeSrcBtn} onPress={() => setSrcImage(null)}>
+                    <Text style={styles.changeSrcText}>✕ Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.pickRow}>
+                  <TouchableOpacity style={styles.pickBtn} onPress={pickImage}>
+                    <Text style={styles.pickBtnIcon}>🖼️</Text>
+                    <Text style={styles.pickBtnText}>Gallery</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.pickBtn} onPress={takePhoto}>
+                    <Text style={styles.pickBtnIcon}>📷</Text>
+                    <Text style={styles.pickBtnText}>Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <Text style={styles.fieldLabel}>Transformation Strength</Text>
+              <View style={styles.strengthRow}>
+                {["0.4","0.6","0.75","0.9"].map(v => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[styles.strengthBtn, strength === v && styles.strengthBtnActive]}
+                    onPress={() => setStrength(v)}
+                  >
+                    <Text style={[styles.strengthBtnText, strength === v && styles.strengthBtnTextActive]}>
+                      {v === "0.4" ? "Subtle" : v === "0.6" ? "Moderate" : v === "0.75" ? "Strong" : "Max"}
+                    </Text>
+                    <Text style={[styles.strengthBtnSub, strength === v && { color: Colors.primary }]}>{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.hintText}>
+                💡 "Subtle" keeps the original close. "Max" heavily transforms it. Use "Strong" for style changes like making a product photo look like a painting.
+              </Text>
+            </>
+          )}
+
+          {/* Prompt */}
+          <Text style={styles.fieldLabel}>
+            {isTransform ? "How should it be transformed?" : "Describe the image you want"}
+          </Text>
           <TextInput
             style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-            placeholder={`e.g. "A beautiful Indian woman wearing a blue silk saree, white background, product photo"`}
+            placeholder={isTransform
+              ? `e.g. "Make it look like a professional studio product photo with white background"`
+              : `e.g. "A beautiful Indian woman wearing a blue silk saree, white background, professional product photo"`
+            }
             placeholderTextColor={Colors.textMuted}
             value={prompt}
             onChangeText={setPrompt}
             multiline
           />
-          <Text style={styles.hintText}>💡 Tip: Describe the product, style, background, and mood for best results</Text>
+
+          {!isTransform && (
+            <Text style={styles.hintText}>💡 Tip: Describe the product, style, background, and mood for best results</Text>
+          )}
+
           <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
             {loading
-              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText,{marginLeft:8}]}>Generating (~30s)...</Text></>
-              : <Text style={styles.generateBtnText}>✨ Generate Image</Text>
+              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>
+                  {isTransform ? "Transforming (~45s)..." : "Generating (~30s)..."}
+                </Text></>
+              : <Text style={styles.generateBtnText}>
+                  {isTransform ? "🔄 Transform Image" : "✨ Generate Image"}
+                </Text>
             }
           </TouchableOpacity>
+
+          {/* Result */}
           {imageUrl ? (
             <View style={styles.resultBox}>
-              <Text style={styles.resultLabel}>Generated Image URL:</Text>
-              <Text style={[styles.resultText, {color: Colors.primary}]}>{imageUrl}</Text>
+              {isTransform && srcImage && (
+                <>
+                  <Text style={styles.resultLabel}>Before:</Text>
+                  <Image source={{ uri: srcImage.uri }} style={styles.resultImagePreview} resizeMode="cover" />
+                  <Text style={[styles.resultLabel, { marginTop: 12 }]}>After (AI Transformed):</Text>
+                </>
+              )}
+              {!isTransform && <Text style={styles.resultLabel}>Generated Image:</Text>}
+              <Image source={{ uri: imageUrl }} style={styles.resultImagePreview} resizeMode="cover" />
+              <Text style={[styles.resultText, { color: Colors.textMuted, fontSize: 11, marginTop: 6 }]} numberOfLines={2}>{imageUrl}</Text>
             </View>
           ) : null}
+
         </ScrollView>
       </View>
     </Modal>
@@ -908,4 +1064,30 @@ const styles = StyleSheet.create({
   statChip     : { backgroundColor: Colors.bgCard, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.border, alignItems: "center", minWidth: 80 },
   statChipVal  : { color: Colors.textPrimary, fontSize: 16, fontWeight: "900" },
   statChipLabel: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+
+  // Image picker
+  pickRow         : { flexDirection: "row", gap: 10, marginBottom: 12 },
+  pickBtn         : { flex: 1, backgroundColor: Colors.bgCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingVertical: 16, alignItems: "center", gap: 6 },
+  pickBtnIcon     : { fontSize: 26 },
+  pickBtnText     : { color: Colors.textPrimary, fontSize: 13, fontWeight: "700" },
+
+  srcImageWrap    : { borderRadius: 12, overflow: "hidden", marginBottom: 12, position: "relative" },
+  srcImagePreview : { width: "100%", height: 200, borderRadius: 12 },
+  changeSrcBtn    : { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  changeSrcText   : { color: "#fff", fontSize: 11, fontWeight: "700" },
+
+  strengthRow      : { flexDirection: "row", gap: 8, marginBottom: 8 },
+  strengthBtn      : { flex: 1, backgroundColor: Colors.bgCard, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingVertical: 10, alignItems: "center" },
+  strengthBtnActive: { backgroundColor: Colors.primary + "22", borderColor: Colors.primary },
+  strengthBtnText  : { color: Colors.textSecondary, fontSize: 12, fontWeight: "700" },
+  strengthBtnTextActive: { color: Colors.primary },
+  strengthBtnSub   : { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
+
+  resultImagePreview: { width: "100%", height: 220, borderRadius: 10, marginTop: 6 },
+
+  // Flashcard
+  flashCard     : { backgroundColor: Colors.bgCard, borderRadius: 14, padding: 18, borderWidth: 1, borderColor: Colors.primary + "44", marginBottom: 8, alignItems: "center", minHeight: 100, justifyContent: "center" },
+  flashCardNum  : { color: Colors.textMuted, fontSize: 10, fontWeight: "700", textTransform: "uppercase", marginBottom: 8 },
+  flashCardText : { color: Colors.textPrimary, fontSize: 16, fontWeight: "700", textAlign: "center", lineHeight: 22 },
+  flashCardHint : { color: Colors.textMuted, fontSize: 10, marginTop: 10 },
 });
