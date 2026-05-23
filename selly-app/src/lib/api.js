@@ -516,6 +516,20 @@ export async function getSmartPricing({ product, cost_price, market_info, indust
   return r.data; // { suggestion: "..." }
 }
 
+// ── AI Video Generation ───────────────────────────────────────────────────────
+export async function generateVideo({ prompt, first_frame_image }) {
+  const c = await client();
+  const r = await c.post("/api/ai/video", { prompt, first_frame_image });
+  return r.data; // { videoUrl: "..." }
+}
+
+// ── Instagram Publishing ──────────────────────────────────────────────────────
+export async function postToInstagram({ mediaUrl, caption, mediaType = "IMAGE" }) {
+  const c = await client();
+  const r = await c.post("/api/instagram/post", { mediaUrl, caption, mediaType });
+  return r.data; // { ok: true, postId: "..." }
+}
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 export async function saveServerUrl(url) {
   await AsyncStorage.setItem(KEY_URL, url);

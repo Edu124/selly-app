@@ -337,13 +337,32 @@ export default function SettingsScreen() {
 
         {biz.instagram_enabled && (
           <>
+            <View style={{ backgroundColor: "rgba(225,48,108,0.08)", borderRadius: 10, padding: 12, marginTop: 10, borderWidth: 1, borderColor: "rgba(225,48,108,0.25)" }}>
+              <Text style={{ color: "#E1306C", fontSize: 12, fontWeight: "800", marginBottom: 4 }}>📲 What these credentials power:</Text>
+              <Text style={{ color: "#E1306C", fontSize: 11, lineHeight: 17 }}>
+                {"• Instagram DM bot (customers can order via DM)\n• AI Studio → Post to Instagram (publish images & Reels directly from the app)\n• Shop page — show latest Instagram posts"}
+              </Text>
+            </View>
+
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Instagram Account ID</Text>
-            <Text style={styles.fieldHint}>Numeric ID of your Instagram business account (e.g. 17841459744700340). Find it in Meta Business Suite → Instagram Account → About.</Text>
+            <Text style={styles.fieldHint}>Numeric ID of your Instagram Business account. Find it: Meta Business Suite → Instagram Account → About → Instagram ID.</Text>
             <TextInput style={styles.input} value={biz.instagram_account_id} onChangeText={v => setBizField("instagram_account_id", v)} placeholder="17841459744700340" placeholderTextColor={Colors.textMuted} keyboardType="numeric" />
 
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Instagram Access Token</Text>
-            <Text style={styles.fieldHint}>Long-lived access token from Graph API Explorer. Used to show your latest posts on your shop page.</Text>
+            <Text style={styles.fieldHint}>{"Long-lived access token from Meta Graph API Explorer.\nNeeds permission: instagram_content_publish\nGet it at: developers.facebook.com/tools/explorer"}</Text>
             <TextInput style={[styles.input, { fontSize: 11 }]} value={biz.instagram_access_token} onChangeText={v => setBizField("instagram_access_token", v)} placeholder="EAAxxxxx..." placeholderTextColor={Colors.textMuted} multiline numberOfLines={2} />
+
+            <TouchableOpacity
+              style={{ backgroundColor: "rgba(225,48,108,0.1)", borderRadius: 10, padding: 10, marginTop: 8, borderWidth: 1, borderColor: "rgba(225,48,108,0.3)", flexDirection: "row", alignItems: "center", gap: 8 }}
+              onPress={() => Alert.alert(
+                "How to get your Access Token",
+                "1. Go to developers.facebook.com/tools/explorer\n2. Select your Facebook App\n3. Click 'Generate Access Token'\n4. Add permission: instagram_content_publish\n5. Copy the token\n\nFor a long-lived token (60 days):\nUse the Token Debugger to extend it, or set up a permanent token via System User in Meta Business Manager.",
+                [{ text: "OK" }]
+              )}
+            >
+              <Text style={{ fontSize: 16 }}>❓</Text>
+              <Text style={{ color: "#E1306C", fontSize: 12, fontWeight: "700" }}>How to get your Access Token</Text>
+            </TouchableOpacity>
           </>
         )}
 

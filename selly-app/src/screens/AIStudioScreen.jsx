@@ -54,9 +54,19 @@ const AI_FEATURES = [
     industries: "all",
   },
   {
-    id       : "reel",
+    id       : "video",
     icon     : "🎬",
-    title    : "Reel Script Generator",
+    title    : "Video Generator",
+    desc     : "AI generates a 5-second promo video from your description",
+    badge    : "Free",
+    badgeColor: "#22c55e",
+    comingSoon: false,
+    industries: "all",
+  },
+  {
+    id       : "reel",
+    icon     : "📝",
+    title    : "Reel Script Writer",
     desc     : "AI writes 30-second Reel scripts for your products",
     badge    : "Free",
     badgeColor: "#22c55e",
@@ -300,6 +310,7 @@ function ImageGeneratorModal({ visible, onClose }) {
   }
 
   const isTransform = mode === "transform";
+  const [igOpen, setIgOpen] = useState(false);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -413,11 +424,25 @@ function ImageGeneratorModal({ visible, onClose }) {
               {!isTransform && <Text style={styles.resultLabel}>Generated Image:</Text>}
               <Image source={{ uri: imageUrl }} style={styles.resultImagePreview} resizeMode="cover" />
               <Text style={[styles.resultText, { color: Colors.textMuted, fontSize: 11, marginTop: 6 }]} numberOfLines={2}>{imageUrl}</Text>
+              {/* Post to Instagram */}
+              <TouchableOpacity
+                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 14 }]}
+                onPress={() => setIgOpen(true)}
+              >
+                <Text style={styles.generateBtnText}>📲 Post to Instagram</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
 
         </ScrollView>
       </View>
+      {/* Instagram post modal */}
+      <InstagramPostModal
+        visible={igOpen}
+        onClose={() => setIgOpen(false)}
+        mediaUrl={imageUrl}
+        mediaType="IMAGE"
+      />
     </Modal>
   );
 }
@@ -504,6 +529,249 @@ function InsightsModal({ visible, onClose, industry }) {
           ) : null}
         </ScrollView>
       </View>
+    </Modal>
+  );
+}
+
+// ── Instagram Post Modal (shared by Image + Video) ────────────────────────────
+function InstagramPostModal({ visible, onClose, mediaUrl, mediaType = "IMAGE", defaultCaption = "" }) {
+  const [caption,  setCaption]  = useState(defaultCaption);
+  const [posting,  setPosting]  = useState(false);
+  const [genning,  setGenning]  = useState(false);
+  const [done,     setDone]     = useState(false);
+
+  // reset when opened
+  React.useEffect(() => {
+    if (visible) { setCaption(defaultCaption); setDone(false); }
+  }, [visible]);
+
+  async function generateCaption() {
+    setGenning(true);
+    try {
+      const { getBaseUrl } = await import("../lib/api");
+      const base = await getBaseUrl();
+      const res = await fetch(`${base}/api/ai/generate`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({
+          type   : "instagram",
+          context: mediaType === "VIDEO"
+            ? `Generate an Instagram Reel caption for this video: "${mediaUrl.slice(-40)}". Be engaging, use emojis and 5 relevant hashtags.`
+            : `Generate an Instagram post caption for this product image. Be engaging, use emojis and 5 relevant hashtags.`,
+        }),
+      });
+      const data = await res.json();
+      setCaption(data.result || "");
+    } catch (_) {
+    } finally {
+      setGenning(false);
+    }
+  }
+
+  async function post() {
+    if (!caption.trim()) return Alert.alert("Add a caption first");
+    setPosting(true);
+    try {
+      const { getBaseUrl, getBusinessId } = await import("../lib/api");
+      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
+      const res = await fetch(`${base}/api/instagram/post`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
+        body   : JSON.stringify({ mediaUrl, caption: caption.trim(), mediaType, bid }),
+      });
+      const data = await res.json();
+      if (data.error) return Alert.alert("Instagram Error", data.error);
+      setDone(true);
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>📲 Post to Instagram</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+          {done ? (
+            <View style={styles.successBox}>
+              <Text style={{ fontSize: 52, marginBottom: 12 }}>✅</Text>
+              <Text style={styles.successTitle}>Posted to Instagram!</Text>
+              <Text style={styles.successSub}>Your {mediaType === "VIDEO" ? "Reel" : "post"} is now live.</Text>
+              <TouchableOpacity style={[styles.generateBtn, { marginTop: 24 }]} onPress={onClose}>
+                <Text style={styles.generateBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              {/* Media type badge */}
+              <View style={styles.igMediaBadge}>
+                <Text style={styles.igMediaBadgeText}>{mediaType === "VIDEO" ? "🎬 Reel (Video)" : "🖼️ Photo Post"}</Text>
+              </View>
+
+              {/* Caption */}
+              <View style={styles.captionHeaderRow}>
+                <Text style={styles.fieldLabel}>Caption</Text>
+                <TouchableOpacity style={styles.aiCaptionBtn} onPress={generateCaption} disabled={genning}>
+                  {genning
+                    ? <ActivityIndicator color={Colors.primary} size="small" />
+                    : <Text style={styles.aiCaptionBtnText}>✨ AI Write</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={[styles.input, { height: 120, textAlignVertical: "top" }]}
+                placeholder="Write a caption, or tap ✨ AI Write to generate one..."
+                placeholderTextColor={Colors.textMuted}
+                value={caption}
+                onChangeText={setCaption}
+                multiline
+              />
+
+              {/* Tips */}
+              <View style={styles.igTipCard}>
+                <Text style={styles.igTipTitle}>💡 Tips for better reach</Text>
+                <Text style={styles.igTipText}>• Use 5-10 relevant hashtags</Text>
+                <Text style={styles.igTipText}>• Post in the evening (7-9pm) for max engagement</Text>
+                <Text style={styles.igTipText}>• Tag your location for local discoverability</Text>
+                {mediaType === "VIDEO" && <Text style={styles.igTipText}>• Reels get 3× more reach than regular posts</Text>}
+              </View>
+
+              {/* Requirements reminder */}
+              <View style={[styles.igTipCard, { backgroundColor: "rgba(234,179,8,0.08)", borderColor: "rgba(234,179,8,0.25)" }]}>
+                <Text style={[styles.igTipTitle, { color: "#eab308" }]}>⚙️ Requirements</Text>
+                <Text style={styles.igTipText}>Instagram account ID + access token must be set in Settings → Instagram Integration.</Text>
+                <Text style={[styles.igTipText, { marginTop: 4 }]}>Image/video must be publicly accessible (Railway-hosted URLs work).</Text>
+              </View>
+
+              {/* Post button */}
+              <TouchableOpacity
+                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 8 }, posting && { opacity: 0.6 }]}
+                onPress={post}
+                disabled={posting}
+              >
+                {posting
+                  ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Posting...</Text></>
+                  : <Text style={styles.generateBtnText}>📤 Post to Instagram</Text>
+                }
+              </TouchableOpacity>
+            </>
+          )}
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+// ── Video Generator Modal ─────────────────────────────────────────────────────
+function VideoGeneratorModal({ visible, onClose, industry }) {
+  const [prompt,   setPrompt]   = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [igOpen,   setIgOpen]   = useState(false);
+
+  async function generate() {
+    if (!prompt.trim()) return Alert.alert("Enter a prompt first");
+    setLoading(true);
+    setVideoUrl("");
+    try {
+      const { getBaseUrl } = await import("../lib/api");
+      const base = await getBaseUrl();
+      const res = await fetch(`${base}/api/ai/video`, {
+        method : "POST",
+        headers: { "Content-Type": "application/json" },
+        body   : JSON.stringify({ prompt: prompt.trim() }),
+      });
+      const data = await res.json();
+      if (data.error) return Alert.alert("Error", data.error);
+      setVideoUrl(data.videoUrl || "");
+    } catch (e) {
+      Alert.alert("Error", e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={styles.modal}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>🎬 AI Video Generator</Text>
+          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
+        </View>
+        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+          <Text style={styles.fieldLabel}>Describe your video</Text>
+          <TextInput
+            style={[styles.input, { height: 90, textAlignVertical: "top" }]}
+            placeholder={`e.g. "A beautiful silk saree elegantly flowing in slow motion, golden light, cinematic product showcase"`}
+            placeholderTextColor={Colors.textMuted}
+            value={prompt}
+            onChangeText={setPrompt}
+            multiline
+          />
+          <Text style={styles.hintText}>
+            💡 Generates a ~5 second HD clip. Best for product showcases, food shots, fashion reels. Takes 1-3 minutes.
+          </Text>
+
+          <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
+            {loading
+              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Generating video (1-3 min)...</Text></>
+              : <Text style={styles.generateBtnText}>🎬 Generate Video</Text>
+            }
+          </TouchableOpacity>
+
+          {loading && (
+            <View style={styles.videoWaitCard}>
+              <Text style={styles.videoWaitText}>⏳ AI is rendering your video...</Text>
+              <Text style={styles.videoWaitSub}>This takes 1-3 minutes. Don't close this screen.</Text>
+            </View>
+          )}
+
+          {videoUrl ? (
+            <View style={styles.resultBox}>
+              <Text style={styles.resultLabel}>✅ Video Generated!</Text>
+              <Text style={[styles.resultText, { color: Colors.primary }]} numberOfLines={2}>{videoUrl}</Text>
+              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 6, lineHeight: 16 }}>
+                Open the URL in a browser to preview. Then post it to Instagram below!
+              </Text>
+              {/* Post to Instagram button */}
+              <TouchableOpacity
+                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 14 }]}
+                onPress={() => setIgOpen(true)}
+              >
+                <Text style={styles.generateBtnText}>📲 Post as Instagram Reel</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {/* Video prompts inspiration */}
+          <View style={styles.insightCard}>
+            <Text style={styles.insightTitle}>💡 Video prompt ideas</Text>
+            {[
+              "Product rotating on a pedestal with golden light",
+              "Food being plated beautifully in slow motion",
+              "Happy customer receiving their package, unboxing",
+              "Clothes on a model walking on a runway, vibrant colors",
+              "Cake being decorated with cream, close-up shot",
+            ].map((p, i) => (
+              <TouchableOpacity key={i} style={styles.promptIdea} onPress={() => setPrompt(p)}>
+                <Text style={styles.promptIdeaText}>"{p}"</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+      {/* Instagram post modal */}
+      <InstagramPostModal
+        visible={igOpen}
+        onClose={() => setIgOpen(false)}
+        mediaUrl={videoUrl}
+        mediaType="VIDEO"
+      />
     </Modal>
   );
 }
@@ -908,6 +1176,7 @@ export default function AIStudioScreen() {
   const [imageOpen,    setImageOpen]    = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [voiceOpen,    setVoiceOpen]    = useState(false);
+  const [videoOpen,    setVideoOpen]    = useState(false);
   const [notebookOpen, setNotebookOpen] = useState(false);
   const [flashcardOpen,setFlashcardOpen]= useState(false);
   const [bulkOpen,     setBulkOpen]     = useState(false);
@@ -923,6 +1192,7 @@ export default function AIStudioScreen() {
     if (id === "image")    setImageOpen(true);
     if (id === "insights") setInsightsOpen(true);
     if (id === "voice")    setVoiceOpen(true);
+    if (id === "video")    setVideoOpen(true);
     if (id === "notebook") setNotebookOpen(true);
     if (id === "flashcard")setFlashcardOpen(true);
     if (id === "bulkimport") setBulkOpen(true);
@@ -990,6 +1260,7 @@ export default function AIStudioScreen() {
       <ImageGeneratorModal visible={imageOpen}     onClose={() => setImageOpen(false)} />
       <InsightsModal       visible={insightsOpen}  onClose={() => setInsightsOpen(false)}  industry={industry} />
       <VoiceModal          visible={voiceOpen}     onClose={() => setVoiceOpen(false)} />
+      <VideoGeneratorModal visible={videoOpen}     onClose={() => setVideoOpen(false)}     industry={industry} />
       <NotebookModal       visible={notebookOpen}  onClose={() => setNotebookOpen(false)} />
       <FlashcardModal      visible={flashcardOpen} onClose={() => setFlashcardOpen(false)} industry={industry} />
       <BulkImportModal     visible={bulkOpen}      onClose={() => setBulkOpen(false)} />
@@ -1090,4 +1361,25 @@ const styles = StyleSheet.create({
   flashCardNum  : { color: Colors.textMuted, fontSize: 10, fontWeight: "700", textTransform: "uppercase", marginBottom: 8 },
   flashCardText : { color: Colors.textPrimary, fontSize: 16, fontWeight: "700", textAlign: "center", lineHeight: 22 },
   flashCardHint : { color: Colors.textMuted, fontSize: 10, marginTop: 10 },
+
+  // Instagram post modal
+  igMediaBadge    : { backgroundColor: Colors.bgCard, borderRadius: 20, alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
+  igMediaBadgeText: { color: Colors.textPrimary, fontSize: 12, fontWeight: "700" },
+  captionHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+  aiCaptionBtn    : { backgroundColor: Colors.primary + "22", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: Colors.primary + "44", flexDirection: "row", alignItems: "center", gap: 4 },
+  aiCaptionBtnText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
+  igTipCard   : { backgroundColor: "rgba(108,71,255,0.08)", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.primary + "33", marginBottom: 10 },
+  igTipTitle  : { color: Colors.primary, fontSize: 12, fontWeight: "800", marginBottom: 6 },
+  igTipText   : { color: Colors.textSecondary, fontSize: 12, lineHeight: 18 },
+
+  successBox    : { flex: 1, alignItems: "center", justifyContent: "center", padding: 32 },
+  successTitle  : { color: Colors.textPrimary, fontSize: 22, fontWeight: "900", textAlign: "center" },
+  successSub    : { color: Colors.textSecondary, fontSize: 14, textAlign: "center", marginTop: 6 },
+
+  // Video modal
+  videoWaitCard : { backgroundColor: "rgba(108,71,255,0.08)", borderRadius: 12, padding: 16, borderWidth: 1, borderColor: Colors.primary + "33", marginTop: 12, alignItems: "center", gap: 6 },
+  videoWaitText : { color: Colors.primary, fontSize: 14, fontWeight: "700" },
+  videoWaitSub  : { color: Colors.textMuted, fontSize: 12, textAlign: "center" },
+  promptIdea    : { backgroundColor: Colors.bg, borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.border, marginBottom: 6 },
+  promptIdeaText: { color: Colors.textSecondary, fontSize: 12, fontStyle: "italic" },
 });
