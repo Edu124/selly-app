@@ -1,9 +1,18 @@
 const { createClient } = require("@supabase/supabase-js");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
+// Lazy init — prevents crash at startup if env vars not set yet
+let _supabase = null;
+function getSupabase() {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_KEY;
+    if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_KEY must be set.");
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
+// Keep `supabase` as a getter-compatible alias for the cron in server.js
+const supabase = new Proxy({}, { get: (_, prop) => getSupabase()[prop] });
 
 // ── Get or create user record ─────────────────────────────────────────────────
 async function getUser(userId, email = null) {
