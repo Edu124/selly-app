@@ -4,11 +4,29 @@ const crypto    = require("crypto");
 const { updateUserPlan, getUserByRazorpaySubId, getUserByStripeSubId } = require("./db");
 const { RAZORPAY_PLAN_IDS, STRIPE_PRICE_IDS } = require("./plans");
 
-const razorpay = new Razorpay({
-  key_id:     process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Lazy init — only created when first used, not at startup
+let _razorpay = null;
+let _stripe   = null;
+
+function getRazorpay() {
+  if (!_razorpay) {
+    if (!process.env.RAZORPAY_KEY_ID) throw new Error("RAZORPAY_KEY_ID not set");
+    _razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+  }
+  return _razorpay;
+}
+
+function getStripe() {
+  if (!_stripe) {
+    if (!process.env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY not set");
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return _stripe;
+}
+
+// Proxy aliases so existing code (razorpay.subscriptions.cancel etc.) still works
+const razorpay = new Proxy({}, { get: (_, prop) => getRazorpay()[prop] });
+const stripe   = new Proxy({}, { get: (_, prop) => getStripe()[prop]   });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RAZORPAY
