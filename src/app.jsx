@@ -269,6 +269,10 @@ const HF = "https://huggingface.co";
 // 4. In Clerk dashboard → Email address → enable "Email verification code"
 const CLERK_KEY = "pk_test_aW1tZW5zZS1yb2RlbnQtNTEuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
+// ─── CodeForge cloud API (Railway) ────────────────────────────────────────────
+// Update this URL once the Railway server is deployed
+const CODEFORGE_API = "https://codeforge-server.up.railway.app";
+
 // ─── App version ──────────────────────────────────────────────────────────────
 const APP_VERSION = "0.3.4";
 
@@ -3257,30 +3261,60 @@ function LoginPage() {
 
   const appearance = {
     variables: {
-      colorPrimary: C.blue, colorBackground: C.bgPanel,
-      colorText: C.t1, colorTextSecondary: C.t2,
-      colorInputBackground: C.bgCard, colorInputText: C.t1,
-      colorInputPlaceholder: C.t3,
-      borderRadius: "12px", fontFamily: "inherit",
+      colorPrimary:          C.blue,
+      colorBackground:       "#0f1520",
+      colorText:             "#f0f4ff",
+      colorTextSecondary:    "#94a3b8",
+      colorInputBackground:  "#1e2d42",
+      colorInputText:        "#f0f4ff",
+      colorInputPlaceholder: "#4a5568",
+      borderRadius:          "10px",
+      fontFamily:            "inherit",
     },
     elements: {
-      card: { boxShadow: "0 30px 80px rgba(0,0,0,0.6)", border: `1px solid ${C.border}` },
-      headerTitle: { color: C.t1 }, headerSubtitle: { color: C.t2 },
-      socialButtonsBlockButton: { background: C.bgCard, border: `1px solid ${C.border}`, color: C.t1 },
-      dividerLine: { background: C.border }, dividerText: { color: C.t3 },
+      card: {
+        background:    "#0f1520",
+        boxShadow:     "0 30px 80px rgba(0,0,0,0.7)",
+        border:        "1px solid rgba(59,130,246,0.15)",
+      },
+      headerTitle:    { color: "#f0f4ff", fontWeight: "800" },
+      headerSubtitle: { color: "#94a3b8" },
+      socialButtonsBlockButton: {
+        background:   "#1e2d42",
+        border:       "1px solid rgba(148,163,184,0.2)",
+        color:        "#f0f4ff",
+      },
+      socialButtonsBlockButtonText: { color: "#f0f4ff" },
+      dividerLine:  { background: "rgba(148,163,184,0.15)" },
+      dividerText:  { color: "#4a5568" },
+      formFieldLabel: { color: "#94a3b8", fontWeight: "600", fontSize: "13px" },
       formFieldInput: {
-        background: C.bgCard, borderColor: C.border, color: C.t1,
-        caretColor: C.cyan,
+        background:   "#1e2d42",
+        border:       "1px solid rgba(148,163,184,0.25)",
+        color:        "#f0f4ff",
+        caretColor:   "#38bdf8",
+        fontSize:     "14px",
+        padding:      "10px 14px",
       },
-      formFieldLabel: { color: C.t2 },
+      formFieldInputShowPasswordButton: { color: "#94a3b8" },
       otpCodeFieldInput: {
-        background: C.bgCard, borderColor: C.border, color: C.t1,
-        fontSize: "20px", fontWeight: "700",
+        background:  "#1e2d42",
+        border:      "1px solid rgba(148,163,184,0.3)",
+        color:       "#f0f4ff",
+        fontSize:    "22px",
+        fontWeight:  "700",
       },
-      formButtonPrimary: { background: C.blue },
-      footerAction: { color: C.t3 },
-      identityPreviewText: { color: C.t1 },
-      identityPreviewEditButton: { color: C.blue },
+      formButtonPrimary: {
+        background:  C.blue,
+        fontWeight:  "700",
+      },
+      footerActionLink: { color: C.cyan },
+      footerAction:     { color: "#4a5568" },
+      identityPreviewText:       { color: "#f0f4ff" },
+      identityPreviewEditButton: { color: C.cyan },
+      formFieldSuccessText: { color: "#22c55e" },
+      formFieldErrorText:   { color: "#f87171" },
+      alertText:            { color: "#f87171" },
     },
   };
 
@@ -3347,6 +3381,11 @@ function OfflineAIApp() {
   const [renameVal,     setRenameVal]     = useState("");
   const [hoveredChatId, setHoveredChatId] = useState(null); // for hover-reveal action btn
   const [chatMenuId,    setChatMenuId]    = useState(null); // which chat's ⋯ menu is open
+  const [showBilling,   setShowBilling]   = useState(false);
+  const [billingInfo,   setBillingInfo]   = useState(null);  // from /api/user
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [cancelConfirm,  setCancelConfirm]  = useState(false);
+  const { getToken } = useAuth();
 
   // modelState: { [modelId]: { status: "not-downloaded"|"downloading"|"downloaded"|"loaded"|"error", progress?, error? } }
   const [modelState, setModelState] = useState({});
@@ -3800,6 +3839,39 @@ function OfflineAIApp() {
   };
 
   // ── Stop ongoing generation ───────────────────────────────────────────────
+  // ── Billing: fetch plan info from server ─────────────────────────────────
+  const fetchBilling = async () => {
+    setBillingLoading(true);
+    try {
+      const token = await getToken();
+      const res   = await fetch(`${CODEFORGE_API}/api/user`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setBillingInfo(await res.json());
+    } catch (e) { console.error("Billing fetch error", e); }
+    finally { setBillingLoading(false); }
+  };
+
+  const cancelSubscription = async () => {
+    try {
+      const token = await getToken();
+      const res   = await fetch(`${CODEFORGE_API}/api/cancel`, {
+        method:  "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setBillingInfo(prev => prev ? { ...prev, plan: "free", expires_at: null } : null);
+        setCancelConfirm(false);
+        alert("Subscription cancelled. You're now on the Free plan.");
+      } else {
+        const err = await res.json();
+        alert("Cancel failed: " + (err.error || "Unknown error"));
+      }
+    } catch (e) {
+      alert("Network error. Please try again.");
+    }
+  };
+
   const stopGenerate = () => {
     invoke("stop_generate").catch(console.error);
     // Immediately update UI — don't wait for llm-done event
@@ -4462,6 +4534,17 @@ If no issues found, respond with: []`;
           }}>
             <Icon d={IC.server} size={12} stroke={showModelPanel ? C.blue : C.t2} /> Models
           </button>
+          {/* Billing button */}
+          <button onClick={() => { setShowBilling(p => !p); if (!billingInfo) fetchBilling(); }} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 14px", borderRadius: 8, border: `1px solid ${showBilling ? "rgba(168,85,247,0.4)" : C.border}`,
+            background: showBilling ? "rgba(168,85,247,0.1)" : C.bgCard,
+            color: showBilling ? C.purple : C.t2,
+            fontSize: 12, fontWeight: 600, cursor: "pointer",
+          }}>
+            <Icon d={IC.star} size={12} stroke={showBilling ? C.purple : C.t2} />
+            {billingInfo && billingInfo.plan !== "free" ? billingInfo.plan_name : "Free"}
+          </button>
           {CLERK_KEY && !CLERK_KEY.startsWith("YOUR_") && <LogoutButton />}
         </div>
       </div>
@@ -4470,6 +4553,88 @@ If no issues found, respond with: []`;
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
         {/* ── Model Panel (slides in below header when Models button clicked) ── */}
+        {/* ── Billing Panel ── */}
+        {showBilling && (
+          <div style={{ background: C.bgPanel, borderBottom: `1px solid ${C.border}`, overflowY: "auto", maxHeight: 420, flexShrink: 0 }}>
+            <div style={{ padding: "20px 28px", maxWidth: 600 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.t1 }}>Subscription & Billing</div>
+                <button onClick={() => { setBillingInfo(null); fetchBilling(); }} style={{ fontSize: 11, color: C.t3, background: "none", border: "none", cursor: "pointer" }}>↻ Refresh</button>
+              </div>
+              {billingLoading ? (
+                <div style={{ color: C.t3, fontSize: 13, textAlign: "center", padding: 20 }}>Loading billing info…</div>
+              ) : !billingInfo ? (
+                <div style={{ color: C.t3, fontSize: 13, textAlign: "center", padding: 20 }}>
+                  Server not connected yet.<br />
+                  <span style={{ fontSize: 11 }}>Deploy codeforge-server to Railway to enable billing.</span>
+                </div>
+              ) : (
+                <>
+                  {/* Plan card */}
+                  <div style={{ background: C.bgCard, border: `1px solid ${billingInfo.plan !== "free" ? "rgba(168,85,247,0.35)" : C.border}`, borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: billingInfo.plan !== "free" ? C.purple : C.t3 }}>Current Plan</div>
+                      <div style={{ padding: "2px 10px", borderRadius: 20, background: billingInfo.plan !== "free" ? "rgba(168,85,247,0.15)" : C.bgPanel, border: `1px solid ${billingInfo.plan !== "free" ? "rgba(168,85,247,0.3)" : C.border}`, fontSize: 11, fontWeight: 700, color: billingInfo.plan !== "free" ? C.purple : C.t2 }}>
+                        {billingInfo.plan_name || "Free"}
+                      </div>
+                    </div>
+                    {billingInfo.plan !== "free" ? (
+                      <>
+                        <div style={{ fontSize: 12, color: C.t2, marginBottom: 4 }}>
+                          🔄 Auto-renews on <strong style={{ color: C.t1 }}>{billingInfo.expires_at ? new Date(billingInfo.expires_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—"}</strong>
+                        </div>
+                        <div style={{ fontSize: 12, color: C.t2 }}>
+                          🤖 Online model: <strong style={{ color: C.cyan }}>{billingInfo.model || "—"}</strong>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 12, color: C.t3 }}>Local models only · Upgrade to unlock cloud AI</div>
+                    )}
+                  </div>
+                  {/* Usage card */}
+                  <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 20px", marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.t3, marginBottom: 10 }}>This Month's Usage</div>
+                    <div style={{ display: "flex", gap: 24 }}>
+                      <div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: C.t1 }}>{(billingInfo.usage?.requests || 0).toLocaleString()}</div>
+                        <div style={{ fontSize: 11, color: C.t3 }}>Requests</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: C.t1 }}>{((billingInfo.usage?.total_tokens || 0) / 1000).toFixed(1)}K</div>
+                        <div style={{ fontSize: 11, color: C.t3 }}>Tokens used</div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Actions */}
+                  {billingInfo.plan !== "free" && (
+                    <div>
+                      {!cancelConfirm ? (
+                        <button onClick={() => setCancelConfirm(true)} style={{ padding: "9px 20px", background: "transparent", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 8, color: "#f87171", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                          Cancel Subscription
+                        </button>
+                      ) : (
+                        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "14px 18px" }}>
+                          <div style={{ fontSize: 13, color: C.t1, fontWeight: 600, marginBottom: 8 }}>Are you sure?</div>
+                          <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>You'll lose access to online AI models immediately and move to the Free plan.</div>
+                          <div style={{ display: "flex", gap: 10 }}>
+                            <button onClick={cancelSubscription} style={{ padding: "8px 18px", background: "#ef4444", border: "none", borderRadius: 7, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Yes, Cancel</button>
+                            <button onClick={() => setCancelConfirm(false)} style={{ padding: "8px 18px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 7, color: C.t2, fontSize: 12, cursor: "pointer" }}>Keep Plan</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {billingInfo.plan === "free" && (
+                    <div style={{ fontSize: 12, color: C.t3, padding: "10px 0" }}>
+                      Want more? <a href="https://codeforgeai.app/#pricing" target="_blank" rel="noreferrer" style={{ color: C.cyan }}>Upgrade to Pro or Max →</a>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {showModelPanel && (
           <div style={{ background: C.bgPanel, borderBottom: `1px solid ${C.border}`, overflowY: "auto", maxHeight: 420, flexShrink: 0 }}>
             <div style={{ padding: "20px 28px" }}>
