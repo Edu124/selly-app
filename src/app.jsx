@@ -271,7 +271,7 @@ const CLERK_KEY = "pk_test_aW1tZW5zZS1yb2RlbnQtNTEuY2xlcmsuYWNjb3VudHMuZGV2JA";
 
 // ─── CodeForge cloud API (Railway) ────────────────────────────────────────────
 // Update this URL once the Railway server is deployed
-const CODEFORGE_API = "https://codeforge-server.up.railway.app";
+const CODEFORGE_API = "https://codeforge-ai-app-production.up.railway.app";
 
 // ─── App version ──────────────────────────────────────────────────────────────
 const APP_VERSION = "0.3.4";
