@@ -182,6 +182,8 @@ const IC = {
   camera:   "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   scan:     "M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 12h8",
   eye:      "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z",
+  edit:     "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+  dots:     "M12 5h.01M12 12h.01M12 19h.01",
 };
 
 // ─── Research Models (GGUF — runs via llama.cpp, no WebView memory limits) ────
@@ -204,6 +206,7 @@ const MODELS = [
     recommended:   true,
     requiresToken: false,
     licenseGated:  false,
+    ctxWindow:     32768,
   },
   {
     id:            "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
@@ -220,6 +223,7 @@ const MODELS = [
     recommended:   false,
     requiresToken: false,
     licenseGated:  false,
+    ctxWindow:     32768,
   },
   {
     id:            "MaziyarPanahi/Phi-3.5-mini-instruct-GGUF",
@@ -235,6 +239,7 @@ const MODELS = [
     desc:          "Best reasoning quality — no token or account needed. MIT license by Microsoft.",
     requiresToken: false,
     licenseGated:  false,
+    ctxWindow:     131072,
   },
   {
     id:            "lmstudio-community/gemma-2-2b-it-GGUF",
@@ -250,6 +255,7 @@ const MODELS = [
     desc:          "Fast & efficient for document Q&A — no token or account needed. By Google.",
     requiresToken: false,
     licenseGated:  false,
+    ctxWindow:     8192,
   },
 ];
 
@@ -792,13 +798,6 @@ function tryAnalyticalCalculation(query, connectors) {
   };
 }
 
-// ─── Language support ─────────────────────────────────────────────────────────
-// Two options: Auto detects language and replies in it; EN forces English only
-const LANG_OPTIONS = [
-  { id: "auto", label: "Auto" },
-  { id: "en",   label: "EN" },
-];
-
 const LANG_PROMPTS = {
   hi: "\n\nIMPORTANT LANGUAGE RULE: The user is writing in Hindi/Hinglish. You MUST respond ENTIRELY in Hindi using Devanagari script (हिंदी). Do NOT mix in characters from Chinese, Arabic, or Latin scripts. Only use English for code snippets, proper nouns, or technical terms that have no Hindi equivalent. For mathematics, write formulas in plain text (e.g., sin²θ + cos²θ = 1) — never use raw LaTeX commands.",
   ta: "\n\nIMPORTANT LANGUAGE RULE: The user wants a response in Tamil. You MUST respond ENTIRELY in Tamil script (தமிழ்). Do NOT mix in characters from other scripts. Only use English for code snippets, proper nouns, or technical terms that have no Tamil equivalent. For mathematics, write formulas in plain text — never use raw LaTeX commands.",
@@ -812,6 +811,152 @@ const LANG_PROMPTS = {
   ko: "\n\nIMPORTANT LANGUAGE RULE: The user wants a response in Korean (한국어). You MUST respond ENTIRELY in Korean. Do NOT mix in characters from unrelated scripts. Only use English for code snippets or technical terms with no Korean equivalent. For mathematics, write formulas in plain text — never use raw LaTeX commands.",
   ru: "\n\nIMPORTANT LANGUAGE RULE: The user wants a response in Russian (Русский). You MUST respond ENTIRELY in Russian. Only use English for code snippets or technical terms with no Russian equivalent.",
 };
+
+// Language options for the manual picker (shared between Chat and Hub)
+const LANG_OPTIONS = [
+  { code: "auto", label: "Auto",     flag: "🔍", short: "Auto" },
+  { code: "en",   label: "English",  flag: "🇬🇧", short: "EN"   },
+  { code: "hi",   label: "हिंदी",     flag: "🇮🇳", short: "HI"   },
+  { code: "ta",   label: "தமிழ்",    flag: "🇮🇳", short: "TA"   },
+  { code: "te",   label: "తెలుగు",   flag: "🇮🇳", short: "TE"   },
+  { code: "fr",   label: "Français", flag: "🇫🇷", short: "FR"   },
+  { code: "es",   label: "Español",  flag: "🇪🇸", short: "ES"   },
+  { code: "de",   label: "Deutsch",  flag: "🇩🇪", short: "DE"   },
+  { code: "ar",   label: "عربية",    flag: "🇸🇦", short: "AR"   },
+  { code: "zh",   label: "中文",      flag: "🇨🇳", short: "ZH"   },
+  { code: "ja",   label: "日本語",    flag: "🇯🇵", short: "JA"   },
+  { code: "ko",   label: "한국어",    flag: "🇰🇷", short: "KO"   },
+  { code: "ru",   label: "Русский",  flag: "🇷🇺", short: "RU"   },
+];
+
+// Rough token estimator (1 token ≈ 4 Latin chars, CJK ≈ 1 token each)
+function estimateTokens(text) {
+  if (!text) return 0;
+  const cjk  = (text.match(/[一-鿿぀-ヿ가-힣]/g) || []).length;
+  const rest  = text.length - cjk;
+  return Math.ceil(cjk + rest / 4);
+}
+
+// Tiny language-picker component — shows a flag+code button, click opens a grid overlay
+function LangPicker({ value, onChange, style = {} }) {
+  const [open, setOpen] = useState(false);
+  const current = LANG_OPTIONS.find(l => l.code === value) || LANG_OPTIONS[0];
+  return (
+    <div style={{ position: "relative", ...style }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Response language"
+        style={{
+          display: "flex", alignItems: "center", gap: 4,
+          padding: "3px 8px", borderRadius: 6,
+          background: value !== "auto" ? "rgba(56,189,248,0.1)" : "transparent",
+          border: `1px solid ${value !== "auto" ? "rgba(56,189,248,0.35)" : "rgba(255,255,255,0.09)"}`,
+          color: value !== "auto" ? C.cyan : C.t3,
+          fontSize: 11, cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        <span>{current.flag}</span>
+        <span style={{ fontWeight: 600 }}>{current.short}</span>
+        <span style={{ fontSize: 9 }}>▾</span>
+      </button>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+          {/* Dropdown grid */}
+          <div style={{
+            position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 999,
+            background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10,
+            padding: 8, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, minWidth: 220,
+          }}>
+            {LANG_OPTIONS.map(l => (
+              <button
+                key={l.code}
+                onClick={() => { onChange(l.code); setOpen(false); }}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                  padding: "6px 4px", borderRadius: 7, cursor: "pointer",
+                  background: value === l.code ? "rgba(56,189,248,0.12)" : "transparent",
+                  border: `1px solid ${value === l.code ? "rgba(56,189,248,0.35)" : "transparent"}`,
+                  color: value === l.code ? C.cyan : C.t2,
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{l.flag}</span>
+                <span style={{ fontSize: 9, fontWeight: 600 }}>{l.short}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// Token usage bar — shows context fill like Claude
+function TokenBar({ usedTokens, ctxWindow, style = {} }) {
+  if (!ctxWindow) return null;
+  const pct     = Math.min((usedTokens / ctxWindow) * 100, 100);
+  const color   = pct > 90 ? C.red : pct > 70 ? C.amber : C.blue;
+  const fmtK    = n => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, ...style }}>
+      <span style={{ fontSize: 10, color: pct > 90 ? C.red : pct > 70 ? C.amber : C.t3, whiteSpace: "nowrap", flexShrink: 0 }}>
+        {fmtK(usedTokens)} / {fmtK(ctxWindow)}
+      </span>
+      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, overflow: "hidden", minWidth: 60 }}>
+        <div style={{ height: "100%", borderRadius: 2, background: color, width: `${pct}%`, transition: "width 0.4s ease" }} />
+      </div>
+      <span style={{ fontSize: 10, color, fontWeight: 600, flexShrink: 0 }}>{Math.round(pct)}%</span>
+    </div>
+  );
+}
+
+// Highlight a search term inside a snippet string
+function Highlight({ text, term }) {
+  if (!term || !text) return <>{text}</>;
+  const lower = text.toLowerCase();
+  const idx   = lower.indexOf(term.toLowerCase());
+  if (idx < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark style={{ background: "rgba(59,130,246,0.32)", color: "#f1f5f9", borderRadius: 2, padding: "0 1px" }}>
+        {text.slice(idx, idx + term.length)}
+      </mark>
+      {text.slice(idx + term.length)}
+    </>
+  );
+}
+
+// Group a flat chat array into date-labelled sections (Today / Yesterday / This Week / Older)
+function groupChatsByDate(chats) {
+  const now   = Date.now();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yest  = new Date(today); yest.setDate(today.getDate() - 1);
+  const week  = new Date(today); week.setDate(today.getDate() - 7);
+  const month = new Date(today); month.setDate(today.getDate() - 30);
+
+  const bins = [
+    { label: "Today",          chats: [] },
+    { label: "Yesterday",      chats: [] },
+    { label: "Previous 7 days",chats: [] },
+    { label: "Previous month", chats: [] },
+    { label: "Older",          chats: [] },
+  ];
+
+  for (const ch of chats) {
+    // ch.id is Date.now() for every real chat; id=1 is the INIT welcome chat
+    const ts = ch.id > 10000 ? ch.id : now;
+    const d  = new Date(ts);
+    if      (d >= today) bins[0].chats.push(ch);
+    else if (d >= yest)  bins[1].chats.push(ch);
+    else if (d >= week)  bins[2].chats.push(ch);
+    else if (d >= month) bins[3].chats.push(ch);
+    else                 bins[4].chats.push(ch);
+  }
+  return bins.filter(b => b.chats.length > 0);
+}
 
 function detectLanguage(text) {
   // Script-based detection (unambiguous Unicode ranges — single character is enough)
@@ -1610,11 +1755,46 @@ function ConnectorModal({ connectors, onAdd, onRemove, onClose, onUpdate }) {
   );
 }
 
+// Tiny icon+label button for the bubble action bar
+function ActionBtn({ icon, label, color, onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={label}
+      style={{
+        display: "flex", alignItems: "center", gap: 4,
+        padding: "4px 7px", borderRadius: 6, border: "none", cursor: "pointer",
+        background: hov ? "rgba(255,255,255,0.07)" : "transparent",
+        color, fontSize: 10.5, fontFamily: "inherit",
+        transition: "background 0.1s",
+      }}
+    >
+      <Icon d={icon} size={11} stroke={color} />
+      {label}
+    </button>
+  );
+}
+
 // ─── Chat bubble ──────────────────────────────────────────────────────────────
-function Bubble({ msg }) {
-  const isAI = msg.role === "ai";
-  const [cp, setCp] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(msg.text); setCp(true); setTimeout(() => setCp(false), 2000); };
+function Bubble({ msg, onRegenerate, onEdit }) {
+  const isAI    = msg.role === "ai";
+  const [cp,    setCp]    = useState(false);
+  const [hov,   setHov]   = useState(false);
+  // Per-code-block copy state: { [blockIndex]: boolean }
+  const [cpBlk, setCpBlk] = useState({});
+
+  const copy = () => {
+    navigator.clipboard.writeText(msg.text);
+    setCp(true); setTimeout(() => setCp(false), 2000);
+  };
+  const copyBlock = (idx, code) => {
+    navigator.clipboard.writeText(code);
+    setCpBlk(prev => ({ ...prev, [idx]: true }));
+    setTimeout(() => setCpBlk(prev => ({ ...prev, [idx]: false })), 2000);
+  };
 
   // Render inline markdown: **bold**, *italic*, `code`
   const renderInline = (text) => {
@@ -1641,13 +1821,30 @@ function Bubble({ msg }) {
 
       // ── Fenced code block ───────────────────────────────
       if (line.startsWith("```")) {
+        const lang = line.slice(3).trim();
         let code = "";
+        const blockIdx = out.length;
         i++;
         while (i < lines.length && !lines[i].startsWith("```")) { code += lines[i] + "\n"; i++; }
+        const trimmed = code.trimEnd();
+        const isCopied = cpBlk[blockIdx];
         out.push(
-          <pre key={i} style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 8, padding: "10px 14px", overflowX: "auto", fontSize: 12, lineHeight: 1.6, color: "#e2e8f0", margin: "6px 0", fontFamily: "monospace", whiteSpace: "pre" }}>
-            <code>{code.trimEnd()}</code>
-          </pre>
+          <div key={`blk-${blockIdx}`} style={{ position: "relative", margin: "6px 0" }}>
+            {/* Code block header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.55)", borderRadius: "8px 8px 0 0", padding: "5px 12px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <span style={{ fontSize: 10, color: "#64748b", fontFamily: "monospace", letterSpacing: "0.05em" }}>{lang || "code"}</span>
+              <button
+                onClick={() => copyBlock(blockIdx, trimmed)}
+                style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: isCopied ? C.green : "#64748b", fontSize: 10, fontFamily: "inherit", padding: "2px 4px", borderRadius: 4 }}
+              >
+                <Icon d={isCopied ? IC.check : IC.copy} size={10} stroke={isCopied ? C.green : "#64748b"} />
+                {isCopied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <pre style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.07)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "10px 14px", overflowX: "auto", fontSize: 12, lineHeight: 1.6, color: "#e2e8f0", margin: 0, fontFamily: "monospace", whiteSpace: "pre" }}>
+              <code>{trimmed}</code>
+            </pre>
+          </div>
         );
         i++; continue;
       }
@@ -1714,9 +1911,13 @@ function Bubble({ msg }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: isAI ? "row" : "row-reverse", gap: 10, marginBottom: 18, alignItems: "flex-start", animation: "oai-slide 0.22s ease" }}>
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{ display: "flex", flexDirection: isAI ? "row" : "row-reverse", gap: 10, marginBottom: 18, alignItems: "flex-start", animation: "oai-slide 0.22s ease" }}
+    >
       {isAI && (
-        <div style={{ width: 30, height: 30, borderRadius: "50%", background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 30, height: 30, borderRadius: "50%", background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
           <Icon d={IC.brain} size={13} stroke="#fff" />
         </div>
       )}
@@ -1732,6 +1933,8 @@ function Bubble({ msg }) {
           {renderText(msg.text)}
           {msg.streaming && <span style={{ display: "inline-block", width: 8, height: 14, background: C.cyan, marginLeft: 3, borderRadius: 2, animation: "oai-pulse 0.8s ease infinite" }} />}
         </div>
+
+        {/* Source pills */}
         {isAI && msg.sources?.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {msg.sources.map((s, i) => (
@@ -1741,12 +1944,28 @@ function Bubble({ msg }) {
             ))}
           </div>
         )}
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+        {/* Action bar — time + hover actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexDirection: isAI ? "row" : "row-reverse" }}>
           <span style={{ fontSize: 10, color: C.t3 }}>{msg.time}</span>
-          {isAI && (
-            <button onClick={copy} style={{ background: "none", border: "none", cursor: "pointer", color: C.t3, display: "flex", alignItems: "center", gap: 3, fontSize: 10, fontFamily: "inherit" }}>
-              <Icon d={cp ? IC.check : IC.copy} size={9} />{cp ? "Copied" : "Copy"}
-            </button>
+
+          {/* Actions: visible on hover when not streaming */}
+          {hov && !msg.streaming && (
+            <div style={{ display: "flex", alignItems: "center", gap: 2, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, padding: "2px 4px" }}>
+
+              {/* Copy whole message */}
+              <ActionBtn icon={cp ? IC.check : IC.copy} label={cp ? "Copied" : "Copy"} color={cp ? C.green : C.t3} onClick={copy} />
+
+              {/* AI-only: Regenerate */}
+              {isAI && onRegenerate && (
+                <ActionBtn icon={IC.refresh} label="Retry" color={C.t3} onClick={() => onRegenerate(msg.id)} />
+              )}
+
+              {/* User-only: Edit */}
+              {!isAI && onEdit && (
+                <ActionBtn icon={IC.edit} label="Edit" color={C.t3} onClick={() => onEdit(msg.id)} />
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -1948,8 +2167,132 @@ function SecurityShieldPanel({ shieldedFiles, securityLog, onProtect, onUnprotec
   );
 }
 
+// ─── ChatRow — single chat item in the sidebar history ───────────────────────
+function ChatRow({
+  ch, isActive, snippet, searchQ,
+  menuOpen, isRenaming, renameVal, setRenameVal,
+  onSelect, onDoubleClick, onRenameConfirm, onRenameCancel,
+  onStartRename, onDelete, onMenuToggle, onMenuClose,
+  onHover, onLeave, hovered,
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      onDoubleClick={onDoubleClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      style={{
+        position: "relative",
+        padding: "8px 10px",
+        borderRadius: 8, cursor: "pointer", marginBottom: 1,
+        background: isActive ? "rgba(59,130,246,0.12)" : (hovered ? "rgba(255,255,255,0.03)" : "transparent"),
+        border: `1px solid ${isActive ? "rgba(59,130,246,0.38)" : "transparent"}`,
+        transition: "background 0.1s",
+        userSelect: "none",
+      }}
+    >
+      {/* Title — editable when renaming */}
+      {isRenaming ? (
+        <input
+          autoFocus
+          value={renameVal}
+          onChange={e => setRenameVal(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter")  onRenameConfirm();
+            if (e.key === "Escape") onRenameCancel();
+          }}
+          onBlur={onRenameConfirm}
+          onClick={e => e.stopPropagation()}
+          style={{
+            width: "100%", background: "rgba(59,130,246,0.1)",
+            border: "1px solid rgba(59,130,246,0.4)", borderRadius: 4,
+            color: "#f1f5f9", fontSize: 12.5, fontWeight: 600,
+            padding: "2px 6px", fontFamily: "inherit", outline: "none",
+          }}
+        />
+      ) : (
+        <div style={{
+          fontSize: 12.5, fontWeight: isActive ? 600 : 400,
+          color: isActive ? "#f1f5f9" : "#7a90a8",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          paddingRight: hovered || menuOpen ? 26 : 0,
+        }}>
+          {searchQ ? <Highlight text={ch.title} term={searchQ} /> : ch.title}
+        </div>
+      )}
+
+      {/* Sub-line: search snippet or message count */}
+      {!isRenaming && snippet && (
+        <div style={{ fontSize: 10.5, color: "#3d5068", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <Highlight text={snippet} term={searchQ} />
+        </div>
+      )}
+      {!isRenaming && !snippet && (
+        <div style={{ fontSize: 10, color: "#3d5068", marginTop: 2 }}>
+          {ch.messages?.length > 0 ? `${ch.messages.length} message${ch.messages.length !== 1 ? "s" : ""}` : "Empty"}
+        </div>
+      )}
+
+      {/* ⋯ action button (visible on hover / when menu open) */}
+      {!isRenaming && (hovered || menuOpen) && (
+        <div style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)" }} onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onMenuToggle}
+            style={{
+              width: 22, height: 22, borderRadius: 5, border: "none", cursor: "pointer",
+              background: menuOpen ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.08)",
+              color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700, letterSpacing: 1,
+            }}
+          >
+            ···
+          </button>
+
+          {/* Dropdown menu */}
+          {menuOpen && (
+            <>
+              <div onClick={onMenuClose} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+              <div style={{
+                position: "absolute", right: 0, top: 26, zIndex: 999,
+                background: "#112035", border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 9, padding: 4, minWidth: 138,
+                boxShadow: "0 10px 32px rgba(0,0,0,0.6)",
+              }}>
+                <MenuBtn icon={IC.edit} label="Rename" color="#7a90a8" hoverBg="rgba(255,255,255,0.06)" onClick={onStartRename} />
+                <div style={{ height: 1, background: "rgba(255,255,255,0.07)", margin: "3px 4px" }} />
+                <MenuBtn icon={IC.trash} label="Delete chat" color="#ef4444" hoverBg="rgba(239,68,68,0.1)" onClick={onDelete} />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Tiny helper for menu items
+function MenuBtn({ icon, label, color, hoverBg, onClick }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 10px", borderRadius: 6, border: "none", cursor: "pointer",
+        background: hov ? hoverBg : "transparent",
+        color, fontSize: 12, fontFamily: "inherit", textAlign: "left",
+      }}
+    >
+      <Icon d={icon} size={13} stroke={color} /> {label}
+    </button>
+  );
+}
+
 function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSendHub, onApply, activeModelId, trialDaysLeft, bugReports, onBugScan, shieldedFiles, securityLog, onShieldProtect, onShieldUnprotect }) {
   const [hubInput, setHubInput] = useState("");
+  const [hubLang,  setHubLang]  = useState("auto"); // response language for hub
   const [hubListening, setHubListening] = useState(false);
   const hubRecRef   = useRef(null);
   const hubInputRef = useRef(null);
@@ -2005,7 +2348,7 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
   const sendHub = () => {
     const text = hubInput.trim();
     if (!text || !active || hubStreaming) return;
-    onSendHub(active.id, text);
+    onSendHub(active.id, text, hubLang);
     setHubInput("");
     hubInputRef.current?.focus();
   };
@@ -2248,8 +2591,16 @@ function HubPanel({ hubClients, activeHubId, setActiveHubId, hubStreaming, onSen
                   <Icon d={IC.send} size={14} />
                 </Btn>
               </div>
-              <div style={{ marginTop: 5, fontSize: 10, color: C.t3 }}>
-                AI sees your selected code + file context · Desktop only
+              {/* Hub footer: lang picker + token bar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, padding: "0 2px" }}>
+                <LangPicker value={hubLang} onChange={setHubLang} />
+                <span style={{ fontSize: 10, color: C.t3 }}>Context-aware · Desktop only</span>
+                <div style={{ flex: 1 }} />
+                <TokenBar
+                  usedTokens={estimateTokens((active.messages || []).map(m => m.text || "").join(" ")) + estimateTokens(hubInput) + estimateTokens((active.selectedCode || "") + (active.file || ""))}
+                  ctxWindow={8192}
+                  style={{ maxWidth: 160 }}
+                />
               </div>
             </div>
           </>
@@ -2991,15 +3342,20 @@ function OfflineAIApp() {
     try { return JSON.parse(localStorage.getItem("connectors") || "[]"); } catch { return []; }
   });
   const [sSearch, setSSearch] = useState("");
-  const [contextMenu, setContextMenu] = useState(null); // null | { chatId, x, y }
-  const [renamingId, setRenamingId] = useState(null);   // chatId being renamed
-  const [renameVal, setRenameVal] = useState("");
+  const [contextMenu,   setContextMenu]   = useState(null); // null | { chatId, x, y }
+  const [renamingId,    setRenamingId]    = useState(null); // chatId being renamed inline
+  const [renameVal,     setRenameVal]     = useState("");
+  const [hoveredChatId, setHoveredChatId] = useState(null); // for hover-reveal action btn
+  const [chatMenuId,    setChatMenuId]    = useState(null); // which chat's ⋯ menu is open
 
   // modelState: { [modelId]: { status: "not-downloaded"|"downloading"|"downloaded"|"loaded"|"error", progress?, error? } }
   const [modelState, setModelState] = useState({});
   const [activeModelId, setActiveModelId] = useState(null); // set only after server is ready
   const [modelLoading, setModelLoading] = useState(false);
   const [hfToken, setHfToken] = useState(() => localStorage.getItem("hf_token") || "");
+  const [localModels, setLocalModels] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("local_models") || "[]"); } catch { return []; }
+  });
   const [serverReady, setServerReady] = useState(null); // null=checking, true/false
   const [setupProgress, setSetupProgress] = useState(null); // null | { step, downloaded?, total? }
   const [selectedLang, setSelectedLang] = useState("auto"); // language selector
@@ -3010,7 +3366,8 @@ function OfflineAIApp() {
   // ── Extension Hub state (desktop only) ────────────────────────────────────
   // hubClients: { [id]: { id, editor, file, language, selectedCode, cursorLine, messages: [] } }
   const [showHub, setShowHub] = useState(false);
-  const [activeTab, setActiveTab] = useState("model"); // "model" | "hub" | "convert"
+  const [activeTab, setActiveTab] = useState("chat"); // "chat" | "hub"
+  const [showModelPanel, setShowModelPanel] = useState(false);
   const [hubClients, setHubClients] = useState({});
   const [activeHubId, setActiveHubId] = useState(null);
   const [hubStreaming, setHubStreaming] = useState(false);
@@ -3288,13 +3645,20 @@ function OfflineAIApp() {
             : ch
         ));
       }),
-      listen("llm-done", () => {
+      listen("llm-done", (ev) => {
         // Guard: only handle when a chat message was streaming (not hub)
         if (!streamMsgIdRef.current) return;
         const finalText = streamBufRef.current;
+        const { prompt_tokens = 0, completion_tokens = 0 } = ev.payload || {};
         setChats(prev => prev.map(ch =>
           ch.id === activeRef.current
-            ? { ...ch, messages: ch.messages.map(m => m.id === streamMsgIdRef.current ? { ...m, text: finalText, streaming: false } : m) }
+            ? { ...ch, messages: ch.messages.map(m =>
+                m.id === streamMsgIdRef.current
+                  ? { ...m, text: finalText, streaming: false,
+                      promptTokens: prompt_tokens || undefined,
+                      completionTokens: completion_tokens || undefined }
+                  : m
+              )}
             : ch
         ));
         setStreaming(false);
@@ -3375,7 +3739,7 @@ function OfflineAIApp() {
 
   // ── Connect model via llama-server ───────────────────────────────────────
   const loadModel = async (modelId) => {
-    const model = MODELS.find(m => m.id === modelId);
+    const model = MODELS.find(m => m.id === modelId) || localModels.find(m => m.id === modelId);
     setModelLoading(true);
     setModelState(prev => ({ ...prev, [modelId]: { ...prev[modelId], status: "loading-into-memory" } }));
     try {
@@ -3388,6 +3752,50 @@ function OfflineAIApp() {
       setModelLoading(false);
       setModelState(prev => ({ ...prev, [modelId]: { status: "load-error", error: String(err) } }));
       return false;
+    }
+  };
+
+  // ── Add a local GGUF file as a model ────────────────────────────────────
+  const handleAddLocalModel = async () => {
+    try {
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: "GGUF Model", extensions: ["gguf"] }],
+      });
+      if (!filePath) return;
+      const fileName  = String(filePath).split(/[\\/]/).pop();
+      const label     = fileName.replace(/\.gguf$/i, "").replace(/[_-]/g, " ");
+      const id        = "local_" + Date.now();
+      const fileStr   = String(filePath);
+      const newLocal  = { id, label, file: fileStr, isLocal: true, ctxWindow: 8192 };
+      const updated   = [...localModels, newLocal];
+      setLocalModels(updated);
+      localStorage.setItem("local_models", JSON.stringify(updated));
+
+      // Auto-load right after picking — no extra "Load" click needed
+      setModelLoading(true);
+      setModelState(prev => ({ ...prev, [id]: { status: "loading-into-memory" } }));
+      try {
+        await invoke("load_model", { modelId: id, file: fileStr });
+        setModelLoading(false);
+        setActiveModelId(id);
+        setModelState(prev => ({ ...prev, [id]: { status: "loaded" } }));
+      } catch (err) {
+        setModelLoading(false);
+        setModelState(prev => ({ ...prev, [id]: { status: "load-error", error: String(err) } }));
+      }
+    } catch (err) {
+      console.error("File dialog error:", err);
+    }
+  };
+
+  const removeLocalModel = (id) => {
+    const updated = localModels.filter(m => m.id !== id);
+    setLocalModels(updated);
+    localStorage.setItem("local_models", JSON.stringify(updated));
+    if (activeModelId === id) {
+      setActiveModelId(null);
+      setModelState(prev => { const s = { ...prev }; delete s[id]; return s; });
     }
   };
 
@@ -3451,8 +3859,8 @@ function OfflineAIApp() {
   };
 
   // ── Send message ──────────────────────────────────────────────────────────
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (overrideText) => {
+    const text = (typeof overrideText === "string" ? overrideText : input).trim();
     if (!text || streaming) return;
     if (!activeModelId) {
       alert("Please download a model first — click Models in the sidebar.");
@@ -3720,10 +4128,69 @@ function OfflineAIApp() {
     autoDetectedLangRef.current = "en";
   };
 
+  const deleteChat = useCallback((chatId) => {
+    setChats(prev => {
+      const next = prev.filter(c => c.id !== chatId);
+      if (active === chatId) {
+        if (next.length > 0) {
+          setActive(next[0].id);
+        } else {
+          const id = Date.now();
+          setActive(id);
+          return [{ id, title: "New Chat", date: "Today", messages: [] }];
+        }
+      }
+      return next;
+    });
+    setChatMenuId(null);
+    setContextMenu(null);
+  }, [active]);
+
+  const renameChat = useCallback((chatId, newTitle) => {
+    const title = (newTitle || "").trim();
+    if (title) setChats(prev => prev.map(c => c.id === chatId ? { ...c, title } : c));
+    setRenamingId(null);
+    setRenameVal("");
+  }, []);
+
+  // ── Regenerate last AI response ───────────────────────────────────────────
+  const regenerate = useCallback((msgId) => {
+    if (streaming) return;
+    const chat = chats.find(c => c.id === active);
+    if (!chat) return;
+    const msgIdx = chat.messages.findIndex(m => m.id === msgId);
+    if (msgIdx < 0) return;
+    // Walk back to find the user message that triggered this AI response
+    const userMsg = [...chat.messages].slice(0, msgIdx).reverse().find(m => m.role === "user");
+    if (!userMsg) return;
+    // Drop the AI message (and any orphaned messages after it)
+    setChats(prev => prev.map(c => c.id === active
+      ? { ...c, messages: c.messages.slice(0, msgIdx) }
+      : c
+    ));
+    // Re-send with the same user text (send() is defined below, safe via closure)
+    setTimeout(() => send(userMsg.text), 0);
+  }, [active, chats, streaming]);  // send added in deps below after declaration
+
+  // ── Edit a user message — remove it + everything after, restore to input ──
+  const editMsg = useCallback((msgId) => {
+    if (streaming) return;
+    const chat = chats.find(c => c.id === active);
+    if (!chat) return;
+    const msgIdx = chat.messages.findIndex(m => m.id === msgId);
+    if (msgIdx < 0) return;
+    const text = chat.messages[msgIdx]?.text || "";
+    setChats(prev => prev.map(c => c.id === active
+      ? { ...c, messages: c.messages.slice(0, msgIdx) }
+      : c
+    ));
+    setInput(text);
+  }, [active, chats, streaming]);
+
 
 
   // ── Hub: send a message to a specific editor's chat ───────────────────────
-  const sendHubMessage = useCallback(async (clientId, text) => {
+  const sendHubMessage = useCallback(async (clientId, text, lang = "auto") => {
     if (!text || hubStreaming || !activeModelId) return;
 
     const client = hubClients[clientId];
@@ -3752,7 +4219,8 @@ function OfflineAIApp() {
     );
 
     // Build a code-assistant system prompt for the hub
-    const hubSys = `You are Codeforge AI Hub — an AI coding assistant embedded in ${client.editor || "VS Code"}.\n- The user is working in ${client.language || "a code file"}: ${client.file || "unknown"}.\n- Be concise and practical. Prefer showing corrected code over long explanations.\n- When providing code, always use fenced code blocks with the language tag.\n- Never hallucinate APIs or functions. If unsure, say so.`;
+    const langInstr = LANG_PROMPTS[lang === "auto" ? "en" : lang] || "";
+    const hubSys = `You are Codeforge AI Hub — an AI coding assistant embedded in ${client.editor || "VS Code"}.\n- The user is working in ${client.language || "a code file"}: ${client.file || "unknown"}.\n- Be concise and practical. Prefer showing corrected code over long explanations.\n- When providing code, always use fenced code blocks with the language tag.\n- Never hallucinate APIs or functions. If unsure, say so.${lang !== "auto" && lang !== "en" ? langInstr : ""}`;
     const isGemma = activeModelId.toLowerCase().includes("gemma");
     const recentMsgs = (client.messages || []).slice(-4);
     let prompt = "";
@@ -3916,8 +4384,10 @@ If no issues found, respond with: []`;
     const end = Math.min(m.text.length, idx + searchQ.length + 30);
     return (start > 0 ? "…" : "") + m.text.slice(start, end) + (end < m.text.length ? "…" : "");
   };
+  // Groups used when search is empty
+  const chatGroups = searchQ ? null : groupChatsByDate(chats);
 
-  const activeModel = MODELS.find(m => m.id === activeModelId);
+  const activeModel = MODELS.find(m => m.id === activeModelId) || localModels.find(m => m.id === activeModelId);
   const ms = activeModelId ? modelState[activeModelId] : null;
   const statusColor = ms?.status === "loaded" ? C.green : modelLoading ? C.amber : C.t3;
   const statusLabel = ms?.status === "loaded" ? "Ready" : modelLoading ? "Connecting…" : "No model loaded";
@@ -3951,12 +4421,11 @@ If no issues found, respond with: []`;
           </div>
         </div>
 
-        {/* Tab bar */}
+        {/* Tab bar — Chat | Extensions Hub */}
         <div style={{ display: "flex", gap: 3, background: C.bgCard, borderRadius: 11, padding: "4px", border: `1px solid ${C.border}` }}>
           {[
-            { id: "model",     label: "Model",     icon: IC.server },
-            { id: "hub",       label: "Hub",       icon: IC.hub   },
-            { id: "convert",   label: "✨ Convert", icon: null     },
+            { id: "chat", label: "Chat",            icon: IC.chat  },
+            { id: "hub",  label: "Extensions Hub",  icon: IC.hub   },
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
               display: "flex", alignItems: "center", gap: 7,
@@ -3973,24 +4442,145 @@ If no issues found, respond with: []`;
           ))}
         </div>
 
-        {/* Right: status + logout */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8 }}>
+        {/* Right: model status + Models button + logout */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Status dot */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8 }}>
             <Dot color={statusColor} pulse={ms?.status === "loaded" || modelLoading} />
             <span style={{ fontSize: 11, color: statusColor, fontWeight: 500 }}>{statusLabel}</span>
             {activeModel && ms?.status === "loaded" && (
               <span style={{ fontSize: 10, color: C.t3, marginLeft: 2 }}>· {activeModel.label}</span>
             )}
           </div>
+          {/* Models button */}
+          <button onClick={() => setShowModelPanel(p => !p)} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 14px", borderRadius: 8, border: `1px solid ${showModelPanel ? C.borderHi : C.border}`,
+            background: showModelPanel ? "rgba(59,130,246,0.1)" : C.bgCard,
+            color: showModelPanel ? C.blue : C.t2,
+            fontSize: 12, fontWeight: 600, cursor: "pointer",
+          }}>
+            <Icon d={IC.server} size={12} stroke={showModelPanel ? C.blue : C.t2} /> Models
+          </button>
           {CLERK_KEY && !CLERK_KEY.startsWith("YOUR_") && <LogoutButton />}
         </div>
       </div>
 
 {/* ── Content ── */}
-      <div style={{ flex: 1, overflow: "hidden" }}>
-        {activeTab === "convert" ? (
-          <ConvertPanel />
-        ) : activeTab === "hub" ? (
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+
+        {/* ── Model Panel (slides in below header when Models button clicked) ── */}
+        {showModelPanel && (
+          <div style={{ background: C.bgPanel, borderBottom: `1px solid ${C.border}`, overflowY: "auto", maxHeight: 420, flexShrink: 0 }}>
+            <div style={{ padding: "20px 28px" }}>
+              {/* Status card */}
+              <div style={{ background: C.bgCard, border: `1px solid ${ms?.status === "loaded" ? "rgba(34,197,94,0.3)" : C.border}`, borderRadius: 12, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+                <Icon d={IC.server} size={18} stroke={statusColor} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>
+                    {ms?.status === "loaded" ? `Running — ${activeModel?.label}` : modelLoading ? "Starting model…" : "No model loaded"}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.t3 }}>
+                    {ms?.status === "loaded" ? "Ready to chat" : "Load a model to start chatting"}
+                  </div>
+                </div>
+                {ms?.status === "loaded" && (
+                  <Btn onClick={() => { invoke("stop_server").catch(() => {}); }} style={{ padding: "6px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", fontSize: 12, fontWeight: 600 }}>Unload</Btn>
+                )}
+              </div>
+              {/* HuggingFace models */}
+              <div style={{ fontSize: 11, fontWeight: 600, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>Download Models</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                {MODELS.map(m => {
+                  const mState = modelState[m.id] || { status: "not-downloaded" };
+                  const isActive = activeModelId === m.id && mState.status === "loaded";
+                  const isDownloaded = mState.status === "downloaded" || mState.status === "loaded" || mState.status === "load-error";
+                  const isDownloading = mState.status === "downloading";
+                  return (
+                    <div key={m.id} style={{ background: C.bgCard, border: `1px solid ${isActive ? C.borderHi : C.border}`, borderRadius: 10, padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${m.orgColor}18`, border: `1px solid ${m.orgColor}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 12, fontWeight: 700, color: m.orgColor }}>{m.org[0]}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>{m.label}</span>
+                          {isActive && <span style={{ fontSize: 9, padding: "1px 6px", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.3)", borderRadius: 20, color: C.cyan }}>Active</span>}
+                          {m.recommended && <span style={{ fontSize: 9, padding: "1px 6px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 20, color: C.green }}>Recommended</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.t3 }}>{m.size} · {m.desc}</div>
+                        {isDownloading && mState.progress && (
+                          <div style={{ marginTop: 6, height: 3, background: C.bgDeep, borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ height: "100%", background: C.cyan, borderRadius: 4, width: mState.progress.total > 0 ? `${Math.round((mState.progress.downloaded / mState.progress.total) * 100)}%` : "40%", transition: "width 0.3s", animation: mState.progress.total === 0 ? "oai-slide-bar 1.5s ease infinite" : "none" }} />
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        {isDownloading ? (
+                          <Btn onClick={() => cancelDownload(m.id)} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", fontSize: 11 }}>Cancel</Btn>
+                        ) : isActive ? (
+                          <Btn onClick={() => invoke("stop_server").catch(() => {})} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", fontSize: 11 }}>Unload</Btn>
+                        ) : isDownloaded ? (
+                          <>
+                            <Btn onClick={() => loadModel(m.id)} disabled={modelLoading} style={{ padding: "6px 12px", background: C.blue, border: "none", borderRadius: 7, color: "#fff", fontSize: 11, fontWeight: 600, opacity: modelLoading ? 0.5 : 1 }}>{modelLoading ? "Loading…" : "Load"}</Btn>
+                            <Btn onClick={() => deleteModel(m.id)} style={{ padding: "6px 8px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.t3 }}><Icon d={IC.trash} size={12} /></Btn>
+                          </>
+                        ) : (
+                          <Btn onClick={() => downloadModel(m.id)} style={{ padding: "6px 12px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.t2, fontSize: 11 }}>Download</Btn>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Local Models */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase" }}>Local GGUF Models</div>
+                <Btn onClick={handleAddLocalModel} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 7, color: C.amber, fontSize: 11, fontWeight: 600 }}>
+                  <Icon d={IC.folder} size={12} stroke={C.amber} /> Browse GGUF…
+                </Btn>
+              </div>
+              {localModels.length === 0 ? (
+                <div style={{ padding: "10px 14px", background: C.bgCard, border: `1px dashed ${C.border}`, borderRadius: 8, fontSize: 11, color: C.t3, textAlign: "center" }}>
+                  Click Browse GGUF… to load your trained model
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {localModels.map(m => {
+                    const mState = modelState[m.id] || { status: "not-downloaded" };
+                    const isActive = activeModelId === m.id && mState.status === "loaded";
+                    return (
+                      <div key={m.id} style={{ background: C.bgCard, border: `1px solid ${isActive ? C.borderHi : C.border}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                        <Icon d={IC.folder} size={16} stroke={C.amber} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>{m.label} <span style={{ fontSize: 9, padding: "1px 6px", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 20, color: C.amber }}>Local</span></div>
+                          <div style={{ fontSize: 10, color: C.t3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.file}</div>
+                          {mState.error && <div style={{ fontSize: 10, color: C.red }}>{mState.error}</div>}
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {mState.status === "loading-into-memory" ? (
+                            <div style={{ fontSize: 11, color: C.amber, display: "flex", alignItems: "center", gap: 5 }}><Spinner /> Loading…</div>
+                          ) : isActive ? (
+                            <Btn onClick={() => invoke("stop_server").catch(() => {})} style={{ padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 7, color: "#f87171", fontSize: 11 }}>Unload</Btn>
+                          ) : (
+                            <Btn onClick={() => loadModel(m.id)} disabled={modelLoading} style={{ padding: "6px 12px", background: C.blue, border: "none", borderRadius: 7, color: "#fff", fontSize: 11, fontWeight: 600 }}>{mState.status === "load-error" ? "Retry" : "Load"}</Btn>
+                          )}
+                          <Btn onClick={() => removeLocalModel(m.id)} style={{ padding: "6px 8px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.t3 }}><Icon d={IC.trash} size={12} /></Btn>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {/* HF Token */}
+              <div style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="password" value={hfToken} onChange={e => { setHfToken(e.target.value); localStorage.setItem("hf_token", e.target.value); }} placeholder="HuggingFace token (optional)…" style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 7, color: C.t1, fontSize: 11, padding: "7px 10px", fontFamily: "inherit" }} />
+                <Btn onClick={resetServer} style={{ padding: "7px 12px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 7, color: C.t2, fontSize: 11 }}>Reset</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Main content area ── */}
+        <div style={{ flex: 1, overflow: "hidden" }}>
+        {activeTab === "hub" ? (
           <HubPanel
             hubClients={hubClients}
             activeHubId={activeHubId}
@@ -4008,104 +4598,215 @@ If no issues found, respond with: []`;
             onShieldUnprotect={shieldUnprotect}
           />
         ) : (
-          /* ── Model Tab ── */
-          <div style={{ height: "100%", overflowY: "auto", padding: "28px 32px" }}>
-            {/* Status card */}
-            <div style={{ background: C.bgPanel, border: `1px solid ${C.border}`, borderRadius: 14, padding: "18px 22px", marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: ms?.status === "loaded" ? "rgba(34,197,94,0.12)" : "rgba(100,116,139,0.12)", border: `1px solid ${ms?.status === "loaded" ? "rgba(34,197,94,0.3)" : C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Icon d={IC.server} size={20} stroke={statusColor} />
+          /* ── Chat Section ── */
+          <div style={{ height: "100%", display: "flex", overflow: "hidden" }}>
+
+            {/* Left sidebar — chat history */}
+            <div style={{ width: 248, flexShrink: 0, background: C.bgPanel, borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+              {/* New Chat button */}
+              <div style={{ padding: "12px 10px 8px" }}>
+                <button onClick={newChat} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", background: C.blue, border: "none", borderRadius: 9, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <Icon d={IC.plus} size={14} stroke="#fff" /> New Chat
+                </button>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: C.t1, marginBottom: 3 }}>
-                  {ms?.status === "loaded" ? `Running — ${activeModel?.label}` : modelLoading ? "Starting model…" : "No model loaded"}
-                </div>
-                <div style={{ fontSize: 11, color: C.t3 }}>
-                  {ms?.status === "loaded" ? "Accepting requests from all connected tools" : "Load a model below to get started"}
+
+              {/* Search box */}
+              <div style={{ padding: "0 10px 8px" }}>
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                  <Icon d={IC.search} size={13} stroke={C.t3} style={{ position: "absolute", left: 9, pointerEvents: "none" }} />
+                  <input
+                    value={sSearch}
+                    onChange={e => setSSearch(e.target.value)}
+                    placeholder="Search chats…"
+                    style={{ width: "100%", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 7, color: C.t1, fontSize: 12, padding: "7px 10px 7px 28px", fontFamily: "inherit", caretColor: C.cyan, outline: "none" }}
+                  />
+                  {sSearch && (
+                    <button onClick={() => setSSearch("")} style={{ position: "absolute", right: 7, background: "none", border: "none", color: C.t3, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 0 }}>×</button>
+                  )}
                 </div>
               </div>
-              {ms?.status === "loaded" && (
-                <Btn onClick={() => { invoke("stop_server").catch(() => {}); }} style={{ padding: "7px 16px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12, fontWeight: 600 }}>
-                  Unload
-                </Btn>
-              )}
+
+              {/* Chat list — flat when searching, grouped by date otherwise */}
+              <div style={{ flex: 1, overflowY: "auto", padding: "0 6px 6px" }}>
+
+                {/* ── Search mode ── */}
+                {searchQ && (
+                  <>
+                    <div style={{ fontSize: 10, color: C.t3, padding: "4px 6px 6px", letterSpacing: "0.05em" }}>
+                      {filteredChats.length} result{filteredChats.length !== 1 ? "s" : ""}
+                    </div>
+                    {filteredChats.length === 0 && (
+                      <div style={{ fontSize: 12, color: C.t3, textAlign: "center", padding: "24px 8px" }}>
+                        No chats match<br />
+                        <span style={{ color: C.t2 }}>"{sSearch}"</span>
+                      </div>
+                    )}
+                    {filteredChats.map(ch => {
+                      const isActive  = ch.id === active;
+                      const snippet   = getMatchSnippet(ch);
+                      const menuOpen  = chatMenuId === ch.id;
+                      const isRenaming = renamingId === ch.id;
+                      return (
+                        <ChatRow key={ch.id}
+                          ch={ch} isActive={isActive} snippet={snippet} searchQ={searchQ}
+                          menuOpen={menuOpen} isRenaming={isRenaming}
+                          renameVal={renameVal} setRenameVal={setRenameVal}
+                          onSelect={() => !isRenaming && setActive(ch.id)}
+                          onDoubleClick={() => { setRenamingId(ch.id); setRenameVal(ch.title); }}
+                          onRenameConfirm={() => renameChat(ch.id, renameVal)}
+                          onRenameCancel={() => { setRenamingId(null); setRenameVal(""); }}
+                          onStartRename={() => { setRenamingId(ch.id); setRenameVal(ch.title); setChatMenuId(null); }}
+                          onDelete={() => deleteChat(ch.id)}
+                          onMenuToggle={() => setChatMenuId(menuOpen ? null : ch.id)}
+                          onMenuClose={() => setChatMenuId(null)}
+                          onHover={() => setHoveredChatId(ch.id)}
+                          onLeave={() => setHoveredChatId(null)}
+                          hovered={hoveredChatId === ch.id}
+                        />
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* ── Grouped mode ── */}
+                {!searchQ && chatGroups && chatGroups.map(group => (
+                  <div key={group.label}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: C.t3, letterSpacing: "0.07em", textTransform: "uppercase", padding: "10px 6px 4px" }}>
+                      {group.label}
+                    </div>
+                    {group.chats.map(ch => {
+                      const isActive   = ch.id === active;
+                      const menuOpen   = chatMenuId === ch.id;
+                      const isRenaming = renamingId === ch.id;
+                      return (
+                        <ChatRow key={ch.id}
+                          ch={ch} isActive={isActive} snippet={null} searchQ=""
+                          menuOpen={menuOpen} isRenaming={isRenaming}
+                          renameVal={renameVal} setRenameVal={setRenameVal}
+                          onSelect={() => !isRenaming && setActive(ch.id)}
+                          onDoubleClick={() => { setRenamingId(ch.id); setRenameVal(ch.title); }}
+                          onRenameConfirm={() => renameChat(ch.id, renameVal)}
+                          onRenameCancel={() => { setRenamingId(null); setRenameVal(""); }}
+                          onStartRename={() => { setRenamingId(ch.id); setRenameVal(ch.title); setChatMenuId(null); }}
+                          onDelete={() => deleteChat(ch.id)}
+                          onMenuToggle={() => setChatMenuId(menuOpen ? null : ch.id)}
+                          onMenuClose={() => setChatMenuId(null)}
+                          onHover={() => setHoveredChatId(ch.id)}
+                          onLeave={() => setHoveredChatId(null)}
+                          hovered={hoveredChatId === ch.id}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
+
+              </div>
+
+              {/* Footer: Sources */}
+              <div style={{ padding: "8px 10px 12px", borderTop: `1px solid ${C.border}` }}>
+                <button onClick={() => setShowConn(true)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12, cursor: "pointer" }}>
+                  <Icon d={IC.folder} size={13} stroke={C.t2} /> Sources ({connectors.length})
+                </button>
+              </div>
+
             </div>
 
-            {/* Models list */}
-            <div style={{ marginBottom: 8, fontSize: 11, fontWeight: 600, color: C.t3, letterSpacing: "0.08em", textTransform: "uppercase" }}>Available Models</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {MODELS.map(m => {
-                const mState = modelState[m.id] || { status: "not-downloaded" };
-                const isActive = activeModelId === m.id && mState.status === "loaded";
-                const isDownloaded = mState.status === "downloaded" || mState.status === "loaded" || mState.status === "load-error";
-                const isDownloading = mState.status === "downloading";
-                return (
-                  <div key={m.id} style={{ background: C.bgPanel, border: `1px solid ${isActive ? C.borderHi : C.border}`, borderRadius: 12, padding: "16px 18px", display: "flex", alignItems: "center", gap: 14, transition: "border-color 0.2s" }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `${m.orgColor}18`, border: `1px solid ${m.orgColor}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 14, fontWeight: 700, color: m.orgColor }}>
-                      {m.org[0]}
+            {/* Main chat area */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+              {/* Messages */}
+              <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px" }}>
+                {!activeChat?.messages?.length && (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 20, paddingBottom: 60 }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: `linear-gradient(135deg,${C.blueD},${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon d={IC.brain} size={24} stroke="#fff" />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 600, color: C.t1 }}>{m.label}</span>
-                        <span style={{ fontSize: 10, padding: "1px 7px", background: `${m.orgColor}18`, border: `1px solid ${m.orgColor}40`, borderRadius: 20, color: m.orgColor }}>{m.org}</span>
-                        {m.recommended && <span style={{ fontSize: 10, padding: "1px 7px", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 20, color: C.green }}>Recommended</span>}
-                        {isActive && <span style={{ fontSize: 10, padding: "1px 7px", background: "rgba(56,189,248,0.1)", border: "1px solid rgba(56,189,248,0.3)", borderRadius: 20, color: C.cyan }}>Active</span>}
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: C.t1, marginBottom: 8 }}>CodeForge AI</div>
+                      <div style={{ fontSize: 13, color: C.t2, maxWidth: 380, lineHeight: 1.7 }}>
+                        {!activeModelId
+                          ? <>Click <strong style={{ color: C.blue }}>Models</strong> in the header to load a model and start chatting.</>
+                          : "What are you building today? Ask me anything about your code."}
                       </div>
-                      <div style={{ fontSize: 11, color: C.t3 }}>{m.size} · {m.desc}</div>
-                      {isDownloading && mState.progress && (
-                        <div style={{ marginTop: 8 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.t3, marginBottom: 4 }}>
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{mState.progress.file}</span>
-                            <span>{mState.progress.total > 0 ? `${Math.round((mState.progress.downloaded / mState.progress.total) * 100)}%` : `${(mState.progress.downloaded / 1048576).toFixed(0)} MB`}</span>
-                          </div>
-                          <div style={{ height: 3, background: C.bgCard, borderRadius: 2, overflow: "hidden" }}>
-                            <div style={{ height: "100%", background: C.cyan, borderRadius: 2, transition: "width 0.3s", width: mState.progress.total > 0 ? `${Math.round((mState.progress.downloaded / mState.progress.total) * 100)}%` : "40%", animation: mState.progress.total === 0 ? "oai-slide-bar 1.5s ease infinite" : "none" }} />
-                          </div>
-                        </div>
-                      )}
                     </div>
-                    <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                      {isDownloading ? (
-                        <Btn onClick={() => cancelDownload(m.id)} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12 }}>Cancel</Btn>
-                      ) : isActive ? (
-                        <Btn onClick={() => invoke("stop_server").catch(() => {})} style={{ padding: "7px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#f87171", fontSize: 12 }}>Unload</Btn>
-                      ) : isDownloaded ? (
-                        <>
-                          <Btn onClick={() => loadModel(m.id)} disabled={modelLoading} style={{ padding: "7px 14px", background: C.blue, border: "none", borderRadius: 8, color: "#fff", fontSize: 12, fontWeight: 600, opacity: modelLoading ? 0.5 : 1 }}>
-                            {modelLoading ? "Loading…" : "Load"}
-                          </Btn>
-                          <Btn onClick={() => deleteModel(m.id)} style={{ padding: "7px 10px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t3, fontSize: 12 }}>Delete</Btn>
-                        </>
-                      ) : (
-                        <Btn onClick={() => downloadModel(m.id)} style={{ padding: "7px 14px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12, fontWeight: 500 }}>
-                          Download {m.size}
-                        </Btn>
-                      )}
+                    {/* Quick prompts */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 520 }}>
+                      {["Write a Django REST API endpoint", "Debug this Python error", "Explain this code", "Create a Flutter widget"].map(p => (
+                        <button key={p} onClick={() => setInput(p)} style={{ padding: "7px 14px", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 20, color: C.t2, fontSize: 12, cursor: "pointer" }}>{p}</button>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* HF token */}
-            <div style={{ marginTop: 20, padding: "14px 18px", background: C.bgPanel, border: `1px solid ${C.border}`, borderRadius: 12 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: C.t3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>Hugging Face Token (optional)</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="password"
-                  value={hfToken}
-                  onChange={e => { setHfToken(e.target.value); localStorage.setItem("hf_token", e.target.value); }}
-                  placeholder="hf_..."
-                  style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 8, color: C.t1, fontSize: 12, padding: "8px 12px", fontFamily: "inherit", caretColor: C.cyan, outline: "none" }}
-                />
-                <Btn onClick={resetServer} style={{ padding: "8px 14px", background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, color: C.t2, fontSize: 12 }}>Reset</Btn>
+                )}
+                {(activeChat?.messages || []).map(msg => (
+                  <Bubble
+                    key={msg.id}
+                    msg={msg}
+                    onRegenerate={msg.role === "ai" ? regenerate : null}
+                    onEdit={msg.role === "user" ? editMsg : null}
+                  />
+                ))}
+                {streaming && !activeChat?.messages?.at(-1)?.streaming && <Typing />}
+                <div ref={bottomRef} />
               </div>
-              <div style={{ fontSize: 10, color: C.t3, marginTop: 6 }}>Required only for gated models. Get yours at huggingface.co/settings/tokens</div>
+
+              {/* Input bar */}
+              <div style={{ padding: "12px 20px 14px", background: C.bgPanel, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 12, padding: "10px 14px" }}>
+                  <textarea
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                    placeholder={activeModelId ? "Ask CodeForge anything… (Enter to send)" : "Load a model first to start chatting…"}
+                    rows={1}
+                    disabled={!activeModelId || streaming}
+                    style={{ flex: 1, background: "transparent", border: "none", color: C.t1, fontSize: 13.5, lineHeight: 1.6, fontFamily: "inherit", maxHeight: 160, overflowY: "auto", resize: "none" }}
+                  />
+                  {streaming ? (
+                    <button onClick={stopGenerate} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 9, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon d={IC.stop2} size={14} stroke="#f87171" />
+                    </button>
+                  ) : (
+                    <button onClick={send} disabled={!input.trim() || !activeModelId} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 9, background: input.trim() && activeModelId ? C.blue : C.bgDeep, border: "none", cursor: input.trim() && activeModelId ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}>
+                      <Icon d={IC.send} size={15} stroke="#fff" />
+                    </button>
+                  )}
+                </div>
+                {/* Footer row: lang picker · hint  |  token bar · sources */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 7, padding: "0 2px" }}>
+                  <LangPicker value={selectedLang} onChange={setSelectedLang} />
+                  <span style={{ fontSize: 10, color: C.t3 }}>Shift+Enter for new line</span>
+                  <div style={{ flex: 1 }} />
+                  {activeModel && (
+                    <TokenBar
+                      usedTokens={(() => {
+                        const msgs = activeChat?.messages || [];
+                        const lastAi = [...msgs].reverse().find(m => m.role === "ai" && !m.streaming && m.promptTokens);
+                        if (lastAi) {
+                          // Real counts from llama-server + estimate for what user is typing now
+                          return (lastAi.promptTokens + lastAi.completionTokens) + estimateTokens(input);
+                        }
+                        // Fallback: character-based estimate until first AI response
+                        return estimateTokens(msgs.map(m => m.text || "").join(" ")) + estimateTokens(input);
+                      })()}
+                      ctxWindow={activeModel.ctxWindow || (activeModel.isLocal ? 8192 : 32768)}
+                      style={{ maxWidth: 180 }}
+                    />
+                  )}
+                  <button onClick={() => setShowConn(true)} style={{ fontSize: 10, color: C.t3, background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, padding: 0 }}>
+                    <Icon d={IC.folder} size={10} stroke={C.t3} /> Sources
+                  </button>
+                </div>
+              </div>
+
             </div>
           </div>
         )}
+        </div>
+        {/* ── end main content ── */}
       </div>
 
-      {/* Modals still available if triggered */}
+      {/* Modals */}
       {showConn && (
         <ConnectorModal
           connectors={connectors}
@@ -4118,6 +4819,7 @@ If no issues found, respond with: []`;
     </div>
   );
 }
+
 
 // ─── Auth gate (inside ClerkProvider) ────────────────────────────────────────
 function AuthGate() {

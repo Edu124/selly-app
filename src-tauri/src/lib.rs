@@ -614,6 +614,12 @@ struct StoredConversation {
     messages:  Vec<StoredMessage>,
 }
 
+#[derive(serde::Serialize, Clone)]
+struct LlmDonePayload {
+    prompt_tokens:     u32,
+    completion_tokens: u32,
+}
+
 fn read_conv_db(path: &std::path::Path) -> Vec<StoredConversation> {
     if !path.exists() { return vec![]; }
     std::fs::read_to_string(path)
@@ -853,7 +859,11 @@ async fn load_model(
         return Err("llama-server.exe not found. Run setup first.".into());
     }
 
-    let model_path = models_dir(&app).join(&model_id).join(&file);
+    // Support absolute paths (local models browsed from disk) as well as relative paths
+    let model_path = {
+        let p = std::path::Path::new(&file);
+        if p.is_absolute() { p.to_path_buf() } else { models_dir(&app).join(&model_id).join(&file) }
+    };
     if !model_path.exists() {
         return Err(format!("Model file not found: {}", model_path.display()));
     }
@@ -1006,6 +1016,15 @@ async fn generate(
                                 }
                             }
                             if json.get("stop").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                let prompt_tokens = json
+                                    .get("tokens_evaluated")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0) as u32;
+                                let completion_tokens = json
+                                    .get("tokens_predicted")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0) as u32;
+                                let _ = app.emit("llm-done", LlmDonePayload { prompt_tokens, completion_tokens });
                                 break 'outer;
                             }
                         }
@@ -1017,7 +1036,6 @@ async fn generate(
         }
     }
 
-    let _ = app.emit("llm-done", ());
     Ok(())
 }
 
