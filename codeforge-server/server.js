@@ -288,10 +288,9 @@ const { supabase: supabaseAdmin } = require("./db");
 
 async function sendExpiryNotifications() {
   try {
-    const now       = new Date();
-    const in3days   = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const now     = new Date();
+    const in3days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    // Find paid users whose plan expires in the next 3 days
     const { data: users, error } = await supabaseAdmin
       .from("codeforge_users")
       .select("user_id, email, plan, plan_expires_at")
@@ -301,36 +300,9 @@ async function sendExpiryNotifications() {
 
     if (error || !users?.length) return;
 
-    // Send email via Resend (set RESEND_API_KEY in env)
-    const RESEND_KEY = process.env.RESEND_API_KEY;
-    if (!RESEND_KEY) {
-      console.log(`[Cron] ${users.length} users expiring in 3 days (no RESEND_API_KEY set — emails skipped)`);
-      return;
-    }
-
+    // Log for now — wire up email (Resend / Gmail) when ready
     for (const user of users) {
-      const expiryDate = new Date(user.plan_expires_at).toLocaleDateString("en-IN", {
-        day: "numeric", month: "long", year: "numeric",
-      });
-      await fetch("https://api.resend.com/emails", {
-        method:  "POST",
-        headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          from:    "CodeForge AI <noreply@codeforgeai.app>",
-          to:      [user.email],
-          subject: "Your CodeForge subscription renews in 3 days",
-          html: `
-            <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background:#0f1520;color:#e2e8f0;border-radius:12px">
-              <h2 style="color:#f0f4ff;margin-bottom:8px">Subscription renewal reminder</h2>
-              <p style="color:#94a3b8;margin-bottom:20px">Your <strong style="color:#f0f4ff">${user.plan.charAt(0).toUpperCase() + user.plan.slice(1)} plan</strong> renews automatically on <strong style="color:#38bdf8">${expiryDate}</strong>.</p>
-              <p style="color:#94a3b8;">No action needed — your subscription will continue uninterrupted.</p>
-              <p style="color:#94a3b8;margin-top:20px">Want to cancel? Open the app → click your plan name in the top bar → Cancel Subscription.</p>
-              <hr style="border-color:#1e2d42;margin:24px 0"/>
-              <p style="font-size:12px;color:#4a5568">CodeForge AI · Made in India 🇮🇳</p>
-            </div>`,
-        }),
-      });
-      console.log(`[Cron] Sent expiry reminder to ${user.email}`);
+      console.log(`[Cron] ⚠️  Expiring in 3 days: ${user.email} (${user.plan}) — expires ${user.plan_expires_at}`);
     }
   } catch (err) {
     console.error("[Cron] Expiry notification error:", err.message);
