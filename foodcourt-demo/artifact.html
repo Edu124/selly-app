@@ -1,0 +1,748 @@
+<title>Selly — Food Court WhatsApp Buzzer Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #e9edf1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+    font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-pos   { background: #0f6cbd; }
+  .btn-promo { background: #7c3aed; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 82%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.42;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #0f6cbd; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Kitchen Display ---------- */
+  .kitchen {
+    flex: 1;
+    background: #0f172a;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #e2e8f0;
+  }
+  .kd-header {
+    background: #1e293b;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #334155;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .kd-logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #f59e0b;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+  }
+  .kd-title { font-size: 15px; font-weight: 700; }
+  .kd-sub   { font-size: 11px; color: #94a3b8; }
+  .kd-brand { margin-left: auto; font-size: 13px; font-weight: 800; color: #fff; }
+  .kd-brand span { color: #22c55e; }
+
+  .kd-stats {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px 0 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 120px;
+  }
+  .stat .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 10.5px; color: #94a3b8; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .stat .v.green { color: #4ade80; }
+  .stat .v.amber { color: #fbbf24; }
+
+  .kd-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 18px 18px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    align-content: start;
+  }
+  .tile {
+    background: #1e293b;
+    border: 2px solid #f59e0b;
+    border-radius: 14px;
+    padding: 14px;
+    cursor: pointer;
+    transition: transform .12s, opacity .3s;
+    animation: pop .2s ease-out;
+    user-select: none;
+  }
+  .tile:hover { transform: translateY(-2px); }
+  .tile.ready { border-color: #22c55e; background: #14261c; }
+  .tile.leaving { opacity: 0; transform: scale(.9); }
+  .tile-top { display: flex; align-items: center; gap: 8px; }
+  .tile-num { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tile-badges { margin-left: auto; display: flex; gap: 5px; align-items: center; }
+  .wa-badge {
+    background: #25D366;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 7px;
+  }
+  .pre-badge {
+    background: #7c3aed;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 7px;
+  }
+  .tile-items { font-size: 12px; color: #cbd5e1; margin-top: 8px; line-height: 1.5; min-height: 36px; }
+  .tile-foot { display: flex; align-items: center; margin-top: 10px; }
+  .tile-time { font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+  .tile-status {
+    margin-left: auto;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #fbbf24;
+  }
+  .tile.ready .tile-status { color: #4ade80; }
+  .tile-hint { font-size: 10px; color: #64748b; margin-top: 6px; text-align: center; }
+
+  .kd-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #64748b;
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  .kd-hint {
+    background: #14261c;
+    border-top: 1px solid #1f4030;
+    color: #86efac;
+    font-size: 12px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 50;
+  }
+  .toast {
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    animation: toast-in .25s ease-out;
+    max-width: 380px;
+  }
+  .toast.green  { border-left: 4px solid #25D366; }
+  .toast.blue   { border-left: 4px solid #0f6cbd; }
+  .toast.amber  { border-left: 4px solid #f59e0b; }
+  .toast.purple { border-left: 4px solid #7c3aed; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .tile { animation: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .kitchen { min-height: 520px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>🍜 Rollz N Bowlz — WhatsApp Buzzer by Selly</h1>
+    <div class="sub">Food court demo · Customer scans QR after paying → sends token → kitchen taps when ready → WhatsApp pings the customer. POS untouched, no buzzers.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-pos" onclick="newWalkIn()">🧾 New walk-in order (POS billing)</button>
+  <button class="bar-btn btn-promo" onclick="promoBlast()">📣 Lunch promo blast</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">🍜</div>
+        <div>
+          <div class="wa-title">Rollz N Bowlz</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today</div>
+      </div>
+      <div class="chips">
+        <button class="chip" onclick="quickSend('Token 47')">🎫 Token 47</button>
+        <button class="chip" onclick="quickSend('Menu')">Menu</button>
+        <button class="chip" onclick="quickSend('Pre-order 2 Veg Rolls')">Pre-order 2 Veg Rolls</button>
+      </div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Kitchen Display -->
+  <div class="kitchen">
+    <div class="kd-header">
+      <div class="kd-logo">🍜</div>
+      <div>
+        <div class="kd-title">Rollz N Bowlz — Kitchen Display</div>
+        <div class="kd-sub">Phoenix Mall Food Court · Counter 3 · runs on any Android tablet</div>
+      </div>
+      <div class="kd-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="kd-stats">
+      <div class="stat"><div class="v amber" id="statActive">0</div><div class="l">Active orders</div></div>
+      <div class="stat"><div class="v green" id="statLinked">0</div><div class="l">On WhatsApp</div></div>
+      <div class="stat"><div class="v" id="statServed">132</div><div class="l">Served today</div></div>
+      <div class="stat"><div class="v green" id="statCrm">1,847</div><div class="l">Customers captured</div></div>
+    </div>
+
+    <div class="kd-grid" id="grid"></div>
+
+    <div class="kd-hint">💡 Tap a token once when the food is ready — the customer gets a WhatsApp ping instantly (free — no buzzer hardware). Tap again when collected.</div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Data                                                              */
+/* ------------------------------------------------------------------ */
+const MENU = [
+  { name: "Veg Roll",        price: 90  },
+  { name: "Paneer Roll",     price: 120 },
+  { name: "Chicken Roll",    price: 140 },
+  { name: "Noodle Bowl",     price: 150 },
+  { name: "Chole Bhature",   price: 110 },
+  { name: "Cold Coffee",     price: 80  },
+];
+
+const now = Date.now();
+let tokens = [
+  { no: 44, items: "Paneer Roll ×2",          linked: true,  pre: false, state: "prep", since: now - 6*60000 },
+  { no: 45, items: "Noodle Bowl",             linked: false, pre: false, state: "prep", since: now - 4*60000 },
+  { no: 46, items: "Veg Roll, Cold Coffee",   linked: true,  pre: false, state: "prep", since: now - 2*60000 },
+  { no: 47, items: "Chicken Roll, Cold Coffee", linked: false, pre: false, state: "prep", since: now - 1*60000 },
+];
+let nextToken = 48;
+let served = 132;
+let crm = 1847;
+
+const WALKIN_ITEMS = ["Chole Bhature ×2", "Veg Roll, Noodle Bowl", "Chicken Roll ×3", "Paneer Roll, Lassi", "Noodle Bowl ×2, Cold Coffee"];
+let walkinIdx = 0;
+
+/* ------------------------------------------------------------------ */
+/*  Kitchen board                                                     */
+/* ------------------------------------------------------------------ */
+function elapsed(t) {
+  const m = Math.max(0, Math.floor((Date.now() - t.since) / 60000));
+  return m === 0 ? "just now" : `${m} min`;
+}
+
+function renderBoard() {
+  const grid = document.getElementById("grid");
+  if (!tokens.length) {
+    grid.innerHTML = `<div class="kd-empty">All orders served ✓<br>New billing at the counter will appear here.</div>`;
+  } else {
+    grid.innerHTML = tokens.map(t => `
+      <div class="tile ${t.state === "ready" ? "ready" : ""}" onclick="tapToken(${t.no})">
+        <div class="tile-top">
+          <div class="tile-num">#${t.no}</div>
+          <div class="tile-badges">
+            ${t.pre ? '<span class="pre-badge">PRE</span>' : ''}
+            ${t.linked ? '<span class="wa-badge">💬 WA</span>' : ''}
+          </div>
+        </div>
+        <div class="tile-items">${t.items}</div>
+        <div class="tile-foot">
+          <span class="tile-time">⏱ ${elapsed(t)}</span>
+          <span class="tile-status">${t.state === "ready" ? "Ready" : "Preparing"}</span>
+        </div>
+        <div class="tile-hint">${t.state === "ready" ? "tap when collected" : "tap when ready"}</div>
+      </div>
+    `).join("");
+  }
+  document.getElementById("statActive").textContent = tokens.length;
+  document.getElementById("statLinked").textContent = tokens.filter(t => t.linked).length;
+  document.getElementById("statServed").textContent = served;
+  document.getElementById("statCrm").textContent = crm.toLocaleString("en-IN");
+}
+setInterval(renderBoard, 20000);   // keep elapsed times fresh
+
+function tapToken(no) {
+  const t = tokens.find(x => x.no === no);
+  if (!t) return;
+
+  if (t.state === "prep") {
+    t.state = "ready";
+    renderBoard();
+    if (t.linked) {
+      botPush(
+        `🔔 *Order #${t.no} is READY!*\n\n` +
+        `Please collect from *Rollz N Bowlz* — Counter 3.\n` +
+        `Enjoy your meal! 🍜\n\n` +
+        `_Was everything good? Rate us 1–5 ⭐ right here._`
+      );
+      toast(`✅ WhatsApp ping sent for token #${t.no} — customer is on their way`, "green");
+    } else {
+      toast(`📢 Token #${t.no} has no WhatsApp link — call it out the old way`, "amber");
+    }
+  } else {
+    tokens = tokens.filter(x => x.no !== no);
+    served++;
+    renderBoard();
+    toast(`👍 Token #${no} collected & cleared`, "blue");
+  }
+}
+
+function newWalkIn() {
+  const t = {
+    no: nextToken++,
+    items: WALKIN_ITEMS[walkinIdx++ % WALKIN_ITEMS.length],
+    linked: false, pre: false, state: "prep", since: Date.now(),
+  };
+  tokens.push(t);
+  renderBoard();
+  toast(`🧾 POS billed token #${t.no} — Selly not involved yet. If the customer scans the QR standee, the token links to WhatsApp.`, "blue");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Promo blast                                                       */
+/* ------------------------------------------------------------------ */
+function promoBlast() {
+  toast(`📣 Broadcast queued to 1,847 captured customers…`, "purple");
+  setTimeout(() => {
+    botPush(
+      `🍛 *Today's Lunch Special!*\n\n` +
+      `Chole Bhature + Sweet Lassi = *₹129* (save ₹61)\n` +
+      `⏰ 12:00 – 3:00 PM only\n\n` +
+      `Reply *PRE* to pre-order and skip the queue — your food will be ready when you arrive!`
+    );
+    toast(`✅ Delivered. Every scanned token becomes a customer you can bring back tomorrow.`, "green");
+  }, 900);
+}
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+
+function nowTime() {
+  return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>");
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement("div");
+  div.className = "msg " + dir;
+  const ticks = dir === "out" ? `<span class="ticks">✓✓</span>` : "";
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t = div.querySelector(".ticks"); if (t) t.classList.add("read"); }, 1200);
+}
+
+function botPush(text) {
+  const status = document.getElementById("waStatus");
+  status.textContent = "typing…";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = "online";
+    addMsg(text, "in");
+  }, 1000 + Math.random()*500);
+}
+
+function sendUser() {
+  const input = document.getElementById("waText");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain                                                         */
+/* ------------------------------------------------------------------ */
+let pendingPre = null;   // set after promo "PRE" reply
+
+function botReply(text) {
+  const t = text.toLowerCase();
+
+  /* --- pre-order via promo reply --- */
+  if (/^pre\b/.test(t) && !/pre-?order/.test(t)) {
+    createPreOrder("Chole Bhature + Lassi (Special ₹129)");
+    return;
+  }
+
+  /* --- explicit pre-order: "pre-order 2 veg rolls" --- */
+  if (/pre-?order|order/.test(t)) {
+    const item = MENU.find(m => t.includes(m.name.toLowerCase().split(" ")[0]));
+    if (item) {
+      const qtyMatch = t.match(/\b(\d{1,2})\b/);
+      const qty = qtyMatch ? Math.max(1, parseInt(qtyMatch[1])) : 1;
+      createPreOrder(`${item.name} ×${qty}`, item.price * qty);
+      return;
+    }
+  }
+
+  /* --- token number --- */
+  const tokMatch = t.match(/(?:token\s*#?\s*|#)?(\d{1,4})\b/);
+  if (tokMatch && /token|^#?\d{1,4}$/.test(t.trim())) {
+    const no = parseInt(tokMatch[1]);
+    const tok = tokens.find(x => x.no === no);
+    if (!tok) {
+      botPush(`🤔 I can't find token *#${no}* on today's board.\n\nPlease check the number printed on your receipt and send it again.`);
+      return;
+    }
+    if (tok.state === "ready") {
+      botPush(`😋 Good news — order *#${no}* is *already ready!*\n\nCollect it from Counter 3 right now.`);
+      return;
+    }
+    if (tok.linked) {
+      botPush(`✅ You're already on the list for token *#${no}*.\n\nRelax — I'll ping you the second it's ready 🔔`);
+      return;
+    }
+    tok.linked = true;
+    crm++;
+    renderBoard();
+    botPush(
+      `🎫 Got it! Token *#${no}* — ${tok.items}\n\n` +
+      `No need to wait at the counter. Grab a seat, and I'll message you the *moment* your order is ready 🔔\n\n` +
+      `_Meanwhile, type *menu* to see today's specials._`
+    );
+    toast(`💬 Token #${no} linked to WhatsApp — buzzer replaced`, "green");
+    return;
+  }
+
+  /* --- menu --- */
+  if (/menu|price|special/.test(t)) {
+    const lines = MENU.map(m => `• ${m.name} — ₹${m.price}`).join("\n");
+    botPush(
+      `📋 *Today's Menu — Rollz N Bowlz*\n\n${lines}\n\n` +
+      `🍛 *Special:* Chole Bhature + Lassi — *₹129*\n\n` +
+      `Reply *pre-order <item>* and it'll be ready when you reach the counter!`
+    );
+    return;
+  }
+
+  /* --- greeting --- */
+  if (/\b(hi|hello|hey|namaste)\b/.test(t)) {
+    botPush(
+      `👋 Welcome to *Rollz N Bowlz*!\n\n` +
+      `🎫 Paid at the counter? Send your *token number* and I'll ping you when your food is ready — no waiting around.\n` +
+      `📋 Type *menu* for today's items\n` +
+      `🛵 Type *pre-order <item>* to skip the queue entirely`
+    );
+    return;
+  }
+
+  /* --- rating --- */
+  if (/^[1-5]$|⭐/.test(t.trim())) {
+    botPush(`🙏 Thank you for the rating! See you again soon — type *menu* anytime to pre-order and skip the queue.`);
+    return;
+  }
+
+  /* --- thanks --- */
+  if (/\b(thank|thanks|great|nice|ok|okay)\b/.test(t)) {
+    botPush(`Anytime! 😊 Enjoy your meal 🍜`);
+    return;
+  }
+
+  botPush(
+    `🤖 I didn't catch that. You can:\n\n` +
+    `🎫 Send your *token number* (it's on your receipt)\n` +
+    `📋 Type *menu*\n` +
+    `🛵 Type *pre-order <item>*`
+  );
+}
+
+function createPreOrder(itemsText, total) {
+  const t = { no: nextToken++, items: itemsText, linked: true, pre: true, state: "prep", since: Date.now() };
+  tokens.push(t);
+  crm++;
+  renderBoard();
+  botPush(
+    `🛵 *Pre-order confirmed!*\n\n` +
+    `🎫 Your token: *#${t.no}*\n` +
+    `🍽 ${itemsText}\n` +
+    (total ? `💰 Total: *₹${total}* — pay at pickup (UPI/cash)\n` : `💰 Pay at pickup (UPI/cash)\n`) +
+    `\nIt's already on the kitchen screen — I'll ping you the moment it's ready. Walk over whenever you like! 🔔`
+  );
+  toast(`🛵 Pre-order #${t.no} landed on the kitchen board — no queue, no call, no buzzer`, "purple");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderBoard();
+setTimeout(() => botPush(
+  `👋 Hi! This is *Rollz N Bowlz* at Phoenix Mall Food Court.\n\n` +
+  `Just paid at our counter? Send me your *token number* (on your receipt) and I'll WhatsApp you the moment your order is ready — no standing around, no buzzer 🔔\n\n` +
+  `Try: *Token 47*`
+), 700);
+</script>

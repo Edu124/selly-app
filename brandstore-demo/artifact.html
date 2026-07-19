@@ -1,0 +1,782 @@
+<title>Selly — Brand Store Trial Room Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #e9edf1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+    font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-shopper { background: #0f6cbd; }
+  .btn-promo   { background: #7c3aed; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 82%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.42;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #0f6cbd; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Trial Room Desk Board ---------- */
+  .desk {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #111827;
+  }
+  .dk-header {
+    background: #111827;
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .dk-logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #7c3aed;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .dk-title { font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+  .dk-sub   { font-size: 11px; color: #9ca3af; }
+  .dk-brand { margin-left: auto; font-size: 13px; font-weight: 800; }
+  .dk-brand span { color: #22c55e; }
+
+  .dk-stats {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px 0 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 118px;
+  }
+  .stat .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #111827; }
+  .stat .l { font-size: 10.5px; color: #6b7280; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .stat .v.amber  { color: #d97706; }
+  .stat .v.green  { color: #16a34a; }
+  .stat .v.purple { color: #7c3aed; }
+
+  .dk-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .req {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fff;
+    border: 2px solid #fbbf24;
+    border-radius: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: transform .12s, opacity .3s;
+    animation: pop .2s ease-out;
+    user-select: none;
+  }
+  .req:hover { transform: translateY(-1px); }
+  .req.ready { border-color: #22c55e; background: #f0fdf4; }
+  .req-token { text-align: center; min-width: 62px; }
+  .req-num  { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .req-time { font-size: 10.5px; color: #9ca3af; margin-top: 2px; }
+  .req-meta { flex: 1; min-width: 0; }
+  .req-name { font-size: 14.5px; font-weight: 700; }
+  .req-item { font-size: 12.5px; color: #4b5563; margin-top: 1px; }
+  .spec-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .spec {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #4b5563;
+    padding: 2px 8px;
+  }
+  .req-state { text-align: center; min-width: 86px; }
+  .state-badge {
+    display: inline-block;
+    border-radius: 10px;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+  .state-badge.collect { background: #fef3c7; color: #92400e; }
+  .state-badge.ready   { background: #dcfce7; color: #166534; }
+  .req-hint { font-size: 9.5px; color: #9ca3af; margin-top: 4px; }
+
+  .dk-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  .dk-hint {
+    background: #f5f3ff;
+    border-top: 1px solid #e9e5f8;
+    color: #6d28d9;
+    font-size: 12px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 50;
+  }
+  .toast {
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    animation: toast-in .25s ease-out;
+    max-width: 380px;
+  }
+  .toast.green  { border-left: 4px solid #25D366; }
+  .toast.blue   { border-left: 4px solid #0f6cbd; }
+  .toast.amber  { border-left: 4px solid #f59e0b; }
+  .toast.purple { border-left: 4px solid #7c3aed; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .req { animation: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .desk { min-height: 520px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>👗 URBANE — Trial Room Concierge by Selly</h1>
+    <div class="sub">Brand store demo · Shopper scans the tray QR → sends item, size &amp; colour → gets a token → staff hand over the garments at the trial room. No carrying clothes around.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-shopper" onclick="simulateShopper()">🛍️ Another shopper scans</button>
+  <button class="bar-btn btn-promo" onclick="promoBlast()">📣 New collection blast</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">👗</div>
+        <div>
+          <div class="wa-title">URBANE Trial Rooms</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trial Room Desk -->
+  <div class="desk">
+    <div class="dk-header">
+      <div class="dk-logo">👗</div>
+      <div>
+        <div class="dk-title">URBANE — Trial Room Desk</div>
+        <div class="dk-sub">Phoenix Mall · Level 2 · staff tablet at the trial-room entrance</div>
+      </div>
+      <div class="dk-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="dk-stats">
+      <div class="stat"><div class="v amber"  id="statCollect">0</div><div class="l">To collect</div></div>
+      <div class="stat"><div class="v green"  id="statDesk">0</div><div class="l">At the desk</div></div>
+      <div class="stat"><div class="v"        id="statTrials">38</div><div class="l">Trials today</div></div>
+      <div class="stat"><div class="v purple" id="statConv">11</div><div class="l">Trial → sale</div></div>
+      <div class="stat"><div class="v green"  id="statCrm">2,314</div><div class="l">Customers captured</div></div>
+    </div>
+
+    <div class="dk-list" id="list"></div>
+
+    <div class="dk-hint">💡 Tap a request when the garments are picked from the floor — the shopper gets a WhatsApp ping to head over. Tap again on handover. After the trial, the bot follows up for the sale automatically.</div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Catalog + demo data                                               */
+/* ------------------------------------------------------------------ */
+const ITEMS = ["Slim-fit Denim Jacket", "Floral Midi Dress", "Oxford Shirt", "High-rise Jeans", "Linen Blazer"];
+const SIZES = ["XS", "S", "M", "L", "XL"];
+const COLORS = ["Indigo", "Black", "White", "Coral", "Olive"];
+
+const now0 = Date.now();
+let requests = [
+  { no: 12, name: "Ananya", item: "A-line Summer Dress",  size: "M",  color: "Yellow", state: "collect", since: now0 - 7*60000, mine: false },
+  { no: 13, name: "Rohan",  item: "Chino Trousers",       size: "32", color: "Olive",  state: "ready",   since: now0 - 4*60000, mine: false },
+];
+let nextToken = 14;
+let trials = 38, conversions = 11, crm = 2314;
+
+const SHOPPERS = [
+  { name: "Kabir",  item: "Oxford Shirt",       size: "L",  color: "White" },
+  { name: "Sara",   item: "High-rise Jeans",    size: "28", color: "Black" },
+  { name: "Vihaan", item: "Linen Blazer",       size: "XL", color: "Beige" },
+  { name: "Isha",   item: "Floral Midi Dress",  size: "S",  color: "Coral" },
+];
+let shopperIdx = 0;
+
+/* ------------------------------------------------------------------ */
+/*  Desk board                                                        */
+/* ------------------------------------------------------------------ */
+function elapsed(since) {
+  const m = Math.max(0, Math.floor((Date.now() - since) / 60000));
+  return m === 0 ? "just now" : `${m} min`;
+}
+
+function renderBoard() {
+  const list = document.getElementById("list");
+  if (!requests.length) {
+    list.innerHTML = `<div class="dk-empty">No trial requests right now.<br>Tray-QR scans appear here instantly.</div>`;
+  } else {
+    list.innerHTML = requests.map(r => `
+      <div class="req ${r.state === "ready" ? "ready" : ""}" onclick="tapRequest(${r.no})">
+        <div class="req-token">
+          <div class="req-num">#${r.no}</div>
+          <div class="req-time">⏱ ${elapsed(r.since)}</div>
+        </div>
+        <div class="req-meta">
+          <div class="req-name">${r.name}</div>
+          <div class="req-item">${r.item}</div>
+          <div class="spec-row">
+            <span class="spec">Size ${r.size}</span>
+            <span class="spec">${r.color}</span>
+            <span class="spec" style="background:#dcfce7;border-color:#bbf7d0;color:#166534">💬 WhatsApp</span>
+          </div>
+        </div>
+        <div class="req-state">
+          <span class="state-badge ${r.state === "ready" ? "ready" : "collect"}">${r.state === "ready" ? "AT DESK" : "COLLECT"}</span>
+          <div class="req-hint">${r.state === "ready" ? "tap on handover" : "tap when picked"}</div>
+        </div>
+      </div>
+    `).join("");
+  }
+  document.getElementById("statCollect").textContent = requests.filter(r => r.state === "collect").length;
+  document.getElementById("statDesk").textContent    = requests.filter(r => r.state === "ready").length;
+  document.getElementById("statTrials").textContent  = trials;
+  document.getElementById("statConv").textContent    = conversions;
+  document.getElementById("statCrm").textContent     = crm.toLocaleString("en-IN");
+}
+setInterval(renderBoard, 20000);
+
+function tapRequest(no) {
+  const r = requests.find(x => x.no === no);
+  if (!r) return;
+
+  if (r.state === "collect") {
+    r.state = "ready";
+    renderBoard();
+    if (r.mine) {
+      botPush(
+        `🔔 *${r.name}, your items are ready!*\n\n` +
+        `👗 ${r.item} — Size ${r.size}, ${r.color}\n` +
+        `🎫 Show token *#${r.no}* at the trial room desk (Level 2).\n\n` +
+        `See you there!`
+      );
+    }
+    toast(`✅ WhatsApp sent — ${r.name} is heading to the trial room (token #${no})`, "green");
+  } else {
+    requests = requests.filter(x => x.no !== no);
+    trials++;
+    renderBoard();
+    toast(`👍 Token #${no} handed over to ${r.name}`, "blue");
+    if (r.mine) {
+      lastTrial = r;
+      setTimeout(() => {
+        botPush(
+          `😊 How was the fit, ${r.name}?\n\n` +
+          `👍 Reply *BUY* — we'll keep it ready at the billing counter\n` +
+          `📏 Reply *SIZE* — I'll bring a different size to your room in 2 minutes\n` +
+          `👀 Reply *MORE* — see matching pieces from this collection`
+        );
+        setChips(["BUY", "SIZE", "MORE"]);
+      }, 2500);
+    }
+  }
+}
+
+function simulateShopper() {
+  const s = SHOPPERS[shopperIdx++ % SHOPPERS.length];
+  const r = { no: nextToken++, ...s, state: "collect", since: Date.now(), mine: false };
+  requests.push(r);
+  crm++;
+  renderBoard();
+  toast(`🛍️ Tray-QR scan on the floor — ${r.name} wants ${r.item} (${r.size}, ${r.color}) · token #${r.no}`, "purple");
+}
+
+function promoBlast() {
+  toast(`📣 Broadcast queued to 2,314 captured customers…`, "purple");
+  setTimeout(() => {
+    botPush(
+      `✨ *URBANE — Fresh Drop!*\n\n` +
+      `The Autumn '26 collection just hit the store.\n` +
+      `🎁 Show this message this weekend for *15% off* your first pick.\n\n` +
+      `Reply *TRY* with any item name and it'll be waiting in your trial room when you arrive.`
+    );
+    toast(`✅ Delivered. Every tray scan becomes a customer you can invite back.`, "green");
+  }, 900);
+}
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+let lastTrial = null;
+
+function nowTime() {
+  return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>");
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement("div");
+  div.className = "msg " + dir;
+  const ticks = dir === "out" ? `<span class="ticks">✓✓</span>` : "";
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t = div.querySelector(".ticks"); if (t) t.classList.add("read"); }, 1200);
+}
+
+function botPush(text) {
+  const status = document.getElementById("waStatus");
+  status.textContent = "typing…";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = "online";
+    addMsg(text, "in");
+  }, 1000 + Math.random()*500);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g, "\\'")}')">${c}</button>`).join("");
+}
+
+function sendUser() {
+  const input = document.getElementById("waText");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain — guided trial-request flow                             */
+/* ------------------------------------------------------------------ */
+// flow: idle → item → size → color → name → token issued
+let flow = { state: "idle", item: null, size: null, color: null };
+
+function startTrialFlow() {
+  flow = { state: "item", item: null, size: null, color: null };
+  botPush(
+    `👗 Welcome to *URBANE*, Phoenix Mall!\n\n` +
+    `No need to carry clothes around the store — tell me what you'd like to try and it'll be *waiting at the trial room* for you.\n\n` +
+    `Which item caught your eye?`
+  );
+  setChips(ITEMS.slice(0, 3));
+}
+
+function botReply(text) {
+  const t = text.toLowerCase().trim();
+
+  /* --- QR scan trigger --- */
+  if (/(^|\s)(scan|try|trial|hi|hello|hey)\b/.test(t) && flow.state === "idle") {
+    startTrialFlow();
+    return;
+  }
+
+  /* --- guided flow steps --- */
+  if (flow.state === "item") {
+    const match = ITEMS.find(i => t.includes(i.toLowerCase().split(" ").pop().toLowerCase()) || i.toLowerCase() === t);
+    flow.item = match || text.trim();
+    flow.state = "size";
+    botPush(`Nice pick! 👌 *${flow.item}*\n\nWhat size should I get for you?`);
+    setChips(SIZES);
+    return;
+  }
+
+  if (flow.state === "size") {
+    flow.size = text.trim().toUpperCase().slice(0, 4);
+    flow.state = "color";
+    botPush(`Size *${flow.size}* — got it.\n\nAnd which colour?`);
+    setChips(COLORS.slice(0, 4));
+    return;
+  }
+
+  if (flow.state === "color") {
+    flow.color = text.trim();
+    flow.state = "name";
+    botPush(`*${flow.color}* it is 🎨\n\nLast thing — what's your name? (so our staff greet you properly)`);
+    setChips(["Priya", "Rahul"]);
+    return;
+  }
+
+  if (flow.state === "name") {
+    const name = text.trim().replace(/[^a-zA-Z ]/g, "").slice(0, 20) || "Guest";
+    const r = { no: nextToken++, name, item: flow.item, size: flow.size, color: flow.color, state: "collect", since: Date.now(), mine: true };
+    requests.push(r);
+    crm++;
+    renderBoard();
+    flow = { state: "idle", item: null, size: null, color: null };
+    botPush(
+      `🎫 All set, ${name}! Your token is *#${r.no}*\n\n` +
+      `👗 ${r.item}\n📏 Size ${r.size} · ${r.color}\n\n` +
+      `Keep browsing hands-free — our staff are picking your piece right now. I'll ping you the moment it's *ready at the trial room* 🛎️`
+    );
+    setChips(["Try one more item"]);
+    toast(`🛍️ New trial request — ${name}, token #${r.no} on the desk board`, "purple");
+    return;
+  }
+
+  /* --- one more item --- */
+  if (/one more|another|more item|^try\b/.test(t)) {
+    startTrialFlow();
+    return;
+  }
+
+  /* --- post-trial replies --- */
+  if (/^buy\b/.test(t)) {
+    conversions++;
+    renderBoard();
+    botPush(
+      `🛍️ *Wonderful choice!*\n\n` +
+      `It's packed and reserved at the *billing counter* under token *#${lastTrial ? lastTrial.no : ""}*.\n` +
+      `Show this message and you're done in 30 seconds. ✨`
+    );
+    setChips(["Try one more item"]);
+    toast(`💰 Trial → sale converted${lastTrial ? " — " + lastTrial.name + ", token #" + lastTrial.no : ""}`, "green");
+    return;
+  }
+
+  if (/^size\b|different size/.test(t)) {
+    botPush(`📏 No problem — which size should I bring? You don't even need to leave the trial room.`);
+    setChips(SIZES);
+    if (lastTrial) {
+      flow = { state: "size-redo", item: lastTrial.item, size: null, color: lastTrial.color };
+    }
+    return;
+  }
+
+  if (flow.state === "size-redo") {
+    const size = text.trim().toUpperCase().slice(0, 4);
+    const r = { no: nextToken++, name: lastTrial ? lastTrial.name : "Guest", item: flow.item, size, color: flow.color, state: "collect", since: Date.now(), mine: true };
+    requests.push(r);
+    renderBoard();
+    flow = { state: "idle", item: null, size: null, color: null };
+    botPush(`On its way! 🏃 *${r.item}* in size *${size}* — token *#${r.no}*. Stay right there, it'll reach your room in ~2 minutes.`);
+    setChips(["BUY", "Try one more item"]);
+    toast(`📏 Size swap — ${r.name} gets ${size} without leaving the room (token #${r.no})`, "amber");
+    return;
+  }
+
+  if (/^more\b|matching|collection/.test(t)) {
+    botPush(
+      `👀 *Goes great with your pick:*\n\n` +
+      `• Suede Ankle Boots — ₹3,499\n` +
+      `• Minimal Leather Belt — ₹1,199\n` +
+      `• Canvas Tote — ₹899\n\n` +
+      `Reply *TRY* with any item and it'll be added to your trial room.`
+    );
+    setChips(["Try one more item", "BUY"]);
+    return;
+  }
+
+  if (/\b(thank|thanks|great|nice|ok|okay)\b/.test(t)) {
+    botPush(`Anytime! 😊 Happy shopping at URBANE ✨`);
+    setChips(["Try one more item"]);
+    return;
+  }
+
+  botPush(
+    `🤖 I didn't catch that. You can:\n\n` +
+    `📷 Scan any *tray QR* to request a trial\n` +
+    `👗 Type *try* to pick an item\n` +
+    `🛍️ Reply *BUY* after your trial to reserve at billing`
+  );
+  setChips(["Try one more item"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderBoard();
+setChips(["📷 Scan tray QR"]);
+setTimeout(() => botPush(
+  `👋 Hi! This is *URBANE* at Phoenix Mall.\n\n` +
+  `Spotted something you like? *Scan the QR on any tray* and I'll have it waiting for you at the trial room — no carrying clothes around the store.\n\n` +
+  `Tap *Scan tray QR* below to see how it works.`
+), 700);
+</script>
