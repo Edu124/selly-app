@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selly - Cake Shop WhatsApp Ordering Demo</title>
+</head>
+<body>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #e9edf1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+    font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-ig       { background: #d6337b; }
+  .btn-birthday { background: #7c3aed; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 82%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.42;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #0f6cbd; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Bakery Order Board ---------- */
+  .bakery {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #111827;
+  }
+  .bk-header {
+    background: #831843;
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .bk-logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #ec4899;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .bk-title { font-size: 15px; font-weight: 700; letter-spacing: .02em; }
+  .bk-sub   { font-size: 11px; color: #fbcfe8; }
+  .bk-brand { margin-left: auto; font-size: 13px; font-weight: 800; }
+  .bk-brand span { color: #4ade80; }
+
+  .bk-stats {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px 0 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: #fdf2f8;
+    border: 1px solid #fbcfe8;
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 116px;
+  }
+  .stat .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #111827; }
+  .stat .l { font-size: 10.5px; color: #9d174d; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .stat .v.amber { color: #d97706; }
+  .stat .v.green { color: #16a34a; }
+  .stat .v.pink  { color: #db2777; }
+
+  .bk-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .order {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #fff;
+    border: 2px solid #fbbf24;
+    border-radius: 14px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: transform .12s;
+    animation: pop .2s ease-out;
+    user-select: none;
+  }
+  .order:hover { transform: translateY(-1px); }
+  .order.baking { border-color: #f472b6; background: #fdf2f8; }
+  .order.ready  { border-color: #22c55e; background: #f0fdf4; }
+  .ord-token { text-align: center; min-width: 60px; }
+  .ord-num  { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .ord-due  { font-size: 10px; color: #9ca3af; margin-top: 2px; font-weight: 600; }
+  .ord-meta { flex: 1; min-width: 0; }
+  .ord-name { font-size: 14.5px; font-weight: 700; }
+  .ord-cakemsg { font-size: 12px; color: #9d174d; margin-top: 1px; font-style: italic; }
+  .spec-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .spec {
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #4b5563;
+    padding: 2px 8px;
+  }
+  .spec.ch-wa { background: #dcfce7; border-color: #bbf7d0; color: #166534; }
+  .spec.ch-ig { background: #fce7f3; border-color: #fbcfe8; color: #9d174d; }
+  .ord-state { text-align: center; min-width: 88px; }
+  .state-badge {
+    display: inline-block;
+    border-radius: 10px;
+    padding: 3px 10px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+  .state-badge.new    { background: #fef3c7; color: #92400e; }
+  .state-badge.baking { background: #fce7f3; color: #9d174d; }
+  .state-badge.ready  { background: #dcfce7; color: #166534; }
+  .ord-hint { font-size: 9.5px; color: #9ca3af; margin-top: 4px; }
+  .ord-price { font-size: 12px; font-weight: 700; color: #111827; margin-top: 2px; }
+
+  .bk-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 60px 20px;
+    font-size: 14px;
+  }
+
+  .bk-hint {
+    background: #fdf2f8;
+    border-top: 1px solid #fbcfe8;
+    color: #9d174d;
+    font-size: 12px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 50;
+  }
+  .toast {
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    animation: toast-in .25s ease-out;
+    max-width: 380px;
+  }
+  .toast.green  { border-left: 4px solid #25D366; }
+  .toast.blue   { border-left: 4px solid #0f6cbd; }
+  .toast.pink   { border-left: 4px solid #ec4899; }
+  .toast.purple { border-left: 4px solid #7c3aed; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .order { animation: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .bakery { min-height: 520px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>🍰 Crumb &amp; Cream — Cake Orders on WhatsApp by Selly</h1>
+    <div class="sub">Cake shop demo · Customer orders a custom cake step-by-step on WhatsApp — flavour, weight, eggless, message on cake, delivery time — no phone calls, no notebook mistakes. Birthdays repeat every year, automatically.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-ig" onclick="instagramOrder()">📸 Instagram DM order</button>
+  <button class="bar-btn btn-birthday" onclick="birthdayReminder()">🎂 Birthday reminder</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">🍰</div>
+        <div>
+          <div class="wa-title">Crumb &amp; Cream</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bakery Order Board -->
+  <div class="bakery">
+    <div class="bk-header">
+      <div class="bk-logo">🍰</div>
+      <div>
+        <div class="bk-title">Crumb &amp; Cream — Order Board</div>
+        <div class="bk-sub">Custom cake orders from WhatsApp &amp; Instagram · runs on the owner's phone or tablet</div>
+      </div>
+      <div class="bk-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="bk-stats">
+      <div class="stat"><div class="v amber" id="statNew">0</div><div class="l">New / confirmed</div></div>
+      <div class="stat"><div class="v pink"  id="statBaking">0</div><div class="l">Baking now</div></div>
+      <div class="stat"><div class="v green" id="statReady">0</div><div class="l">Ready</div></div>
+      <div class="stat"><div class="v"       id="statWeek">23</div><div class="l">Cakes this week</div></div>
+      <div class="stat"><div class="v green" id="statBdays">412</div><div class="l">Birthdays saved</div></div>
+    </div>
+
+    <div class="bk-list" id="list"></div>
+
+    <div class="bk-hint">💡 Tap an order to move it forward: Confirmed → Baking → Ready → picked up. The customer gets a WhatsApp update at every step — and their birthday is saved for next year's automatic reminder.</div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Catalog + demo data                                               */
+/* ------------------------------------------------------------------ */
+const FLAVOURS = { "Chocolate Truffle": 600, "Red Velvet": 700, "Butterscotch": 550, "Fresh Pineapple": 500 };
+const WEIGHTS  = ["0.5 kg", "1 kg", "1.5 kg", "2 kg"];
+const SLOTS    = ["Today 6 PM", "Tomorrow 11 AM", "Tomorrow 6 PM", "Saturday 5 PM"];
+
+let orders = [
+  { no: 21, name: "Meera", flavour: "Red Velvet", kg: 1, eggless: true,  cakeMsg: "Happy Anniversary Meera & Arjun", due: "Today 5 PM",    channel: "WA", state: "baking", price: 750 },
+  { no: 22, name: "Rohan", flavour: "Butterscotch", kg: 0.5, eggless: false, cakeMsg: "Congrats Graduate!",          due: "Tomorrow 11 AM", channel: "IG", state: "new",    price: 275 },
+];
+let nextOrder = 23;
+let weekCount = 23, bdaysSaved = 412;
+let lastDone = null;
+
+const IG_ORDERS = [
+  { name: "Sneha",  flavour: "Chocolate Truffle", kg: 1,   eggless: true,  cakeMsg: "Happy Birthday Papa", due: "Tomorrow 6 PM" },
+  { name: "Farhan", flavour: "Fresh Pineapple",   kg: 2,   eggless: false, cakeMsg: "25 Years of Us",      due: "Saturday 5 PM" },
+  { name: "Tanvi",  flavour: "Red Velvet",        kg: 0.5, eggless: true,  cakeMsg: "Yay Nikita!",         due: "Today 6 PM" },
+];
+let igIdx = 0;
+
+function calcPrice(flavour, kg, eggless) {
+  const rate = FLAVOURS[flavour] || 600;
+  return Math.round((rate + (eggless ? 50 : 0)) * kg);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Order board                                                       */
+/* ------------------------------------------------------------------ */
+function renderBoard() {
+  const list = document.getElementById("list");
+  if (!orders.length) {
+    list.innerHTML = `<div class="bk-empty">No cake orders on the board.<br>WhatsApp &amp; Instagram orders appear here instantly.</div>`;
+  } else {
+    list.innerHTML = orders.map(o => `
+      <div class="order ${o.state}" onclick="tapOrder(${o.no})">
+        <div class="ord-token">
+          <div class="ord-num">#${o.no}</div>
+          <div class="ord-due">${o.due}</div>
+        </div>
+        <div class="ord-meta">
+          <div class="ord-name">${o.name} <span style="font-weight:400;color:#6b7280">· ₹${o.price}</span></div>
+          <div class="ord-cakemsg">“${o.cakeMsg}”</div>
+          <div class="spec-row">
+            <span class="spec">${o.flavour}</span>
+            <span class="spec">${o.kg} kg</span>
+            <span class="spec">${o.eggless ? "Eggless" : "With egg"}</span>
+            <span class="spec ${o.channel === "WA" ? "ch-wa" : "ch-ig"}">${o.channel === "WA" ? "💬 WhatsApp" : "📸 Instagram"}</span>
+          </div>
+        </div>
+        <div class="ord-state">
+          <span class="state-badge ${o.state}">${o.state === "new" ? "CONFIRMED" : o.state === "baking" ? "BAKING" : "READY"}</span>
+          <div class="ord-hint">${o.state === "new" ? "tap to start baking" : o.state === "baking" ? "tap when ready" : "tap on pickup"}</div>
+        </div>
+      </div>
+    `).join("");
+  }
+  document.getElementById("statNew").textContent    = orders.filter(o => o.state === "new").length;
+  document.getElementById("statBaking").textContent = orders.filter(o => o.state === "baking").length;
+  document.getElementById("statReady").textContent  = orders.filter(o => o.state === "ready").length;
+  document.getElementById("statWeek").textContent   = weekCount;
+  document.getElementById("statBdays").textContent  = bdaysSaved;
+}
+
+function tapOrder(no) {
+  const o = orders.find(x => x.no === no);
+  if (!o) return;
+
+  if (o.state === "new") {
+    o.state = "baking";
+    renderBoard();
+    if (o.channel === "WA") {
+      botPush(`🧑‍🍳 *Update on order #${o.no}*\n\nOur chef has started on your *${o.flavour}* cake! It'll be fresh and ready by *${o.due}*. 🎂`);
+    }
+    toast(`🧑‍🍳 Order #${no} → Baking${o.channel === "WA" ? " — customer notified on WhatsApp" : " — Instagram customer notified via DM"}`, "pink");
+  } else if (o.state === "baking") {
+    o.state = "ready";
+    renderBoard();
+    if (o.channel === "WA") {
+      botPush(
+        `🎂 *Your cake is ready, ${o.name}!*\n\n` +
+        `“${o.cakeMsg}” — exactly as you asked. 📸 _(photo of your cake attached)_\n\n` +
+        `Pick up: *${o.due}* at Crumb & Cream, or reply *DELIVER* for home delivery (₹49).`
+      );
+    }
+    toast(`✅ Order #${no} is ready — ${o.channel === "WA" ? "photo sent on WhatsApp" : "photo sent on Instagram"}`, "green");
+  } else {
+    orders = orders.filter(x => x.no !== no);
+    weekCount++;
+    if (o.cakeMsg.toLowerCase().includes("birthday")) bdaysSaved++;
+    renderBoard();
+    toast(`🎉 Order #${no} picked up by ${o.name}`, "blue");
+    if (o.channel === "WA") {
+      lastDone = o;
+      setTimeout(() => {
+        botPush(
+          `Thank you for ordering with us, ${o.name}! 🙏\n\n` +
+          `How was the cake? Rate us *1–5* ⭐\n\n` +
+          (o.cakeMsg.toLowerCase().includes("birthday")
+            ? `_P.S. We've saved this birthday — next year, your cake reminder will arrive a week early. One less thing to remember!_ 🎂`
+            : `_We'd love to bake for you again — just message anytime._`)
+        );
+        setChips(["5", "4", "Order another cake"]);
+      }, 2500);
+    }
+  }
+}
+
+function instagramOrder() {
+  const d = IG_ORDERS[igIdx++ % IG_ORDERS.length];
+  const o = { no: nextOrder++, ...d, channel: "IG", state: "new", price: calcPrice(d.flavour, d.kg, d.eggless) };
+  orders.push(o);
+  renderBoard();
+  toast(`📸 Instagram DM order — ${o.name}: ${o.kg}kg ${o.flavour}, "${o.cakeMsg}" (#${o.no}). One board for every channel.`, "pink");
+}
+
+function birthdayReminder() {
+  toast(`🎂 Selly found a birthday from last year's orders — sending the reminder…`, "purple");
+  setTimeout(() => {
+    botPush(
+      `🎂 *A little birdie reminded us…*\n\n` +
+      `*Aarav's birthday is next Friday!* Last year you celebrated with our 1 kg Chocolate Truffle (eggless).\n\n` +
+      `Want us to bake it again? *10% off* for returning customers 💝\n\n` +
+      `Reply *YES* to repeat last year's cake, or *NEW* to create a different one.`
+    );
+    setChips(["YES", "NEW"]);
+    toast(`✅ Reminder delivered — last year's customer, back without spending a rupee on ads.`, "green");
+  }, 900);
+}
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+
+function nowTime() {
+  return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>");
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement("div");
+  div.className = "msg " + dir;
+  const ticks = dir === "out" ? `<span class="ticks">✓✓</span>` : "";
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t = div.querySelector(".ticks"); if (t) t.classList.add("read"); }, 1200);
+}
+
+function botPush(text) {
+  const status = document.getElementById("waStatus");
+  status.textContent = "typing…";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = "online";
+    addMsg(text, "in");
+  }, 1000 + Math.random()*500);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g, "\\'")}')">${c}</button>`).join("");
+}
+
+function sendUser() {
+  const input = document.getElementById("waText");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain — guided cake order flow                                */
+/* ------------------------------------------------------------------ */
+// flow: idle → flavour → weight → egg → cakemsg → slot → name → pay
+let flow = { state: "idle" };
+
+function startOrderFlow() {
+  flow = { state: "flavour" };
+  botPush(
+    `🍰 Lovely! Let's build your cake step by step.\n\n` +
+    `Which flavour would you like?\n\n` +
+    Object.entries(FLAVOURS).map(([f, p]) => `• ${f} — ₹${p}/kg`).join("\n")
+  );
+  setChips(Object.keys(FLAVOURS));
+}
+
+function botReply(text) {
+  const t = text.toLowerCase().trim();
+
+  /* --- start ordering --- */
+  if (flow.state === "idle" && /(order|cake|hi|hello|hey|menu|new)/.test(t) && !/^yes/.test(t)) {
+    startOrderFlow();
+    return;
+  }
+
+  /* --- birthday repeat --- */
+  if (/^yes\b/.test(t) && flow.state === "idle") {
+    const price = Math.round(calcPrice("Chocolate Truffle", 1, true) * 0.9);
+    const o = { no: nextOrder++, name: "Priya", flavour: "Chocolate Truffle", kg: 1, eggless: true, cakeMsg: "Happy Birthday Aarav!", due: "Friday 5 PM", channel: "WA", state: "new", price };
+    orders.push(o);
+    renderBoard();
+    botPush(
+      `🎂 *Done! Same magic as last year:*\n\n` +
+      `🍫 Chocolate Truffle · 1 kg · Eggless\n` +
+      `✍️ “Happy Birthday Aarav!”\n` +
+      `📅 Ready Friday 5 PM\n` +
+      `💰 ₹${price} _(10% birthday discount applied)_\n\n` +
+      `Pay ₹200 advance on UPI to confirm — reply *PAID* once done.`
+    );
+    setChips(["PAID"]);
+    flow = { state: "idle" };
+    toast(`🎂 Repeat birthday order #${o.no} — zero effort, guaranteed revenue`, "purple");
+    return;
+  }
+
+  /* --- guided steps --- */
+  if (flow.state === "flavour") {
+    const match = Object.keys(FLAVOURS).find(f => t.includes(f.toLowerCase().split(" ")[0].toLowerCase()) || f.toLowerCase() === t);
+    flow.flavour = match || text.trim();
+    flow.state = "weight";
+    botPush(`*${flow.flavour}* — excellent taste! 😋\n\nWhat size should we bake?`);
+    setChips(WEIGHTS);
+    return;
+  }
+
+  if (flow.state === "weight") {
+    const kg = parseFloat(t.replace(/[^\d.]/g, "")) || 1;
+    flow.kg = kg;
+    flow.state = "egg";
+    botPush(`*${kg} kg* it is.\n\nEgg or eggless?`);
+    setChips(["Eggless", "With egg"]);
+    return;
+  }
+
+  if (flow.state === "egg") {
+    flow.eggless = /eggless|no egg/.test(t);
+    flow.state = "cakemsg";
+    botPush(`Noted — *${flow.eggless ? "eggless" : "with egg"}*.\n\n✍️ What should we write on the cake? _(type it exactly — our chef copies it letter for letter, no spelling surprises!)_`);
+    setChips(["Happy Birthday Aarav!", "Happy Anniversary!"]);
+    return;
+  }
+
+  if (flow.state === "cakemsg") {
+    flow.cakeMsg = text.trim().slice(0, 60);
+    flow.state = "slot";
+    botPush(`“*${flow.cakeMsg}*” — got it, letter for letter. ✍️\n\nWhen do you need it?`);
+    setChips(SLOTS);
+    return;
+  }
+
+  if (flow.state === "slot") {
+    flow.due = text.trim().slice(0, 24);
+    flow.state = "name";
+    botPush(`📅 *${flow.due}* — we'll have it fresh.\n\nLast step: your name, please?`);
+    setChips(["Priya", "Rahul"]);
+    return;
+  }
+
+  if (flow.state === "name") {
+    flow.name = text.trim().replace(/[^a-zA-Z ]/g, "").slice(0, 20) || "Guest";
+    const price = calcPrice(flow.flavour, flow.kg, flow.eggless);
+    flow.price = price;
+    flow.state = "pay";
+    botPush(
+      `🧾 *Your cake, ${flow.name}:*\n\n` +
+      `🍰 ${flow.flavour} · ${flow.kg} kg · ${flow.eggless ? "Eggless" : "With egg"}\n` +
+      `✍️ “${flow.cakeMsg}”\n` +
+      `📅 ${flow.due}\n` +
+      `💰 Total: *₹${price}*\n\n` +
+      `To confirm, pay *₹200 advance* on UPI: crumbcream@upi\nReply *PAID* once done — the rest at pickup.`
+    );
+    setChips(["PAID"]);
+    return;
+  }
+
+  if (flow.state === "pay" && /paid|done|upi/.test(t)) {
+    const o = { no: nextOrder++, name: flow.name, flavour: flow.flavour, kg: flow.kg, eggless: flow.eggless, cakeMsg: flow.cakeMsg, due: flow.due, channel: "WA", state: "new", price: flow.price };
+    orders.push(o);
+    renderBoard();
+    botPush(
+      `✅ *Advance received — order #${o.no} confirmed!*\n\n` +
+      `Your ${o.flavour} will be ready by *${o.due}*. I'll message you when our chef starts and again when it's ready (with a photo 📸).\n\n` +
+      `Thank you, ${o.name}! 🍰`
+    );
+    setChips(["Order another cake"]);
+    flow = { state: "idle" };
+    toast(`🍰 Order #${o.no} confirmed with advance — straight onto the board, no notebook`, "green");
+    return;
+  }
+
+  /* --- ratings --- */
+  if (/^[1-5]$/.test(t)) {
+    botPush(`Thank you! ${t === "5" ? "You just made our chef's day! 🥹" : "We appreciate the feedback!"} See you at the next celebration 🎂`);
+    setChips(["Order another cake"]);
+    return;
+  }
+
+  /* --- delivery --- */
+  if (/^deliver/.test(t)) {
+    botPush(`🛵 Home delivery added (₹49). Your cake will reach you by the promised time — carefully, we promise. 🎂`);
+    setChips(["Order another cake"]);
+    return;
+  }
+
+  if (/\b(thank|thanks|great|nice|ok|okay)\b/.test(t)) {
+    botPush(`Anytime! 😊 We're one message away whenever there's something to celebrate 🍰`);
+    setChips(["Order another cake"]);
+    return;
+  }
+
+  botPush(
+    `🤖 I didn't catch that. You can:\n\n` +
+    `🍰 Type *order* to build a custom cake\n` +
+    `📋 Type *menu* for flavours & prices\n` +
+    `⭐ Rate your last cake 1–5`
+  );
+  setChips(["Order a cake 🍰"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderBoard();
+setChips(["Order a cake 🍰"]);
+setTimeout(() => botPush(
+  `👋 Welcome to *Crumb & Cream*! 🍰\n\n` +
+  `Order a custom cake right here — flavour, size, eggless, the exact message on top, and your pickup time. No phone calls, no spelling mistakes on the cake.\n\n` +
+  `Tap *Order a cake* to start!`
+), 700);
+</script>
+
+</body>
+</html>
