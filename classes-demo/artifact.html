@@ -576,11 +576,11 @@
         <span class="br-dot" style="background:#fbbf24"></span>
         <span class="br-dot" style="background:#34d399"></span>
       </div>
-      <div class="br-url">🔒 selly.app/fc/gst-basics-12b</div>
+      <div class="br-url" id="fcUrl">🔒 selly.app/fc/gst-basics-12b</div>
       <button class="br-close" onclick="closeFlashcards()" aria-label="Close">✕</button>
     </div>
     <div class="fc-page">
-      <div class="fc-head">🃏 GST Basics — Flashcards</div>
+      <div class="fc-head" id="fcTitle">🃏 GST Basics — Flashcards</div>
       <div class="fc-sub">by Sharma Sir · Classpe · Batch 12-B</div>
       <div class="fc-card-wrap" onclick="flipCard()">
         <div class="fc-card" id="fcCard">
@@ -648,32 +648,72 @@ function uploadNotes() {
 /* ------------------------------------------------------------------ */
 /*  Flashcards                                                        */
 /* ------------------------------------------------------------------ */
-const FC_CARDS = [
-  { q: "What does GST stand for, and what kind of tax is it?", a: "Goods and Services Tax — a single indirect tax on the supply of goods & services across India." },
-  { q: "Name the GST rate slabs.", a: "0%, 5%, 12%, 18% and 28%." },
-  { q: "CGST vs SGST — who collects what?", a: "On intra-state sales: CGST goes to the Central Govt, SGST to the State Govt — split equally." },
-  { q: "When does IGST apply?", a: "On inter-state sales — collected by the Centre, then shared with the destination state." },
-  { q: "GST registration threshold?", a: "₹40 lakh turnover for goods, ₹20 lakh for services (lower limits in special category states)." },
-];
+const FC_DECKS = {
+  1: {
+    slug: "accounting-basics-12b", title: "Basics of Accounting — Flashcards",
+    cards: [
+      { q: "What is Accounting?", a: "The art of recording, classifying and summarising business transactions in money terms — and interpreting the results." },
+      { q: "What is the Double Entry System?", a: "Every transaction has two equal effects — a debit and a matching credit." },
+      { q: "Golden rule for Real accounts?", a: "Debit what comes in, credit what goes out." },
+      { q: "Capital vs Revenue expenditure?", a: "Capital = long-term benefit (machinery). Revenue = benefit within the year (rent, salaries)." },
+      { q: "What is a Journal?", a: "The book of original entry — where transactions are first recorded, date-wise." },
+    ],
+  },
+  2: {
+    slug: "accounting-equation-12b", title: "Accounting Equation — Flashcards",
+    cards: [
+      { q: "State the accounting equation.", a: "Assets = Liabilities + Capital — Sir's \"ALC rule\"." },
+      { q: "Owner invests ₹5,00,000 — what changes?", a: "Assets (Cash) +5L and Capital +5L. Equation stays balanced." },
+      { q: "Buy machinery ₹1,00,000 for cash — effect?", a: "Total assets unchanged: Machinery +1L, Cash −1L." },
+      { q: "What do drawings do to the equation?", a: "Reduce Cash (Assets) and reduce Capital by the same amount." },
+      { q: "Why does the equation ALWAYS balance?", a: "Every debit has an equal credit — both sides record the same transaction." },
+    ],
+  },
+  3: {
+    slug: "gst-basics-12b", title: "GST Basics — Flashcards",
+    cards: [
+      { q: "What does GST stand for, and what kind of tax is it?", a: "Goods and Services Tax — a single indirect tax on the supply of goods & services across India." },
+      { q: "Name the GST rate slabs.", a: "0%, 5%, 12%, 18% and 28%." },
+      { q: "CGST vs SGST — who collects what?", a: "On intra-state sales: CGST goes to the Central Govt, SGST to the State Govt — split equally." },
+      { q: "When does IGST apply?", a: "On inter-state sales — collected by the Centre, then shared with the destination state." },
+      { q: "GST registration threshold?", a: "₹40 lakh turnover for goods, ₹20 lakh for services (lower limits in special category states)." },
+    ],
+  },
+  4: {
+    slug: "ratio-analysis-12b", title: "Ratio Analysis — Flashcards",
+    cards: [
+      { q: "Current Ratio — formula and ideal value?", a: "Current Assets ÷ Current Liabilities. Ideal: 2:1." },
+      { q: "Quick (Acid-Test) Ratio?", a: "(Current Assets − Inventory) ÷ Current Liabilities. Ideal: 1:1." },
+      { q: "Debt-Equity Ratio?", a: "Long-term Debt ÷ Shareholders' Funds. Lower is safer; 2:1 is the usual ceiling." },
+      { q: "Gross Profit Ratio?", a: "(Gross Profit ÷ Net Sales) × 100 — shows trading efficiency." },
+      { q: "What do liquidity ratios measure?", a: "The firm's ability to pay its short-term obligations as they fall due." },
+    ],
+  },
+};
+let fcDeck = FC_DECKS[3];
 let fcIndex = 0, fcFlipped = false;
 
 function sendFlashcards(noteId) {
   const n = notes.find(x => x.id === noteId) || notes[2];
+  const deck = FC_DECKS[n.id] || FC_DECKS[3];
   toast(`🃏 Generating flashcards from "${n.title}"…`, "purple");
   setTimeout(() => {
     botPush(
       `🃏 *Flashcards from Sharma Sir!*\n\n` +
-      `📕 ${n.title.replace(".pdf", "")} — 5 quick-revision cards\n\n` +
-      `Practice now (opens in your browser):\n{{FC_LINK}}\n\n` +
+      `📕 ${n.title.replace(".pdf", "")} — ${deck.cards.length} quick-revision cards\n\n` +
+      `Practice now (opens in your browser):\n{{FC_LINK:${n.id}}}\n\n` +
       `_Sent to all 43 students of Batch 12-B_ 📚`
     );
-    logFeed("🃏", `<b>Sharma Sir</b> sent GST flashcards to Batch 12-B (43 students)`, "FLASHCARDS", "fc");
+    logFeed("🃏", `<b>Sharma Sir</b> sent ${n.title.replace(".pdf", "").replace(/^Ch \d+ — /, "")} flashcards to Batch 12-B (43 students)`, "FLASHCARDS", "fc");
     toast(`✅ Flashcard link delivered to 43 students — tap the blue link in the chat to open it`, "green");
   }, 1000);
 }
 
-function openFlashcards() {
+function openFlashcards(deckId) {
+  fcDeck = FC_DECKS[deckId] || FC_DECKS[3];
   fcIndex = 0; fcFlipped = false;
+  document.getElementById("fcTitle").textContent = "🃏 " + fcDeck.title;
+  document.getElementById("fcUrl").textContent = "🔒 selly.app/fc/" + fcDeck.slug;
   updateCard();
   document.getElementById("fcOverlay").classList.add("open");
 }
@@ -681,14 +721,14 @@ function closeFlashcards() {
   document.getElementById("fcOverlay").classList.remove("open");
 }
 function updateCard() {
-  document.getElementById("fcQ").textContent = FC_CARDS[fcIndex].q;
-  document.getElementById("fcA").textContent = FC_CARDS[fcIndex].a;
-  document.getElementById("fcCount").textContent = `${fcIndex + 1} / ${FC_CARDS.length}`;
+  document.getElementById("fcQ").textContent = fcDeck.cards[fcIndex].q;
+  document.getElementById("fcA").textContent = fcDeck.cards[fcIndex].a;
+  document.getElementById("fcCount").textContent = `${fcIndex + 1} / ${fcDeck.cards.length}`;
   document.getElementById("fcCard").classList.toggle("flipped", fcFlipped);
 }
 function flipCard() { fcFlipped = !fcFlipped; updateCard(); }
-function nextCard() { fcIndex = (fcIndex + 1) % FC_CARDS.length; fcFlipped = false; updateCard(); }
-function prevCard() { fcIndex = (fcIndex - 1 + FC_CARDS.length) % FC_CARDS.length; fcFlipped = false; updateCard(); }
+function nextCard() { fcIndex = (fcIndex + 1) % fcDeck.cards.length; fcFlipped = false; updateCard(); }
+function prevCard() { fcIndex = (fcIndex - 1 + fcDeck.cards.length) % fcDeck.cards.length; fcFlipped = false; updateCard(); }
 
 /* ------------------------------------------------------------------ */
 /*  WhatsApp chat                                                     */
@@ -704,7 +744,10 @@ function fmt(text) {
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
     .replace(/_([^_\n]+)_/g, "<i>$1</i>")
-    .replace(/\{\{FC_LINK\}\}/g, `<span class="linktext" onclick="openFlashcards()">https://selly.app/fc/gst-basics-12b</span>`);
+    .replace(/\{\{FC_LINK:(\d+)\}\}/g, (m, id) => {
+      const d = FC_DECKS[id] || FC_DECKS[3];
+      return `<span class="linktext" onclick="openFlashcards(${id})">https://selly.app/fc/${d.slug}</span>`;
+    });
 }
 
 function addMsg(text, dir) {
@@ -819,7 +862,7 @@ function botReply(text) {
     botPush(
       `🃏 Here are Sharma Sir's latest flashcards!\n\n` +
       `📕 Ch 3 — GST Basics · 5 cards\n\n` +
-      `Practice now (opens in your browser):\n{{FC_LINK}}\n\n` +
+      `Practice now (opens in your browser):\n{{FC_LINK:3}}\n\n` +
       `_Revise for 2 minutes daily — sir checks who's practising!_ 📚`
     );
     return;
