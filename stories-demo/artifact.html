@@ -1,0 +1,1166 @@
+<title>Selly — Great Books as Stories (Education Demo)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #e9edf1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+    font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-send { background: #7c3aed; }
+  .btn-hin  { background: #b45309; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 86%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+  .linktext { color: #027eb5; text-decoration: underline; cursor: pointer; font-weight: 600; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Story Library dashboard ---------- */
+  .lib {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #111827;
+  }
+  .lb-header {
+    background: #3b0764;
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .lb-logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #a855f7;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .lb-title { font-size: 15px; font-weight: 700; }
+  .lb-sub   { font-size: 11px; color: #d8b4fe; }
+  .lb-brand { margin-left: auto; font-size: 13px; font-weight: 800; }
+  .lb-brand span { color: #4ade80; }
+
+  .lb-stats {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px 0 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: #faf5ff;
+    border: 1px solid #e9d5ff;
+    border-radius: 10px;
+    padding: 8px 14px;
+    min-width: 112px;
+  }
+  .stat .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; color: #111827; }
+  .stat .l { font-size: 10.5px; color: #6b21a8; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .stat .v.amber  { color: #d97706; }
+  .stat .v.green  { color: #16a34a; }
+  .stat .v.purple { color: #7c3aed; }
+
+  .lb-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .sec-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 8px;
+  }
+
+  .book {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 11px 14px;
+    transition: background .3s, border-color .3s;
+  }
+  .book.active { background: #faf5ff; border-color: #a855f7; }
+  .book-cover {
+    width: 42px; height: 52px;
+    border-radius: 6px;
+    background: linear-gradient(150deg, #7c3aed, #4c1d95);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 19px;
+    flex-shrink: 0;
+    box-shadow: 2px 2px 6px rgba(0,0,0,.18);
+  }
+  .book-meta { flex: 1; min-width: 0; }
+  .book-title  { font-size: 13.5px; font-weight: 700; }
+  .book-author { font-size: 11px; color: #6b7280; margin-top: 1px; }
+  .book-prog { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+  .prog-bar { flex: 1; height: 5px; background: #f0e9fb; border-radius: 3px; overflow: hidden; max-width: 150px; }
+  .prog-fill { height: 100%; background: #a855f7; border-radius: 3px; }
+  .prog-text { font-size: 10px; color: #6b7280; white-space: nowrap; }
+  .send-btn {
+    border: 1px solid #ddd6fe;
+    background: #f5f3ff;
+    color: #6d28d9;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .send-btn:hover { background: #ede9fe; }
+
+  /* AI book creator */
+  .creator {
+    background: #fffbeb;
+    border: 1px dashed #fcd34d;
+    border-radius: 12px;
+    padding: 13px 14px;
+  }
+  .creator-title { font-size: 12.5px; font-weight: 700; color: #92400e; }
+  .creator-sub   { font-size: 11px; color: #a16207; margin-top: 2px; }
+  .creator-row   { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .creator-row input {
+    flex: 1;
+    min-width: 140px;
+    border: 1px solid #fcd34d;
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-size: 12.5px;
+    font-family: inherit;
+    outline: none;
+    background: #fff;
+    color: #111827;
+  }
+  .creator-row button {
+    border: none;
+    background: #d97706;
+    color: #fff;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .creator-row button:hover { filter: brightness(1.1); }
+
+  .feed { display: flex; flex-direction: column; gap: 7px; }
+  .feed-item {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    background: #f9fafb;
+    border: 1px solid #f0f1f3;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #374151;
+    animation: pop .2s ease-out;
+  }
+  .feed-item b { color: #111827; }
+  .feed-item .fi-tag {
+    margin-left: auto;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    border-radius: 8px;
+    padding: 2px 7px;
+    white-space: nowrap;
+  }
+  .fi-tag.read   { background: #ede9fe; color: #6d28d9; }
+  .fi-tag.reflect{ background: #dcfce7; color: #166534; }
+  .fi-tag.new    { background: #fef3c7; color: #92400e; }
+  .fi-tag.hindi  { background: #ffedd5; color: #9a3412; }
+
+  .lb-hint {
+    background: #faf5ff;
+    border-top: 1px solid #e9d5ff;
+    color: #6b21a8;
+    font-size: 12px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Story reader (simulated browser) ---------- */
+  #rdOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  #rdOverlay.open { display: flex; }
+  .browser {
+    width: 100%;
+    max-width: 560px;
+    max-height: 88vh;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.45);
+    animation: pop .25s ease-out;
+    display: flex;
+    flex-direction: column;
+  }
+  .br-bar {
+    background: #f1f3f4;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .br-dots { display: flex; gap: 5px; }
+  .br-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .br-url {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    font-size: 11.5px;
+    color: #374151;
+    padding: 5px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .br-close {
+    border: none; background: none;
+    font-size: 17px; color: #6b7280;
+    cursor: pointer; padding: 2px 6px;
+    font-family: inherit;
+  }
+  .rd-page {
+    background: linear-gradient(170deg, #1e1b4b, #3b0764 60%, #4c1d95);
+    color: #ede9fe;
+    padding: 24px 26px 26px 26px;
+    overflow-y: auto;
+  }
+  .rd-book { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #c4b5fd; }
+  .rd-title { font-size: 21px; font-weight: 800; color: #fff; margin-top: 6px; line-height: 1.25; text-wrap: balance; }
+  .rd-ep { font-size: 11.5px; color: #a78bfa; margin-top: 4px; }
+  .rd-rule { height: 1px; background: rgba(196,181,253,.28); margin: 16px 0; }
+  .rd-text {
+    font-size: 15px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    color: #e9e3ff;
+  }
+  .rd-text b { color: #fff; }
+  .rd-text i { color: #c4b5fd; }
+  .rd-dots { display: flex; gap: 6px; justify-content: center; margin: 20px 0 14px 0; }
+  .rd-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(196,181,253,.3); }
+  .rd-dot.on { background: #a855f7; }
+  .rd-nav { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .rd-nav button {
+    border: 1px solid rgba(196,181,253,.4);
+    background: rgba(255,255,255,.06);
+    color: #ede9fe;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .rd-nav button:hover { background: rgba(255,255,255,.14); }
+  .rd-tip { font-size: 11px; color: #a78bfa; text-align: center; margin-top: 12px; }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 120;
+  }
+  .toast {
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    animation: toast-in .25s ease-out;
+    max-width: 380px;
+  }
+  .toast.green  { border-left: 4px solid #25D366; }
+  .toast.purple { border-left: 4px solid #7c3aed; }
+  .toast.amber  { border-left: 4px solid #d97706; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .feed-item, .browser { animation: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .lib { min-height: 540px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>📖 Classpe Stories — Great Books, Told as Stories</h1>
+    <div class="sub">Education demo · Students never finish famous books. So the AI retells them as nightly story episodes on WhatsApp — with cliffhangers, in Hindi or English, one 3-minute episode a day.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-send" onclick="sendTonight()">🌙 Send tonight's episode to batch</button>
+  <button class="bar-btn btn-hin" onclick="quickSend('Hindi mein sunao')">🇮🇳 Same story in Hindi</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">📖</div>
+        <div>
+          <div class="wa-title">Classpe Stories</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today · 9:00 PM</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Story Library -->
+  <div class="lib">
+    <div class="lb-header">
+      <div class="lb-logo">📖</div>
+      <div>
+        <div class="lb-title">Classpe — Story Library</div>
+        <div class="lb-sub">Sharma Sir · Batch 12-B · 43 students · nightly episodes at 9 PM</div>
+      </div>
+      <div class="lb-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="lb-stats">
+      <div class="stat"><div class="v purple" id="statBooks">4</div><div class="l">Books in library</div></div>
+      <div class="stat"><div class="v green"  id="statOpen">87%</div><div class="l">Episode open rate</div></div>
+      <div class="stat"><div class="v amber"  id="statStreak">19</div><div class="l">Night streak</div></div>
+      <div class="stat"><div class="v"        id="statReflect">126</div><div class="l">Reflections written</div></div>
+    </div>
+
+    <div class="lb-body">
+      <div>
+        <div class="sec-title">Story Library — tap send to push tonight's episode</div>
+        <div id="bookList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <div class="creator">
+        <div class="creator-title">✨ Turn any book into a story series</div>
+        <div class="creator-sub">Type a book name — the AI writes a 5-episode story version in sir's teaching voice.</div>
+        <div class="creator-row">
+          <input id="bookInput" placeholder="e.g. Ikigai, Rich Dad Poor Dad, The Alchemist…" onkeydown="if(event.key==='Enter')createBook()">
+          <button onclick="createBook()">Generate series</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="sec-title">Live engagement</div>
+        <div class="feed" id="feed">
+          <div class="feed-item"><span>📖</span><span><b>38 of 43</b> students opened last night's episode within an hour</span><span class="fi-tag read">EP 2</span></div>
+          <div class="feed-item"><span>✍️</span><span><b>Isha</b> wrote a reflection: "I never thought about my why…"</span><span class="fi-tag reflect">REFLECTION</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lb-hint">💡 One episode a night keeps students opening your institute's WhatsApp even on holidays — and gives parents something to brag about.</div>
+  </div>
+
+</div>
+
+<!-- Story reader -->
+<div id="rdOverlay" onclick="if(event.target===this)closeReader()">
+  <div class="browser">
+    <div class="br-bar">
+      <div class="br-dots">
+        <span class="br-dot" style="background:#f87171"></span>
+        <span class="br-dot" style="background:#fbbf24"></span>
+        <span class="br-dot" style="background:#34d399"></span>
+      </div>
+      <div class="br-url" id="rdUrl">🔒 selly.app/story/start-with-why/ep1</div>
+      <button class="br-close" onclick="closeReader()" aria-label="Close">✕</button>
+    </div>
+    <div class="rd-page" id="rdPage">
+      <div class="rd-book" id="rdBook"></div>
+      <div class="rd-title" id="rdTitle"></div>
+      <div class="rd-ep" id="rdEp"></div>
+      <div class="rd-rule"></div>
+      <div class="rd-text" id="rdText"></div>
+      <div class="rd-dots" id="rdDots"></div>
+      <div class="rd-nav">
+        <button onclick="readerPrev()">← Previous</button>
+        <button onclick="readerNext()">Next episode →</button>
+      </div>
+      <div class="rd-tip">Opens in any browser · no app, no login · 3-minute read</div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Story library                                                     */
+/* ------------------------------------------------------------------ */
+/* Episodes are ORIGINAL narrative retellings of each book's core idea,
+   written for the demo — not reproductions of the authors' text.      */
+
+const BOOKS = {
+  1: {
+    slug: "start-with-why", title: "Start With Why", author: "Simon Sinek", emoji: "🎯",
+    episodes: [
+      {
+        title: "The Man Who Should Have Won",
+        text: `In 1903, if you had to bet money on who would build the world's first flying machine, you would have bet everything on Samuel Pierpont Langley.
+
+He had everything.
+
+A $50,000 grant from the War Department — a fortune at the time. A post at the Smithsonian. Friends in high places. He hired the brightest engineers money could buy. The New York Times followed him everywhere, printing every step of his progress.
+
+Six hundred miles away, in a small bicycle shop in Dayton, Ohio, two brothers were building the very same thing.
+
+They had no funding. No college degrees. Not one person on their team had been to university. They paid for every experiment with money earned repairing bicycles.
+
+On the 17th of December, 1903, one of these two teams flew.
+
+You already know which one.
+
+The question almost nobody asks is *why*.`,
+      },
+      {
+        title: "The Bicycle Shop",
+        text: `Every morning at Kitty Hawk, the Wright brothers carried five sets of parts to the field.
+
+Five.
+
+Because they knew that before sundown, they would crash at least four times.
+
+They had no money for a second machine, so they rebuilt the same one, again and again, out of spare bicycle parts. Their team was barely paid. Some weren't paid at all. They stayed anyway — sleeping in a wooden shed, eating badly, breaking their machine and mending it, for four years.
+
+Meanwhile, Langley's team had the finest equipment in America. They also had something else: Langley had promised them fame and fortune the day the machine flew.
+
+Notice the difference.
+
+Langley's men worked for a *paycheck*.
+The Wrights' men worked for a *cause*.
+
+On 17 December 1903, Orville Wright flew 120 feet in twelve seconds. It doesn't sound like much. It changed the world forever.
+
+And here is the detail that gives away everything:
+
+When Langley heard the news — he quit. That same day.`,
+      },
+      {
+        title: "Why Langley Quit",
+        text: `Think about it for a second.
+
+If Langley's goal was flight, the news should have thrilled him. A machine could fly! Now improve it. Make it better. Be part of the greatest story of the century.
+
+Instead, he walked away.
+
+Because his goal was never flight. His goal was to be *first*. To be rich, to be famous, to have his name in the newspapers. The moment someone else got there first, there was nothing left in it for him.
+
+Simon Sinek, in his book *Start With Why*, draws a simple picture to explain this. Three rings, one inside the other.
+
+The outer ring — **WHAT** you do. Everybody can tell you this.
+The middle ring — **HOW** you do it. Some people can tell you this.
+The centre — **WHY** you do it. Almost nobody can.
+
+Langley worked from the outside in. *What:* build a flying machine. *Why:* to become famous.
+
+The Wrights worked from the centre out. *Why:* we believe this invention will change the course of the world. Everything else followed from that.
+
+Sinek puts the whole book into nine words: "People don't buy what you do; they buy why."`,
+      },
+      {
+        title: "I Have a Dream",
+        text: `August 1963. A quarter of a million people stood in Washington to hear a man speak.
+
+There were no invitations sent. No website, no phones, no social media. People simply came — from every corner of a country that did not want them there.
+
+And the man on those steps did not say, *"I have a plan."*
+
+He said, *"I have a dream."*
+
+That is the difference the whole book is about. A plan is a WHAT. A dream is a WHY.
+
+Nobody travelled three days on a bus for a fourteen-point policy document. They travelled for a belief — and they came not because they believed *in him*, but because they believed *what he believed*.
+
+Here is the uncomfortable question this book leaves you with, and it's the reason your teachers wanted you to read it:
+
+Most people can tell you *what* they want to become. Doctor. Engineer. CA. Rich.
+Very few can tell you *why*.
+
+And when the exams get hard, when the third attempt fails, when your friends move ahead of you — the *what* will not hold you up.
+
+Only the *why* will.`,
+      },
+      {
+        title: "Your Own Why",
+        text: `We've reached the last episode. So let's turn the book on you.
+
+Take two minutes tonight — actually two minutes, not tomorrow — and finish this sentence honestly:
+
+*"I am studying for this exam because…"*
+
+If your answer ends at "…because I want a good job" or "…because my parents want it," you have a WHAT. It will work on the easy days.
+
+Keep asking *why* to your own answer. Three times. Most people hit something real on the third:
+
+— Why a good job?
+— Why does that matter to you?
+— And why does *that* matter?
+
+Somewhere down there is a sentence that sounds like a belief, not a target. That's your centre. Write it on the first page of your notebook, where you'll see it in March when you're tired.
+
+The Wright brothers weren't smarter than Langley. They weren't richer, better connected, or better equipped.
+
+They just knew why they were doing it.
+
+*— The end. Reply your WHY and Sharma Sir will read it.* ✍️`,
+      },
+    ],
+  },
+  2: {
+    slug: "atomic-habits", title: "Atomic Habits", author: "James Clear", emoji: "⚛️",
+    episodes: [
+      {
+        title: "The 1% Coach",
+        text: `For 110 years, British cyclists had been so bad that one European bike manufacturer refused to sell them bicycles. It was embarrassing for the brand.
+
+Then in 2003 they hired a new performance director named Dave Brailsford.
+
+He didn't promise medals. He promised something that sounded almost silly: he would improve everything by *one percent*.
+
+Lighter tyres. Better massage gel. Teaching riders how to wash their hands so they caught fewer colds. He tested which pillow helped riders sleep best — and then carried that pillow to every hotel.
+
+One percent, one percent, one percent.
+
+Five years later, at the Beijing Olympics, British cycling won 60% of the gold medals available. Four years after that, they broke nine Olympic records.
+
+Here's the mathematics that changed everything, and it's the whole book in one line:
+
+Get 1% better every day for a year, and you end up *37 times* better.
+Get 1% worse every day, and you end up close to zero.
+
+Nothing dramatic happens on any single day. That's exactly why it works — and exactly why almost nobody does it.
+
+*Reply Continue for Episode 2 → "The Plateau of Disappointment"*`,
+      },
+    ],
+  },
+  3: {
+    slug: "wings-of-fire", title: "Wings of Fire", author: "A.P.J. Abdul Kalam", emoji: "🚀",
+    episodes: [
+      {
+        title: "The Newspaper Boy of Rameswaram",
+        text: `Before he was the President of India, before the rockets and the missiles, he was a small boy running through the narrow streets of Rameswaram at five in the morning, throwing newspapers onto doorsteps.
+
+The war had come. Trains no longer stopped at Rameswaram station. So the bundles of newspapers were thrown from the moving train, and someone had to catch them and run.
+
+That someone was Abdul.
+
+His family was not poor in spirit but they were poor in money — a boat-owning family that had lost its boat to a storm. His elder brother needed help. So a schoolboy woke before dawn, delivered papers, then went to class.
+
+Years later he would write that those mornings taught him something no classroom could: that self-respect comes from earning, however little, and that discipline is simply doing the thing when nobody is watching.
+
+The boy who caught newspapers from a moving train would one day be called the Missile Man of India.
+
+*Reply Continue for Episode 2 → "The Teacher Who Drew a Bird"*`,
+      },
+    ],
+  },
+  4: {
+    slug: "psychology-of-money", title: "The Psychology of Money", author: "Morgan Housel", emoji: "💰",
+    episodes: [
+      {
+        title: "The Janitor and the Executive",
+        text: `Ronald Read swept floors at a petrol pump and worked as a janitor at a department store. He wore a coat held together with safety pins. He was known in his small town for cutting his own firewood well into his nineties.
+
+When he died in 2014, he left behind eight million dollars.
+
+That same year, a Merrill Lynch executive — Harvard-educated, six-figure salary, big house, big everything — declared bankruptcy.
+
+One man had no education and no income to speak of. The other had every advantage available to a human being.
+
+Here's the point of the whole book: finance is the one field where a janitor can beat a Harvard MBA. Nobody untrained can perform heart surgery or build a bridge. But anyone can outperform a financial expert — by simply saving patiently and not touching it.
+
+Because doing well with money has very little to do with how smart you are. It has almost everything to do with *how you behave*.
+
+*Reply Continue for Episode 2 → "Luck and Risk"*`,
+      },
+    ],
+  },
+};
+
+let books = [
+  { id: 1, readers: 41, done: 71, sentEp: 2 },
+  { id: 2, readers: 38, done: 64, sentEp: 1 },
+  { id: 3, readers: 43, done: 83, sentEp: 1 },
+  { id: 4, readers: 29, done: 58, sentEp: 1 },
+];
+
+let currentBook = 1, currentEp = 0;   // what the student is reading in chat
+let reflections = 126, nextBookId = 5;
+
+/* ------------------------------------------------------------------ */
+/*  Library rendering                                                 */
+/* ------------------------------------------------------------------ */
+function renderBooks(activeId) {
+  document.getElementById("bookList").innerHTML = books.map(b => {
+    const bk = BOOKS[b.id];
+    return `
+      <div class="book ${b.id === activeId ? "active" : ""}" id="book-${b.id}">
+        <div class="book-cover">${bk.emoji}</div>
+        <div class="book-meta">
+          <div class="book-title">${bk.title}</div>
+          <div class="book-author">${bk.author} · ${bk.episodes.length}-episode series</div>
+          <div class="book-prog">
+            <div class="prog-bar"><div class="prog-fill" style="width:${b.done}%"></div></div>
+            <span class="prog-text">${b.readers} reading · ${b.done}% finish</span>
+          </div>
+        </div>
+        <button class="send-btn" onclick="sendEpisodeFromLibrary(${b.id})">🌙 Send Ep ${b.sentEp}</button>
+      </div>`;
+  }).join("");
+  document.getElementById("statBooks").textContent = books.length;
+  document.getElementById("statReflect").textContent = reflections;
+  if (activeId) setTimeout(() => renderBooks(null), 3000);
+}
+
+function logFeed(icon, html, tag, tagClass) {
+  const feed = document.getElementById("feed");
+  const el = document.createElement("div");
+  el.className = "feed-item";
+  el.innerHTML = `<span>${icon}</span><span>${html}</span><span class="fi-tag ${tagClass}">${tag}</span>`;
+  feed.prepend(el);
+  while (feed.children.length > 6) feed.removeChild(feed.lastChild);
+}
+
+function createBook() {
+  const input = document.getElementById("bookInput");
+  const name = input.value.trim();
+  if (!name) { toast("Type a book name first 🙂", "amber"); return; }
+  input.value = "";
+  toast(`✨ AI is reading "${name}" and writing a 5-episode story series…`, "amber");
+  setTimeout(() => {
+    const id = nextBookId++;
+    BOOKS[id] = {
+      slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      title: name, author: "AI story series", emoji: "📗",
+      episodes: [{
+        title: "Episode 1",
+        text: `Your 5-episode story version of *${name}* is ready.\n\nIn the live product this is written by the AI in sir's own teaching voice — a narrative opening, a cliffhanger at the end of every episode, and a reflection question in the last one.\n\n_(This demo ships full written series for Start With Why, Atomic Habits, Wings of Fire and The Psychology of Money — try those to read the real thing.)_`,
+      }],
+    };
+    books.push({ id, readers: 0, done: 0, sentEp: 1 });
+    renderBooks(id);
+    logFeed("✨", `<b>Sharma Sir</b> generated a story series from "${name}" — 5 episodes ready`, "NEW BOOK", "new");
+    toast(`✅ "${name}" added to the library — schedule it for 9 PM tonight.`, "green");
+  }, 1400);
+}
+
+function sendEpisodeFromLibrary(bookId) {
+  const b = books.find(x => x.id === bookId);
+  const bk = BOOKS[bookId];
+  const epIdx = Math.min(b.sentEp - 1, bk.episodes.length - 1);
+  currentBook = bookId; currentEp = epIdx;
+  renderBooks(bookId);
+  pushEpisode(bookId, epIdx, `🌙 *Tonight's episode is here!*\n\n`);
+  logFeed("📤", `<b>Sharma Sir</b> sent <b>${bk.title}</b> Ep ${epIdx + 1} to Batch 12-B (43 students)`, "SENT", "read");
+  toast(`🌙 ${bk.title} — Episode ${epIdx + 1} delivered to 43 students`, "purple");
+  if (b.sentEp < bk.episodes.length) b.sentEp++;
+}
+
+function sendTonight() { sendEpisodeFromLibrary(1); }
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+
+function nowTime() {
+  return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>")
+    .replace(/\{\{READ:(\d+):(\d+)\}\}/g, (m, b, e) => {
+      const bk = BOOKS[b];
+      return `<span class="linktext" onclick="openReader(${b},${e})">selly.app/story/${bk.slug}/ep${+e + 1}</span>`;
+    });
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement("div");
+  div.className = "msg " + dir;
+  const ticks = dir === "out" ? `<span class="ticks">✓✓</span>` : "";
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t = div.querySelector(".ticks"); if (t) t.classList.add("read"); }, 1200);
+}
+
+function botPush(text) {
+  const status = document.getElementById("waStatus");
+  status.textContent = "typing…";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = "online";
+    addMsg(text, "in");
+  }, 1000 + Math.random()*500);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g, "\\'")}')">${c}</button>`).join("");
+}
+
+function sendUser() {
+  const input = document.getElementById("waText");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Episode delivery                                                  */
+/* ------------------------------------------------------------------ */
+function pushEpisode(bookId, epIdx, prefix) {
+  const bk = BOOKS[bookId];
+  const ep = bk.episodes[epIdx];
+  const last = epIdx >= bk.episodes.length - 1;
+  currentBook = bookId; currentEp = epIdx;
+
+  botPush(
+    (prefix || "") +
+    `📖 *${bk.title}* — Episode ${epIdx + 1} of ${bk.episodes.length}\n` +
+    `*${ep.title}*\n` +
+    `_${bk.author} · retold as a story · 3 min read_\n\n` +
+    `${ep.text}\n\n` +
+    `📱 Illustrated version: {{READ:${bookId}:${epIdx}}}`
+  );
+
+  setChips(last
+    ? ["My why is…", "📚 Next book", "Hindi mein sunao"]
+    : ["Continue →", "📖 Read illustrated", "Hindi mein sunao"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Story reader                                                      */
+/* ------------------------------------------------------------------ */
+let rdBook = 1, rdEp = 0;
+
+function openReader(bookId, epIdx) {
+  rdBook = +bookId; rdEp = +epIdx;
+  paintReader();
+  document.getElementById("rdOverlay").classList.add("open");
+  logFeed("📱", `<b>You</b> opened the illustrated episode in the browser`, "READER", "read");
+}
+function closeReader() { document.getElementById("rdOverlay").classList.remove("open"); }
+function paintReader() {
+  const bk = BOOKS[rdBook], ep = bk.episodes[rdEp];
+  document.getElementById("rdUrl").textContent   = `🔒 selly.app/story/${bk.slug}/ep${rdEp + 1}`;
+  document.getElementById("rdBook").textContent  = `${bk.title} · ${bk.author}`;
+  document.getElementById("rdTitle").textContent = ep.title;
+  document.getElementById("rdEp").textContent    = `Episode ${rdEp + 1} of ${bk.episodes.length} · retold by Classpe`;
+  document.getElementById("rdText").innerHTML    = fmt(ep.text);
+  document.getElementById("rdDots").innerHTML    =
+    bk.episodes.map((_, i) => `<span class="rd-dot ${i === rdEp ? "on" : ""}"></span>`).join("");
+  document.getElementById("rdPage").scrollTop = 0;
+}
+function readerNext() { rdEp = (rdEp + 1) % BOOKS[rdBook].episodes.length; paintReader(); }
+function readerPrev() { const n = BOOKS[rdBook].episodes.length; rdEp = (rdEp - 1 + n) % n; paintReader(); }
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain                                                         */
+/* ------------------------------------------------------------------ */
+function botReply(text) {
+  const t = text.toLowerCase().trim();
+  const bk = BOOKS[currentBook];
+
+  /* --- Hindi retelling --- */
+  if (/hindi|हिंदी|sunao/.test(t)) {
+    logFeed("🇮🇳", `<b>Riya</b> switched tonight's episode to Hindi`, "HINDI", "hindi");
+    botPush(
+      `📖 *स्टार्ट विद व्हाय* — कहानी, हिंदी में\n` +
+      `*जो जीतना चाहिए था, वो हारा*\n\n` +
+      `1903 की बात है। अगर आपसे पूछा जाता कि दुनिया का पहला उड़ने वाला यंत्र कौन बनाएगा, तो हर कोई एक ही नाम लेता — सैमुअल लैंगली।\n\n` +
+      `उसके पास सब कुछ था। सरकार से पचास हज़ार डॉलर। स्मिथसोनियन जैसी संस्था। देश के सबसे तेज़ दिमाग़, जिन्हें वो पैसे देकर लाया था। अख़बार उसकी हर हरकत छापते थे।\n\n` +
+      `और छह सौ मील दूर, डेटन शहर की एक छोटी-सी साइकिल की दुकान में, दो भाई वही चीज़ बना रहे थे।\n\n` +
+      `न पैसा। न डिग्री। उनकी पूरी टीम में एक भी आदमी कॉलेज नहीं गया था। साइकिल ठीक करके जो कमाते, उसी से प्रयोग करते।\n\n` +
+      `17 दिसंबर 1903 को इन दोनों में से एक टीम ने उड़ान भरी।\n\n` +
+      `आप जानते हैं कौन-सी।\n\n` +
+      `सवाल ये है — *ऐसा क्यों हुआ?*\n\n` +
+      `_अगला भाग सुनने के लिए *Continue* भेजें_`
+    );
+    setChips(["Continue →", "English please", "📖 Read illustrated"]);
+    return;
+  }
+
+  if (/english/.test(t)) {
+    pushEpisode(currentBook, currentEp, "");
+    return;
+  }
+
+  /* --- continue to next episode --- */
+  if (/continue|next ep|aage|आगे/.test(t) && !/next book/.test(t)) {
+    const nextIdx = currentEp + 1;
+    if (nextIdx >= bk.episodes.length) {
+      botPush(`🎉 You've finished *${bk.title}* — all ${bk.episodes.length} episodes!\n\nThat's a whole book, read in ${bk.episodes.length} nights, without once feeling like homework.\n\n_Reply *next book* to start a new series._`);
+      setChips(["📚 Next book", "My why is…"]);
+      return;
+    }
+    logFeed("📖", `<b>You</b> continued to <b>${bk.title}</b> Ep ${nextIdx + 1} straight away`, "BINGED", "read");
+    pushEpisode(currentBook, nextIdx, "");
+    return;
+  }
+
+  /* --- illustrated version --- */
+  if (/illustrated|read|📖/.test(t) && !/hindi/.test(t)) {
+    botPush(`📱 Here's tonight's episode as a full-screen read:\n\n{{READ:${currentBook}:${currentEp}}}\n\n_Works in any browser — no app, no login._`);
+    setChips(["Continue →", "Hindi mein sunao"]);
+    return;
+  }
+
+  /* --- next book / library --- */
+  if (/next book|library|another book|books/.test(t)) {
+    botPush(
+      `📚 *Classpe Story Library*\n\n` +
+      books.map(b => `${BOOKS[b.id].emoji} *${BOOKS[b.id].title}* — ${BOOKS[b.id].author}`).join("\n") +
+      `\n\nReply with any title to start that series tonight.`
+    );
+    setChips(["Atomic Habits", "Wings of Fire", "The Psychology of Money"]);
+    return;
+  }
+
+  /* --- pick a book by name --- */
+  const picked = books.find(b => {
+    const title = BOOKS[b.id].title.toLowerCase();
+    return t.includes(title) || title.split(" ").filter(w => w.length > 4).some(w => t.includes(w));
+  });
+  if (picked) {
+    logFeed("📖", `<b>You</b> started <b>${BOOKS[picked.id].title}</b> — Episode 1`, "STARTED", "read");
+    pushEpisode(picked.id, 0, "");
+    return;
+  }
+
+  /* --- reflection --- */
+  if (/my why|because|i want|i believe/.test(t)) {
+    reflections++;
+    renderBooks(null);
+    logFeed("✍️", `<b>You</b> wrote a reflection — sir can read it on the dashboard`, "REFLECTION", "reflect");
+    botPush(
+      `✍️ Beautiful — that's saved for Sharma Sir to read.\n\n` +
+      `Most students write a *what*. You wrote something closer to a *why*. Keep it somewhere you'll see it in March, when the syllabus feels heavy.\n\n` +
+      `_Tomorrow 9 PM: a new book begins._ 🌙`
+    );
+    setChips(["📚 Next book"]);
+    return;
+  }
+
+  /* --- greeting --- */
+  if (/\b(hi|hello|hey|namaste|start)\b/.test(t)) {
+    botPush(
+      `🌙 Welcome to *Classpe Stories*!\n\n` +
+      `Every night at 9 PM, one great book — retold as a 3-minute story. No summaries, no notes. Just a story you'll actually want to finish.\n\n` +
+      `Tonight we begin *Start With Why* by Simon Sinek.\n\n` +
+      `Ready?`
+    );
+    setChips(["Start With Why", "📚 See library", "Hindi mein sunao"]);
+    return;
+  }
+
+  if (/\b(thank|thanks|nice|great|wow|amazing)\b/.test(t)) {
+    botPush(`Glad you liked it 🙂 Same time tomorrow — 9 PM, next episode. 🌙`);
+    setChips(["Continue →", "📚 Next book"]);
+    return;
+  }
+
+  botPush(
+    `🤖 You can:\n\n` +
+    `📖 Reply *Continue* for the next episode\n` +
+    `📚 Type *library* to pick another book\n` +
+    `🇮🇳 Type *Hindi* to hear it in Hindi\n` +
+    `✍️ Or just write your thoughts — sir reads every reflection`
+  );
+  setChips(["Continue →", "📚 See library", "Hindi mein sunao"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderBooks(null);
+setChips(["Start With Why", "📚 See library", "Hindi mein sunao"]);
+setTimeout(() => botPush(
+  `🌙 *It's 9 PM — story time.*\n\n` +
+  `Students never finish famous books. So we don't send summaries — we send *stories*, one 3-minute episode a night, with a cliffhanger at the end.\n\n` +
+  `Tonight: *Start With Why* by Simon Sinek — the story of two men racing to build the first aeroplane.\n\n` +
+  `Tap below to begin 👇`
+), 700);
+</script>
