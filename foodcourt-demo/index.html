@@ -146,6 +146,7 @@
   .ticks.read { color: #53bdeb; }
   .msg b { font-weight: 600; }
   .msg i { color: #556; }
+  .linktext { color: #027eb5; text-decoration: underline; cursor: pointer; font-weight: 600; }
 
   .typing {
     align-self: flex-start;
@@ -268,8 +269,9 @@
   }
   .stat .v { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .stat .l { font-size: 10.5px; color: #94a3b8; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
-  .stat .v.green { color: #4ade80; }
-  .stat .v.amber { color: #fbbf24; }
+  .stat .v.green  { color: #4ade80; }
+  .stat .v.amber  { color: #fbbf24; }
+  .stat .v.purple { color: #c4b5fd; }
 
   .kd-grid {
     flex: 1;
@@ -343,6 +345,192 @@
     flex-shrink: 0;
   }
 
+  /* ---------- Game arcade (simulated browser) ---------- */
+  #gameOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  #gameOverlay.open { display: flex; }
+  .browser {
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.45);
+    animation: pop .25s ease-out;
+    display: flex;
+    flex-direction: column;
+  }
+  .br-bar {
+    background: #f1f3f4;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .br-dots { display: flex; gap: 5px; }
+  .br-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .br-url {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    font-size: 11.5px;
+    color: #374151;
+    padding: 5px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .br-close {
+    border: none; background: none;
+    font-size: 17px; color: #6b7280;
+    cursor: pointer; padding: 2px 6px;
+    font-family: inherit;
+  }
+  .gm-page {
+    background: linear-gradient(165deg, #1e1b4b, #4c1d95 65%, #7c2d12);
+    color: #fff;
+    padding: 18px 20px 22px 20px;
+    overflow-y: auto;
+    text-align: center;
+  }
+  .gm-ready {
+    background: #16a34a;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .gm-ready.show { display: block; animation: pop .3s ease-out; }
+  .gm-title { font-size: 17px; font-weight: 800; }
+  .gm-sub   { font-size: 11.5px; color: #c4b5fd; margin-top: 3px; }
+  .gm-hud {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 14px 0 12px 0;
+    flex-wrap: wrap;
+  }
+  .hud {
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 9px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .hud b { font-size: 14px; }
+
+  .gm-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 9px;
+    max-width: 330px;
+    margin: 0 auto;
+  }
+  .gm-card {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    background: rgba(255,255,255,.12);
+    border: 2px solid rgba(255,255,255,.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .15s, background .2s, border-color .2s;
+  }
+  .gm-card:hover { transform: translateY(-2px); }
+  .gm-card.open  { background: #fff; border-color: #fff; }
+  .gm-card.done  { background: #16a34a; border-color: #4ade80; cursor: default; }
+  .gm-card .back { opacity: .35; font-size: 20px; }
+
+  /* Quiz */
+  .qz-q { font-size: 15px; font-weight: 700; margin: 14px auto 12px auto; max-width: 320px; line-height: 1.45; }
+  .qz-opts { display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto; }
+  .qz-opt {
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.22);
+    color: #fff;
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 13.5px;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    transition: background .15s;
+  }
+  .qz-opt:hover { background: rgba(255,255,255,.2); }
+  .qz-opt.right { background: #16a34a; border-color: #4ade80; }
+  .qz-opt.wrong { background: #b91c1c; border-color: #f87171; }
+
+  /* Coupon reveal */
+  .coupon {
+    background: #fff;
+    color: #111827;
+    border-radius: 14px;
+    padding: 18px;
+    max-width: 320px;
+    margin: 6px auto 0 auto;
+    animation: pop .3s ease-out;
+  }
+  .cp-win  { font-size: 15px; font-weight: 800; color: #16a34a; }
+  .cp-text { font-size: 12.5px; color: #4b5563; margin-top: 5px; line-height: 1.5; }
+  .cp-code {
+    border: 2px dashed #d97706;
+    background: #fffbeb;
+    color: #92400e;
+    border-radius: 10px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    padding: 11px;
+    margin: 12px 0;
+  }
+  .cp-btn {
+    width: 100%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    padding: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cp-btn:hover { filter: brightness(1.08); }
+  .cp-rank { font-size: 11.5px; color: #6b7280; margin-top: 9px; }
+
+  .gm-switch { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+  .gm-switch button {
+    border: 1px solid rgba(255,255,255,.3);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .gm-switch button:hover { background: rgba(255,255,255,.18); }
+  .gm-tip { font-size: 10.5px; color: #a78bfa; margin-top: 12px; }
+
   /* ---------- Toast ---------- */
   #toasts {
     position: fixed;
@@ -351,7 +539,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    z-index: 50;
+    z-index: 120;
   }
   .toast {
     background: #1f2937;
@@ -385,7 +573,7 @@
 <div class="demo-bar">
   <div>
     <h1>🍜 Rollz N Bowlz — WhatsApp Buzzer by Selly</h1>
-    <div class="sub">Food court demo · Customer scans QR after paying → sends token → kitchen taps when ready → WhatsApp pings the customer. POS untouched, no buzzers.</div>
+    <div class="sub">Food court demo · Customer scans QR after paying → sends token → plays a game while the food cooks → kitchen taps when ready → WhatsApp pings them. Win the game, win a coupon for tomorrow. POS untouched, no buzzers.</div>
   </div>
   <div class="spacer"></div>
   <button class="bar-btn btn-pos" onclick="newWalkIn()">🧾 New walk-in order (POS billing)</button>
@@ -408,11 +596,7 @@
       <div class="wa-chat" id="chat">
         <div class="day-chip">Today</div>
       </div>
-      <div class="chips">
-        <button class="chip" onclick="quickSend('Token 47')">🎫 Token 47</button>
-        <button class="chip" onclick="quickSend('Menu')">Menu</button>
-        <button class="chip" onclick="quickSend('Pre-order 2 Veg Rolls')">Pre-order 2 Veg Rolls</button>
-      </div>
+      <div class="chips" id="chips"></div>
       <div class="wa-input">
         <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
         <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
@@ -435,14 +619,42 @@
       <div class="stat"><div class="v amber" id="statActive">0</div><div class="l">Active orders</div></div>
       <div class="stat"><div class="v green" id="statLinked">0</div><div class="l">On WhatsApp</div></div>
       <div class="stat"><div class="v" id="statServed">132</div><div class="l">Served today</div></div>
+      <div class="stat"><div class="v purple" id="statPlaying">0</div><div class="l">Playing now</div></div>
+      <div class="stat"><div class="v amber" id="statCoupons">47 / 31</div><div class="l">Coupons won / used</div></div>
       <div class="stat"><div class="v green" id="statCrm">1,847</div><div class="l">Customers captured</div></div>
     </div>
 
     <div class="kd-grid" id="grid"></div>
 
-    <div class="kd-hint">💡 Tap a token once when the food is ready — the customer gets a WhatsApp ping instantly (free — no buzzer hardware). Tap again when collected.</div>
+    <div class="kd-hint">💡 Tap a token once when the food is ready — the customer gets a WhatsApp ping instantly (free — no buzzer hardware). Tap again when collected. Customers waiting play games and win coupons redeemable on their <b>next</b> visit.</div>
   </div>
 
+</div>
+
+<!-- Game arcade — opens from the WhatsApp link while the food cooks -->
+<div id="gameOverlay" onclick="if(event.target===this)closeGame()">
+  <div class="browser">
+    <div class="br-bar">
+      <div class="br-dots">
+        <span class="br-dot" style="background:#f87171"></span>
+        <span class="br-dot" style="background:#fbbf24"></span>
+        <span class="br-dot" style="background:#34d399"></span>
+      </div>
+      <div class="br-url">🔒 selly.app/play/rollznbowlz</div>
+      <button class="br-close" onclick="closeGame()" aria-label="Close">✕</button>
+    </div>
+    <div class="gm-page">
+      <div class="gm-ready" id="gmReady">🔔 Your order is ready — collect from Counter 3!</div>
+      <div class="gm-title" id="gmTitle">🎮 Match the Menu</div>
+      <div class="gm-sub" id="gmSub">Find all 4 pairs before your food arrives</div>
+      <div id="gmBody"></div>
+      <div class="gm-switch">
+        <button onclick="startMemory()">🃏 Match the Menu</button>
+        <button onclick="startQuiz()">🧠 Food Quiz</button>
+      </div>
+      <div class="gm-tip">Runs in any browser · no app install · closes when your order is ready</div>
+    </div>
+  </div>
 </div>
 
 <div id="toasts"></div>
@@ -473,6 +685,9 @@ let crm = 1847;
 
 const WALKIN_ITEMS = ["Chole Bhature ×2", "Veg Roll, Noodle Bowl", "Chicken Roll ×3", "Paneer Roll, Lassi", "Noodle Bowl ×2, Cold Coffee"];
 let walkinIdx = 0;
+
+/* games / coupons */
+let playingNow = 0, couponsWon = 47, couponsUsed = 31, myCoupon = null;
 
 /* ------------------------------------------------------------------ */
 /*  Kitchen board                                                     */
@@ -508,6 +723,8 @@ function renderBoard() {
   document.getElementById("statActive").textContent = tokens.length;
   document.getElementById("statLinked").textContent = tokens.filter(t => t.linked).length;
   document.getElementById("statServed").textContent = served;
+  document.getElementById("statPlaying").textContent = playingNow;
+  document.getElementById("statCoupons").textContent = `${couponsWon} / ${couponsUsed}`;
   document.getElementById("statCrm").textContent = crm.toLocaleString("en-IN");
 }
 setInterval(renderBoard, 20000);   // keep elapsed times fresh
@@ -520,6 +737,13 @@ function tapToken(no) {
     t.state = "ready";
     renderBoard();
     if (t.linked) {
+      // if they're mid-game, interrupt the game too
+      const ov = document.getElementById("gameOverlay");
+      if (ov.classList.contains("open")) {
+        const r = document.getElementById("gmReady");
+        r.textContent = `🔔 Order #${t.no} is ready — collect from Counter 3!`;
+        r.classList.add("show");
+      }
       botPush(
         `🔔 *Order #${t.no} is READY!*\n\n` +
         `Please collect from *Rollz N Bowlz* — Counter 3.\n` +
@@ -578,7 +802,13 @@ function fmt(text) {
   return text
     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
     .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
-    .replace(/_([^_\n]+)_/g, "<i>$1</i>");
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>")
+    .replace(/\{\{PLAY\}\}/g, `<span class="linktext" onclick="openGame()">https://selly.app/play/rollznbowlz</span>`);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g, "\\'")}')">${c}</button>`).join("");
 }
 
 function addMsg(text, dir) {
@@ -668,9 +898,32 @@ function botReply(text) {
     botPush(
       `🎫 Got it! Token *#${no}* — ${tok.items}\n\n` +
       `No need to wait at the counter. Grab a seat, and I'll message you the *moment* your order is ready 🔔\n\n` +
-      `_Meanwhile, type *menu* to see today's specials._`
+      `🎮 *Bored while you wait?* Play a quick game — win and you get *₹30 off your next visit*:\n{{PLAY}}`
     );
+    setChips(["🎮 Play & win", "Menu", "Pre-order 2 Veg Rolls"]);
     toast(`💬 Token #${no} linked to WhatsApp — buzzer replaced`, "green");
+    return;
+  }
+
+  /* --- games --- */
+  if (/play|game|bored|khel|time pass|timepass/.test(t)) {
+    botPush(
+      `🎮 *Rollz N Bowlz Arcade*\n\n` +
+      `Two quick games while your food cooks:\n` +
+      `🃏 *Match the Menu* — find 4 pairs\n` +
+      `🧠 *Food Quiz* — 3 questions\n\n` +
+      `Win either one and you get *₹30 off your next visit* 🎁\n\n` +
+      `Tap to play (opens in your browser):\n{{PLAY}}`
+    );
+    setChips(["Menu", "Token 47", "Pre-order 2 Veg Rolls"]);
+    return;
+  }
+
+  /* --- coupon status --- */
+  if (/coupon|discount|offer code/.test(t)) {
+    botPush(myCoupon
+      ? `🎁 Your coupon is *${myCoupon}* — ₹30 off your next order, valid 7 days.\n\nJust show this message at the counter 🍜`
+      : `🎁 No coupon yet! Win a game while you wait and you'll get *₹30 off your next visit*:\n{{PLAY}}`);
     return;
   }
 
@@ -690,9 +943,11 @@ function botReply(text) {
     botPush(
       `👋 Welcome to *Rollz N Bowlz*!\n\n` +
       `🎫 Paid at the counter? Send your *token number* and I'll ping you when your food is ready — no waiting around.\n` +
+      `🎮 Type *play* for a game while you wait — winners get ₹30 off their next visit\n` +
       `📋 Type *menu* for today's items\n` +
       `🛵 Type *pre-order <item>* to skip the queue entirely`
     );
+    setChips(["🎫 Token 47", "🎮 Play & win", "Menu"]);
     return;
   }
 
@@ -711,9 +966,11 @@ function botReply(text) {
   botPush(
     `🤖 I didn't catch that. You can:\n\n` +
     `🎫 Send your *token number* (it's on your receipt)\n` +
+    `🎮 Type *play* to win ₹30 off your next visit\n` +
     `📋 Type *menu*\n` +
     `🛵 Type *pre-order <item>*`
   );
+  setChips(["🎫 Token 47", "🎮 Play & win", "Menu"]);
 }
 
 function createPreOrder(itemsText, total) {
@@ -732,6 +989,161 @@ function createPreOrder(itemsText, total) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Games — played in the browser while the food cooks                */
+/* ------------------------------------------------------------------ */
+const GM_EMOJIS = ["🌯", "🍜", "☕", "🍛"];
+let gmCards = [], gmOpen = [], gmDone = [], gmMoves = 0, gmSec = 0, gmTimer = null, gmLock = false;
+
+function openGame() {
+  document.getElementById("gameOverlay").classList.add("open");
+  document.getElementById("gmReady").classList.remove("show");
+  playingNow++;
+  renderBoard();
+  toast(`🎮 Customer started playing while their order cooks — no more staring at the counter`, "purple");
+  startMemory();
+}
+
+function closeGame() {
+  document.getElementById("gameOverlay").classList.remove("open");
+  clearInterval(gmTimer);
+  if (playingNow > 0) playingNow--;
+  renderBoard();
+}
+
+/* --- Game 1: Match the Menu (memory pairs) --- */
+function startMemory() {
+  document.getElementById("gmTitle").textContent = "🃏 Match the Menu";
+  document.getElementById("gmSub").textContent   = "Find all 4 pairs before your food arrives";
+  gmCards = [...GM_EMOJIS, ...GM_EMOJIS].sort(() => Math.random() - 0.5);
+  gmOpen = []; gmDone = []; gmMoves = 0; gmSec = 0; gmLock = false;
+  paintMemory();
+  clearInterval(gmTimer);
+  gmTimer = setInterval(() => {
+    gmSec++;
+    const e = document.getElementById("gmSec");
+    if (e) e.textContent = gmSec;
+  }, 1000);
+}
+
+function paintMemory() {
+  document.getElementById("gmBody").innerHTML =
+    `<div class="gm-hud">
+       <span class="hud">⏱ <b id="gmSec">${gmSec}</b>s</span>
+       <span class="hud">Moves <b>${gmMoves}</b></span>
+       <span class="hud">Pairs <b>${gmDone.length / 2}</b>/4</span>
+     </div>
+     <div class="gm-grid">` +
+    gmCards.map((c, i) => {
+      const shown = gmOpen.includes(i) || gmDone.includes(i);
+      const cls = gmDone.includes(i) ? "done" : shown ? "open" : "";
+      return `<div class="gm-card ${cls}" onclick="gmTap(${i})">${shown ? c : '<span class="back">🍽</span>'}</div>`;
+    }).join("") +
+    `</div>`;
+}
+
+function gmTap(i) {
+  if (gmLock || gmOpen.includes(i) || gmDone.includes(i)) return;
+  gmOpen.push(i);
+  paintMemory();
+  if (gmOpen.length < 2) return;
+  gmMoves++;
+  const [a, b] = gmOpen;
+  if (gmCards[a] === gmCards[b]) {
+    gmDone.push(a, b);
+    gmOpen = [];
+    paintMemory();
+    if (gmDone.length === gmCards.length) winGame(`solved it in ${gmSec}s with ${gmMoves} moves`);
+  } else {
+    gmLock = true;
+    paintMemory();
+    setTimeout(() => { gmOpen = []; gmLock = false; paintMemory(); }, 700);
+  }
+}
+
+/* --- Game 2: Food Quiz --- */
+const QUIZ = [
+  { q: "Which item on our menu costs ₹110?", opts: ["Chole Bhature", "Chicken Roll", "Noodle Bowl"], right: 0 },
+  { q: "What comes free with any 2 rolls today?", opts: ["Extra chutney", "A cold coffee", "Nothing"], right: 1 },
+  { q: "Which counter do you collect your order from?", opts: ["Counter 1", "Counter 5", "Counter 3"], right: 2 },
+];
+let qzIdx = 0, qzScore = 0;
+
+function startQuiz() {
+  document.getElementById("gmTitle").textContent = "🧠 Food Quiz";
+  document.getElementById("gmSub").textContent   = "3 quick questions — get 2 right to win a coupon";
+  qzIdx = 0; qzScore = 0;
+  clearInterval(gmTimer);
+  paintQuiz();
+}
+
+function paintQuiz() {
+  const q = QUIZ[qzIdx];
+  document.getElementById("gmBody").innerHTML =
+    `<div class="gm-hud">
+       <span class="hud">Q <b>${qzIdx + 1}</b>/3</span>
+       <span class="hud">Score <b>${qzScore}</b></span>
+     </div>
+     <div class="qz-q">${q.q}</div>
+     <div class="qz-opts">` +
+    q.opts.map((o, i) => `<button class="qz-opt" id="qz-${i}" onclick="qzPick(${i})">${o}</button>`).join("") +
+    `</div>`;
+}
+
+function qzPick(i) {
+  const q = QUIZ[qzIdx];
+  document.querySelectorAll(".qz-opt").forEach(b => b.onclick = null);
+  document.getElementById("qz-" + q.right).classList.add("right");
+  if (i === q.right) qzScore++;
+  else document.getElementById("qz-" + i).classList.add("wrong");
+  setTimeout(() => {
+    qzIdx++;
+    if (qzIdx < QUIZ.length) paintQuiz();
+    else if (qzScore >= 2) winGame(`scored ${qzScore}/3 in the food quiz`);
+    else quizMissed();
+  }, 950);
+}
+
+function quizMissed() {
+  document.getElementById("gmBody").innerHTML =
+    `<div class="coupon">
+       <div class="cp-win" style="color:#d97706">So close — ${qzScore}/3</div>
+       <div class="cp-text">Get 2 right to unlock a coupon. Your food is still cooking, so there's time for one more go.</div>
+       <button class="cp-btn" style="background:#4f46e5" onclick="startQuiz()">Try again</button>
+     </div>`;
+}
+
+/* --- Winning → coupon for the NEXT visit --- */
+function winGame(how) {
+  clearInterval(gmTimer);
+  const code = "PLAY" + (10 + Math.floor(Math.random() * 89));
+  myCoupon = code;
+  couponsWon++;
+  renderBoard();
+  document.getElementById("gmBody").innerHTML =
+    `<div class="coupon">
+       <div class="cp-win">🎉 You won!</div>
+       <div class="cp-text">You ${how}. Here's <b>₹30 off your next visit</b> to Rollz N Bowlz.</div>
+       <div class="cp-code">${code}</div>
+       <button class="cp-btn" onclick="claimCoupon('${code}')">📲 Send coupon to my WhatsApp</button>
+       <div class="cp-rank">🏆 You're #3 on today's food court leaderboard</div>
+     </div>`;
+  toast(`🏆 Game won — coupon <b>${code}</b> issued, redeemable on their next visit`, "purple");
+}
+
+function claimCoupon(code) {
+  closeGame();
+  botPush(
+    `🎁 *Coupon unlocked — nice play!*\n\n` +
+    `Code: *${code}*\n` +
+    `*₹30 off* your next order at Rollz N Bowlz 🍜\n` +
+    `Valid 7 days — just show this message at the counter.\n\n` +
+    `_See you tomorrow!_ 😄`
+  );
+  setChips(["🎮 Play again", "Menu", "Token 47"]);
+  toast(`✅ Coupon on their WhatsApp — that's tomorrow's visit already booked`, "green");
+}
+
+/* ------------------------------------------------------------------ */
 /*  Toasts                                                            */
 /* ------------------------------------------------------------------ */
 function toast(html, color) {
@@ -747,9 +1159,11 @@ function toast(html, color) {
 /*  Boot                                                              */
 /* ------------------------------------------------------------------ */
 renderBoard();
+setChips(["🎫 Token 47", "🎮 Play & win", "Menu", "Pre-order 2 Veg Rolls"]);
 setTimeout(() => botPush(
   `👋 Hi! This is *Rollz N Bowlz* at Phoenix Mall Food Court.\n\n` +
   `Just paid at our counter? Send me your *token number* (on your receipt) and I'll WhatsApp you the moment your order is ready — no standing around, no buzzer 🔔\n\n` +
+  `🎮 And while you wait, play a game — winners get ₹30 off their next visit.\n\n` +
   `Try: *Token 47*`
 ), 700);
 </script>
