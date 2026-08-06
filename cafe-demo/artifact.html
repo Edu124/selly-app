@@ -1,0 +1,1439 @@
+<title>Selly — Cafe Table QR Ordering Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #ede8e2;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .15s;
+    font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-scan { background: #b45309; }
+  .btn-rush { background: #7c3aed; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 84%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+  .linktext { color: #027eb5; text-decoration: underline; cursor: pointer; font-weight: 600; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #b45309; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Cafe dashboard ---------- */
+  .cafe {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #1c1917;
+  }
+  .cf-header {
+    background: #451a03;
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .cf-logo {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: #d97706;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .cf-title { font-size: 15px; font-weight: 700; }
+  .cf-sub   { font-size: 11px; color: #fcd9a8; }
+  .cf-brand { margin-left: auto; font-size: 13px; font-weight: 800; }
+  .cf-brand span { color: #4ade80; }
+
+  .cf-stats {
+    display: flex;
+    gap: 10px;
+    padding: 12px 18px 0 18px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .stat {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 8px 13px;
+    min-width: 106px;
+  }
+  .stat .v { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; color: #1c1917; }
+  .stat .l { font-size: 10px; color: #92400e; letter-spacing: .05em; text-transform: uppercase; margin-top: 2px; }
+  .stat .v.amber  { color: #d97706; }
+  .stat .v.green  { color: #16a34a; }
+  .stat .v.purple { color: #7c3aed; }
+
+  .cf-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .sec-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #78716c;
+    margin-bottom: 8px;
+  }
+
+  /* Floor plan */
+  .floor { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tbl {
+    width: 62px;
+    border-radius: 10px;
+    border: 2px solid #e7e5e4;
+    background: #fafaf9;
+    padding: 8px 4px;
+    text-align: center;
+    transition: all .3s;
+  }
+  .tbl .tn  { font-size: 14px; font-weight: 800; }
+  .tbl .ts  { font-size: 9px; margin-top: 2px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .tbl.free    { color: #a8a29e; }
+  .tbl.seated  { border-color: #60a5fa; background: #eff6ff; color: #1e40af; }
+  .tbl.ordered { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+  .tbl.served  { border-color: #22c55e; background: #f0fdf4; color: #166534; }
+  .tbl.bill    { border-color: #a855f7; background: #faf5ff; color: #6b21a8; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(168,85,247,.5); } 50% { box-shadow: 0 0 0 6px rgba(168,85,247,0); } }
+  .tbl.mine { outline: 2px dashed #d97706; outline-offset: 2px; }
+
+  /* Orders */
+  .order {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    border: 2px solid #fbbf24;
+    border-radius: 12px;
+    padding: 11px 13px;
+    cursor: pointer;
+    transition: transform .12s;
+    animation: pop .2s ease-out;
+    user-select: none;
+  }
+  .order:hover { transform: translateY(-1px); }
+  .order.preparing { border-color: #60a5fa; background: #eff6ff; }
+  .order.served    { border-color: #22c55e; background: #f0fdf4; }
+  .ord-tbl {
+    min-width: 54px;
+    text-align: center;
+    background: #451a03;
+    color: #fff;
+    border-radius: 9px;
+    padding: 7px 4px;
+    flex-shrink: 0;
+  }
+  .ord-tbl .t1 { font-size: 9px; letter-spacing: .1em; opacity: .75; }
+  .ord-tbl .t2 { font-size: 18px; font-weight: 800; line-height: 1.1; }
+  .ord-meta { flex: 1; min-width: 0; }
+  .ord-items { font-size: 12.5px; color: #44403c; line-height: 1.5; }
+  .ord-sum   { font-size: 11px; color: #78716c; margin-top: 3px; }
+  .ord-state { text-align: center; min-width: 84px; }
+  .st-badge {
+    display: inline-block;
+    border-radius: 9px;
+    padding: 3px 9px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+  }
+  .st-badge.new       { background: #fef3c7; color: #92400e; }
+  .st-badge.preparing { background: #dbeafe; color: #1e40af; }
+  .st-badge.served    { background: #dcfce7; color: #166534; }
+  .st-hint { font-size: 9.5px; color: #a8a29e; margin-top: 4px; }
+
+  .empty-note { color: #a8a29e; font-size: 13px; text-align: center; padding: 22px; }
+
+  /* Song queue */
+  .song {
+    display: flex; align-items: center; gap: 9px;
+    background: #faf5ff; border: 1px solid #e9d5ff;
+    border-radius: 9px; padding: 7px 11px; font-size: 12px; color: #4b5563;
+    animation: pop .2s ease-out;
+  }
+  .song b { color: #1c1917; }
+  .song .from { margin-left: auto; font-size: 10px; color: #7c3aed; font-weight: 700; white-space: nowrap; }
+
+  .cf-hint {
+    background: #fffbeb;
+    border-top: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 12px;
+    padding: 8px 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Overlays (browser sim) ---------- */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 25, 23, .6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .overlay.open { display: flex; }
+  .browser {
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.45);
+    animation: pop .25s ease-out;
+    display: flex;
+    flex-direction: column;
+  }
+  .br-bar {
+    background: #f1f3f4;
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+  }
+  .br-dots { display: flex; gap: 5px; }
+  .br-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .br-url {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    font-size: 11.5px;
+    color: #374151;
+    padding: 5px 12px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .br-close {
+    border: none; background: none;
+    font-size: 17px; color: #6b7280;
+    cursor: pointer; padding: 2px 6px; font-family: inherit;
+  }
+
+  /* Menu page */
+  .mn-page { background: #fffdf9; overflow-y: auto; }
+  .mn-head {
+    background: #451a03; color: #fff;
+    padding: 14px 18px;
+    position: sticky; top: 0; z-index: 3;
+  }
+  .mn-name { font-size: 16px; font-weight: 800; }
+  .mn-tbl  { font-size: 11.5px; color: #fcd9a8; margin-top: 2px; }
+  .mn-cats { display: flex; gap: 6px; padding: 11px 14px 4px 14px; flex-wrap: wrap; position: sticky; top: 62px; background: #fffdf9; z-index: 2; }
+  .mn-cat {
+    border: 1px solid #e7e5e4; background: #fff; color: #57534e;
+    border-radius: 16px; font-size: 11.5px; font-weight: 600;
+    padding: 5px 12px; cursor: pointer; font-family: inherit;
+  }
+  .mn-cat.on { background: #451a03; color: #fff; border-color: #451a03; }
+  .mn-list { padding: 8px 14px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .mn-item {
+    display: flex; align-items: center; gap: 11px;
+    background: #fff; border: 1px solid #efece7; border-radius: 11px; padding: 10px 12px;
+  }
+  .mn-emoji { font-size: 22px; }
+  .mn-info { flex: 1; min-width: 0; }
+  .mn-iname { font-size: 13.5px; font-weight: 700; color: #1c1917; }
+  .mn-iprice { font-size: 12px; color: #78716c; margin-top: 1px; }
+  .mn-qty { display: flex; align-items: center; gap: 8px; }
+  .qbtn {
+    width: 27px; height: 27px; border-radius: 8px;
+    border: 1px solid #d97706; background: #fff; color: #b45309;
+    font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .qbtn:hover { background: #fff7ed; }
+  .qbtn.add { background: #d97706; color: #fff; border-color: #d97706; width: auto; padding: 0 12px; font-size: 12px; font-weight: 700; }
+  .qnum { font-size: 13.5px; font-weight: 800; min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .mn-cart {
+    position: sticky; bottom: 0;
+    background: #fff; border-top: 1px solid #efece7;
+    padding: 11px 14px; flex-shrink: 0;
+  }
+  .cart-line { display: flex; align-items: center; font-size: 12.5px; color: #57534e; margin-bottom: 8px; }
+  .cart-line b { color: #1c1917; font-size: 15px; margin-left: auto; }
+  .cart-btn {
+    width: 100%; border: none; background: #16a34a; color: #fff;
+    border-radius: 10px; font-size: 14px; font-weight: 700; padding: 12px;
+    cursor: pointer; font-family: inherit;
+  }
+  .cart-btn:disabled { background: #d6d3d1; cursor: not-allowed; }
+  .cart-btn:not(:disabled):hover { filter: brightness(1.08); }
+
+  /* Entertainment hub */
+  .fun-page {
+    background: linear-gradient(168deg, #1c1917, #451a03 60%, #7c2d12);
+    color: #fff;
+    padding: 16px 18px 20px 18px;
+    overflow-y: auto;
+    text-align: center;
+  }
+  .fun-ready {
+    background: #16a34a; border-radius: 10px; padding: 9px 12px;
+    font-size: 13px; font-weight: 700; margin-bottom: 13px; display: none;
+  }
+  .fun-ready.show { display: block; animation: pop .3s ease-out; }
+  .fun-title { font-size: 16px; font-weight: 800; }
+  .fun-sub { font-size: 11.5px; color: #fcd9a8; margin-top: 3px; }
+  .fun-tabs { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 13px 0; }
+  .fun-tab {
+    border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08);
+    color: #fff; border-radius: 16px; font-size: 11.5px; font-weight: 600;
+    padding: 6px 12px; cursor: pointer; font-family: inherit;
+  }
+  .fun-tab.on { background: #f59e0b; border-color: #f59e0b; color: #1c1917; font-weight: 800; }
+  .fun-tab:hover:not(.on) { background: rgba(255,255,255,.18); }
+  .fun-body { min-height: 240px; }
+
+  .hudrow { display: flex; justify-content: center; gap: 9px; margin-bottom: 12px; flex-wrap: wrap; }
+  .hud {
+    background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 9px; padding: 5px 12px; font-size: 12px; font-variant-numeric: tabular-nums;
+  }
+  .hud b { font-size: 14px; }
+
+  /* wheel */
+  .wheel-wrap { position: relative; width: 200px; height: 200px; margin: 4px auto 14px auto; }
+  .wheel-pin {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    font-size: 20px; color: #fff; z-index: 3; text-shadow: 0 2px 4px rgba(0,0,0,.5);
+  }
+  .wheel {
+    width: 200px; height: 200px; border-radius: 50%;
+    border: 5px solid #fff;
+    background: conic-gradient(
+      #f59e0b 0deg 60deg, #fbbf24 60deg 120deg, #f59e0b 120deg 180deg,
+      #fbbf24 180deg 240deg, #f59e0b 240deg 300deg, #fbbf24 300deg 360deg);
+    position: relative;
+    transition: transform 3s cubic-bezier(.17,.67,.16,1);
+    box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .wheel span {
+    position: absolute; left: 50%; top: 50%;
+    width: 30px; height: 30px; margin: -15px 0 0 -15px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    transform: rotate(var(--a)) translateY(-64px);
+  }
+  .spin-btn {
+    border: none; background: #16a34a; color: #fff;
+    border-radius: 10px; font-size: 14px; font-weight: 800;
+    padding: 11px 26px; cursor: pointer; font-family: inherit;
+  }
+  .spin-btn:disabled { background: #57534e; cursor: not-allowed; }
+
+  /* memory */
+  .gm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; max-width: 320px; margin: 0 auto; }
+  .gm-card {
+    aspect-ratio: 1; border-radius: 12px;
+    background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.22);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 25px; cursor: pointer; user-select: none;
+    transition: transform .15s, background .2s, border-color .2s;
+  }
+  .gm-card:hover { transform: translateY(-2px); }
+  .gm-card.open { background: #fff; border-color: #fff; }
+  .gm-card.done { background: #16a34a; border-color: #4ade80; cursor: default; }
+  .gm-card .back { opacity: .35; font-size: 19px; }
+
+  /* quiz */
+  .qz-q { font-size: 14.5px; font-weight: 700; margin: 10px auto 12px auto; max-width: 310px; line-height: 1.45; }
+  .qz-opts { display: flex; flex-direction: column; gap: 8px; max-width: 310px; margin: 0 auto; }
+  .qz-opt {
+    background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.22);
+    color: #fff; border-radius: 10px; padding: 11px 14px; font-size: 13.5px;
+    font-family: inherit; cursor: pointer; text-align: left; transition: background .15s;
+  }
+  .qz-opt:hover { background: rgba(255,255,255,.2); }
+  .qz-opt.right { background: #16a34a; border-color: #4ade80; }
+  .qz-opt.wrong { background: #b91c1c; border-color: #f87171; }
+
+  /* jukebox */
+  .jb-list { display: flex; flex-direction: column; gap: 8px; max-width: 330px; margin: 0 auto; }
+  .jb-song {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 10px; padding: 9px 12px; text-align: left;
+    color: #fff; font-family: inherit; cursor: pointer; font-size: 13px;
+  }
+  .jb-song:hover { background: rgba(255,255,255,.18); }
+  .jb-song .jt { flex: 1; min-width: 0; }
+  .jb-song .jn { font-weight: 700; }
+  .jb-song .ja { font-size: 11px; color: #fcd9a8; margin-top: 1px; }
+  .jb-song.picked { background: #16a34a; border-color: #4ade80; }
+
+  /* table talk */
+  .tt-card {
+    background: #fff; color: #1c1917;
+    border-radius: 16px; padding: 26px 20px;
+    max-width: 320px; margin: 6px auto 14px auto;
+    font-size: 16px; font-weight: 600; line-height: 1.5;
+    min-height: 140px; display: flex; align-items: center; justify-content: center;
+    animation: pop .25s ease-out;
+  }
+  .tt-num { font-size: 11px; color: #fcd9a8; margin-bottom: 10px; letter-spacing: .1em; }
+
+  /* prize / result panel */
+  .prize {
+    background: #fff; color: #1c1917;
+    border-radius: 14px; padding: 18px; max-width: 310px; margin: 8px auto 0 auto;
+    animation: pop .3s ease-out;
+  }
+  .pz-win { font-size: 15px; font-weight: 800; color: #16a34a; }
+  .pz-text { font-size: 12.5px; color: #57534e; margin-top: 5px; line-height: 1.5; }
+  .pz-code {
+    border: 2px dashed #d97706; background: #fffbeb; color: #92400e;
+    border-radius: 10px; font-size: 19px; font-weight: 800; letter-spacing: .1em;
+    padding: 10px; margin: 11px 0;
+  }
+  .pz-btn {
+    width: 100%; border: none; background: #25D366; color: #fff;
+    border-radius: 10px; font-size: 13.5px; font-weight: 700; padding: 11px;
+    cursor: pointer; font-family: inherit;
+  }
+  .pz-btn:hover { filter: brightness(1.08); }
+  .fun-tip { font-size: 10.5px; color: #fcd9a8; margin-top: 14px; opacity: .8; }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed; bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 8px; z-index: 120;
+  }
+  .toast {
+    background: #1c1917; color: #fff; font-size: 13px;
+    padding: 11px 16px; border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    animation: toast-in .25s ease-out; max-width: 380px;
+  }
+  .toast.green  { border-left: 4px solid #25D366; }
+  .toast.amber  { border-left: 4px solid #d97706; }
+  .toast.purple { border-left: 4px solid #7c3aed; }
+  .toast.blue   { border-left: 4px solid #2563eb; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .order, .browser, .tt-card, .song { animation: none; }
+    .wheel { transition: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .cafe { min-height: 540px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>☕ Crumb &amp; Co. — Table QR Ordering by Selly</h1>
+    <div class="sub">Cafe demo · Guest sits down, scans the QR on their table → WhatsApp opens → menu link → order → the owner sees it with the <b>table number</b>. Entertainment keeps them at the table (and spending).</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-scan" onclick="otherTableScans()">📱 Another table scans</button>
+  <button class="bar-btn btn-rush" onclick="quickSend('entertainment')">🎉 Open entertainment</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">☕</div>
+        <div>
+          <div class="wa-title">Crumb &amp; Co.</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today · 5:12 PM · scanned QR at Table 7</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cafe dashboard -->
+  <div class="cafe">
+    <div class="cf-header">
+      <div class="cf-logo">☕</div>
+      <div>
+        <div class="cf-title">Crumb &amp; Co. — Counter Screen</div>
+        <div class="cf-sub">Koregaon Park, Pune · 8 tables · runs on the owner's tablet</div>
+      </div>
+      <div class="cf-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="cf-stats">
+      <div class="stat"><div class="v amber"  id="statSeated">0</div><div class="l">Tables seated</div></div>
+      <div class="stat"><div class="v"        id="statLive">0</div><div class="l">Live orders</div></div>
+      <div class="stat"><div class="v green"  id="statRev">₹6,240</div><div class="l">Revenue today</div></div>
+      <div class="stat"><div class="v purple" id="statFun">0</div><div class="l">Playing now</div></div>
+      <div class="stat"><div class="v"        id="statDwell">42m</div><div class="l">Avg time at table</div></div>
+    </div>
+
+    <div class="cf-body">
+      <div>
+        <div class="sec-title">Floor — every table has its own QR</div>
+        <div class="floor" id="floor"></div>
+      </div>
+
+      <div>
+        <div class="sec-title">Live orders — tap a card to move it forward</div>
+        <div id="orderList" style="display:flex;flex-direction:column;gap:9px"></div>
+      </div>
+
+      <div>
+        <div class="sec-title">🎵 Jukebox queue — requested by guests</div>
+        <div id="songList" style="display:flex;flex-direction:column;gap:7px"></div>
+      </div>
+    </div>
+
+    <div class="cf-hint">💡 No waiter needed to take the order, no printed menus to reprint, and the guest never has to wave for the bill. The QR knows the table.</div>
+  </div>
+
+</div>
+
+<!-- Menu overlay -->
+<div class="overlay" id="menuOverlay" onclick="if(event.target===this)closeMenu()">
+  <div class="browser">
+    <div class="br-bar">
+      <div class="br-dots">
+        <span class="br-dot" style="background:#f87171"></span>
+        <span class="br-dot" style="background:#fbbf24"></span>
+        <span class="br-dot" style="background:#34d399"></span>
+      </div>
+      <div class="br-url">🔒 selly.app/menu/crumbco?table=7</div>
+      <button class="br-close" onclick="closeMenu()" aria-label="Close">✕</button>
+    </div>
+    <div class="mn-page" id="mnPage">
+      <div class="mn-head">
+        <div class="mn-name">☕ Crumb &amp; Co.</div>
+        <div class="mn-tbl">Ordering for <b>Table 7</b> · no app, no login</div>
+      </div>
+      <div class="mn-cats" id="mnCats"></div>
+      <div class="mn-list" id="mnList"></div>
+    </div>
+    <div class="mn-cart">
+      <div class="cart-line"><span id="cartCount">No items yet</span><b id="cartTotal">₹0</b></div>
+      <button class="cart-btn" id="cartBtn" disabled onclick="confirmOrder()">Confirm order for Table 7</button>
+    </div>
+  </div>
+</div>
+
+<!-- Entertainment overlay -->
+<div class="overlay" id="funOverlay" onclick="if(event.target===this)closeFun()">
+  <div class="browser">
+    <div class="br-bar">
+      <div class="br-dots">
+        <span class="br-dot" style="background:#f87171"></span>
+        <span class="br-dot" style="background:#fbbf24"></span>
+        <span class="br-dot" style="background:#34d399"></span>
+      </div>
+      <div class="br-url">🔒 selly.app/fun/crumbco?table=7</div>
+      <button class="br-close" onclick="closeFun()" aria-label="Close">✕</button>
+    </div>
+    <div class="fun-page">
+      <div class="fun-ready" id="funReady">🔔 Your order is on its way to Table 7!</div>
+      <div class="fun-title" id="funTitle">🎉 Table 7 Fun Zone</div>
+      <div class="fun-sub" id="funSub">Something to do while your coffee brews</div>
+      <div class="fun-tabs">
+        <button class="fun-tab" id="tab-wheel" onclick="funTab('wheel')">🎡 Spin &amp; Win</button>
+        <button class="fun-tab" id="tab-memory" onclick="funTab('memory')">🃏 Match</button>
+        <button class="fun-tab" id="tab-quiz" onclick="funTab('quiz')">🧠 Quiz</button>
+        <button class="fun-tab" id="tab-jukebox" onclick="funTab('jukebox')">🎵 Jukebox</button>
+        <button class="fun-tab" id="tab-talk" onclick="funTab('talk')">💬 Table Talk</button>
+      </div>
+      <div class="fun-body" id="funBody"></div>
+      <div class="fun-tip">Runs in any browser · no app install · closes when your order arrives</div>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Data                                                              */
+/* ------------------------------------------------------------------ */
+const MY_TABLE = 7;
+
+const MENU = {
+  "Coffee": [
+    { id: "c1", name: "Cappuccino",       price: 180, emoji: "☕" },
+    { id: "c2", name: "Cold Brew",        price: 220, emoji: "🧊" },
+    { id: "c3", name: "Filter Coffee",    price: 120, emoji: "☕" },
+    { id: "c4", name: "Hazelnut Latte",   price: 240, emoji: "🥛" },
+  ],
+  "Bakery": [
+    { id: "b1", name: "Butter Croissant",  price: 150, emoji: "🥐" },
+    { id: "b2", name: "Chocolate Brownie", price: 180, emoji: "🍫" },
+    { id: "b3", name: "Blueberry Muffin",  price: 160, emoji: "🧁" },
+    { id: "b4", name: "Cinnamon Roll",     price: 170, emoji: "🌀" },
+  ],
+  "All-Day Breakfast": [
+    { id: "f1", name: "Avocado Toast",    price: 320, emoji: "🥑" },
+    { id: "f2", name: "Masala Omelette",  price: 260, emoji: "🍳" },
+    { id: "f3", name: "Pancake Stack",    price: 290, emoji: "🥞" },
+  ],
+};
+const ALL_ITEMS = Object.values(MENU).flat();
+const findItem = id => ALL_ITEMS.find(i => i.id === id);
+
+let tables = {};                 // tableNo -> "free" | "seated" | "ordered" | "served" | "bill"
+for (let i = 1; i <= 8; i++) tables[i] = "free";
+tables[3] = "ordered"; tables[5] = "served"; tables[MY_TABLE] = "seated";
+
+let orders = [
+  { id: 101, table: 3, items: [{ id: "c1", q: 2 }, { id: "b2", q: 1 }], state: "new",       mine: false },
+  { id: 102, table: 5, items: [{ id: "f1", q: 1 }, { id: "c2", q: 1 }], state: "preparing", mine: false },
+];
+let nextOrderId = 103;
+let songs = [{ name: "Kesariya", artist: "Arijit Singh", table: 5 }];
+let revenue = 6240, playing = 0, myCoupon = null;
+
+const OTHER_TABLES = [
+  { table: 2, items: [{ id: "c3", q: 2 }, { id: "b1", q: 2 }] },
+  { table: 6, items: [{ id: "f3", q: 1 }, { id: "c4", q: 1 }] },
+  { table: 1, items: [{ id: "b3", q: 3 }] },
+];
+let otherIdx = 0;
+
+const inr = n => "₹" + Number(n).toLocaleString("en-IN");
+const orderTotal = o => o.items.reduce((s, l) => s + findItem(l.id).price * l.q, 0);
+const itemsText  = o => o.items.map(l => `${findItem(l.id).emoji} ${findItem(l.id).name} ×${l.q}`).join(", ");
+
+/* ------------------------------------------------------------------ */
+/*  Dashboard                                                         */
+/* ------------------------------------------------------------------ */
+function renderDash() {
+  // floor
+  document.getElementById("floor").innerHTML = Object.keys(tables).map(n => {
+    const st = tables[n];
+    const label = { free: "Free", seated: "Seated", ordered: "Ordered", served: "Served", bill: "Bill!" }[st];
+    return `<div class="tbl ${st} ${+n === MY_TABLE ? "mine" : ""}">
+              <div class="tn">T${n}</div><div class="ts">${label}</div>
+            </div>`;
+  }).join("");
+
+  // orders
+  const list = document.getElementById("orderList");
+  list.innerHTML = orders.length ? orders.map(o => `
+    <div class="order ${o.state}" onclick="tapOrder(${o.id})">
+      <div class="ord-tbl"><div class="t1">TABLE</div><div class="t2">${o.table}</div></div>
+      <div class="ord-meta">
+        <div class="ord-items">${itemsText(o)}</div>
+        <div class="ord-sum">Order #${o.id} · ${inr(orderTotal(o))}${o.mine ? " · via WhatsApp" : ""}</div>
+      </div>
+      <div class="ord-state">
+        <span class="st-badge ${o.state}">${o.state === "new" ? "NEW" : o.state === "preparing" ? "PREPARING" : "SERVED"}</span>
+        <div class="st-hint">${o.state === "new" ? "tap to start" : o.state === "preparing" ? "tap when served" : "tap to close"}</div>
+      </div>
+    </div>`).join("") : `<div class="empty-note">No live orders. Table scans will appear here.</div>`;
+
+  // songs
+  document.getElementById("songList").innerHTML = songs.length ? songs.map((s, i) => `
+    <div class="song">${i === 0 ? "▶️" : "🎵"} <b>${s.name}</b> — ${s.artist}<span class="from">Table ${s.table}</span></div>
+  `).join("") : `<div class="empty-note" style="padding:10px">Queue empty — guests can request songs from the Fun Zone.</div>`;
+
+  document.getElementById("statSeated").textContent = Object.values(tables).filter(s => s !== "free").length;
+  document.getElementById("statLive").textContent   = orders.filter(o => o.state !== "served").length;
+  document.getElementById("statRev").textContent    = inr(revenue);
+  document.getElementById("statFun").textContent    = playing;
+}
+
+function tapOrder(id) {
+  const o = orders.find(x => x.id === id);
+  if (!o) return;
+
+  if (o.state === "new") {
+    o.state = "preparing";
+    tables[o.table] = "ordered";
+    renderDash();
+    if (o.mine) botPush(`👨‍🍳 *Order #${o.id} — Table ${o.table}*\n\nOur barista has started on your order. It'll be at your table in about 8 minutes ☕`);
+    toast(`👨‍🍳 Order #${id} (Table ${o.table}) → Preparing${o.mine ? " — guest notified on WhatsApp" : ""}`, "blue");
+  } else if (o.state === "preparing") {
+    o.state = "served";
+    tables[o.table] = "served";
+    renderDash();
+    if (o.mine) {
+      const fun = document.getElementById("funOverlay");
+      if (fun.classList.contains("open")) {
+        const r = document.getElementById("funReady");
+        r.textContent = `🔔 Your order is arriving at Table ${o.table}!`;
+        r.classList.add("show");
+      }
+      botPush(
+        `🎉 *Served!*\n\nYour order is at *Table ${o.table}* — enjoy! ☕\n\n` +
+        `When you're done, just reply *bill* and I'll send it here. No waiting, no waving. 🙂`
+      );
+      setChips(["🧾 Bill please", "🎉 Fun Zone", "Order more"]);
+    }
+    toast(`✅ Order #${id} served to Table ${o.table}`, "green");
+  } else {
+    revenue += orderTotal(o);
+    orders = orders.filter(x => x.id !== id);
+    if (!orders.some(x => x.table === o.table)) tables[o.table] = "free";
+    renderDash();
+    toast(`💰 Table ${o.table} closed — ${inr(orderTotal(o))} added to today's revenue`, "green");
+  }
+}
+
+function otherTableScans() {
+  const t = OTHER_TABLES[otherIdx++ % OTHER_TABLES.length];
+  toast(`📱 Table ${t.table} scanned their QR — menu opened on their phone`, "amber");
+  setTimeout(() => {
+    tables[t.table] = "ordered";
+    orders.push({ id: nextOrderId++, table: t.table, items: t.items, state: "new", mine: false });
+    renderDash();
+    toast(`🧾 Table ${t.table} ordered without calling a waiter — it's on your screen`, "green");
+  }, 1100);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Menu overlay + cart                                               */
+/* ------------------------------------------------------------------ */
+let cart = {}, activeCat = "Coffee";
+
+function openMenu() {
+  document.getElementById("menuOverlay").classList.add("open");
+  paintMenu();
+  toast(`📖 Table ${MY_TABLE} opened the menu — no printed card, no waiter`, "amber");
+}
+function closeMenu() { document.getElementById("menuOverlay").classList.remove("open"); }
+
+function paintMenu() {
+  document.getElementById("mnCats").innerHTML = Object.keys(MENU).map(c =>
+    `<button class="mn-cat ${c === activeCat ? "on" : ""}" onclick="setCat('${c}')">${c}</button>`).join("");
+
+  document.getElementById("mnList").innerHTML = MENU[activeCat].map(it => {
+    const q = cart[it.id] || 0;
+    return `<div class="mn-item">
+      <span class="mn-emoji">${it.emoji}</span>
+      <div class="mn-info">
+        <div class="mn-iname">${it.name}</div>
+        <div class="mn-iprice">${inr(it.price)}</div>
+      </div>
+      <div class="mn-qty">${q === 0
+        ? `<button class="qbtn add" onclick="addItem('${it.id}')">Add</button>`
+        : `<button class="qbtn" onclick="decItem('${it.id}')">−</button>
+           <span class="qnum">${q}</span>
+           <button class="qbtn" onclick="addItem('${it.id}')">+</button>`}
+      </div>
+    </div>`;
+  }).join("");
+
+  const lines = Object.entries(cart);
+  const count = lines.reduce((s, [, q]) => s + q, 0);
+  const total = lines.reduce((s, [id, q]) => s + findItem(id).price * q, 0);
+  document.getElementById("cartCount").textContent = count ? `${count} item${count > 1 ? "s" : ""} in your order` : "No items yet";
+  document.getElementById("cartTotal").textContent = inr(total);
+  document.getElementById("cartBtn").disabled = count === 0;
+}
+
+function setCat(c) { activeCat = c; paintMenu(); }
+function addItem(id) { cart[id] = (cart[id] || 0) + 1; paintMenu(); }
+function decItem(id) { cart[id]--; if (cart[id] <= 0) delete cart[id]; paintMenu(); }
+
+function confirmOrder() {
+  const items = Object.entries(cart).map(([id, q]) => ({ id, q }));
+  if (!items.length) return;
+  const o = { id: nextOrderId++, table: MY_TABLE, items, state: "new", mine: true };
+  orders.push(o);
+  tables[MY_TABLE] = "ordered";
+  cart = {};
+  closeMenu();
+  renderDash();
+
+  const total = orderTotal(o);
+  botPush(
+    `✅ *Order confirmed — Table ${MY_TABLE}*\n\n` +
+    o.items.map(l => `${findItem(l.id).emoji} ${findItem(l.id).name} ×${l.q} — ${inr(findItem(l.id).price * l.q)}`).join("\n") +
+    `\n\n💰 Total: *${inr(total)}* (pay at the end)\n` +
+    `⏱ Ready in about 8–10 minutes\n\n` +
+    `🎉 While you wait — games, a quiz, and our jukebox:\n{{FUN}}`
+  );
+  setChips(["🎉 Fun Zone", "Order more", "🧾 Bill please"]);
+  toast(`🧾 New order from Table ${MY_TABLE} — ${inr(total)}, straight to your counter screen`, "green");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Entertainment hub                                                 */
+/* ------------------------------------------------------------------ */
+let funMode = "wheel";
+
+function openFun(mode) {
+  document.getElementById("funOverlay").classList.add("open");
+  document.getElementById("funReady").classList.remove("show");
+  playing++;
+  renderDash();
+  toast(`🎉 Table ${MY_TABLE} is in the Fun Zone — guests who stay, order again`, "purple");
+  funTab(mode || "wheel");
+}
+function closeFun() {
+  document.getElementById("funOverlay").classList.remove("open");
+  clearInterval(gmTimer);
+  if (playing > 0) playing--;
+  renderDash();
+}
+
+function funTab(mode) {
+  funMode = mode;
+  ["wheel", "memory", "quiz", "jukebox", "talk"].forEach(m =>
+    document.getElementById("tab-" + m).classList.toggle("on", m === mode));
+  clearInterval(gmTimer);
+  if (mode === "wheel")   startWheel();
+  if (mode === "memory")  startMemory();
+  if (mode === "quiz")    startQuiz();
+  if (mode === "jukebox") startJukebox();
+  if (mode === "talk")    startTalk();
+}
+
+/* --- 1. Spin & Win --- */
+const PRIZES = [
+  { emoji: "🍪", label: "Free Cookie",      win: true  },
+  { emoji: "🎯", label: "10% Off Today",    win: true  },
+  { emoji: "☕", label: "Free Size Upgrade", win: true  },
+  { emoji: "😅", label: "Almost! Try again", win: false },
+  { emoji: "🍫", label: "Free Brownie",     win: true  },
+  { emoji: "💸", label: "₹50 Off Next Visit", win: true },
+];
+let spun = false;
+
+function startWheel() {
+  document.getElementById("funTitle").textContent = "🎡 Spin & Win";
+  document.getElementById("funSub").textContent   = "One free spin per table, per visit";
+  spun = false;
+  document.getElementById("funBody").innerHTML =
+    `<div class="wheel-wrap">
+       <div class="wheel-pin">▼</div>
+       <div class="wheel" id="wheel">` +
+    PRIZES.map((p, i) => `<span style="--a:${i * 60 + 30}deg">${p.emoji}</span>`).join("") +
+    `   </div>
+     </div>
+     <button class="spin-btn" id="spinBtn" onclick="spinWheel()">SPIN</button>
+     <div id="spinResult"></div>`;
+}
+
+function spinWheel() {
+  if (spun) return;
+  spun = true;
+  document.getElementById("spinBtn").disabled = true;
+  const i = Math.floor(Math.random() * PRIZES.length);
+  const deg = 360 * 5 + (360 - (i * 60 + 30));
+  document.getElementById("wheel").style.transform = `rotate(${deg}deg)`;
+  setTimeout(() => {
+    const p = PRIZES[i];
+    if (!p.win) {
+      document.getElementById("spinResult").innerHTML =
+        `<div class="prize"><div class="pz-win" style="color:#d97706">${p.emoji} ${p.label}</div>
+         <div class="pz-text">No prize this time — but the quiz and the match game both have coupons too!</div>
+         <button class="pz-btn" style="background:#4f46e5" onclick="funTab('quiz')">Try the quiz</button></div>`;
+      return;
+    }
+    const code = "CAFE" + (10 + Math.floor(Math.random() * 89));
+    myCoupon = code;
+    document.getElementById("spinResult").innerHTML =
+      `<div class="prize">
+         <div class="pz-win">${p.emoji} You won — ${p.label}!</div>
+         <div class="pz-text">Show this code to your server, or use it on your next visit.</div>
+         <div class="pz-code">${code}</div>
+         <button class="pz-btn" onclick="claimPrize('${p.label}','${code}')">📲 Send to my WhatsApp</button>
+       </div>`;
+    toast(`🎡 Table ${MY_TABLE} won "${p.label}" — coupon ${code} issued`, "purple");
+  }, 3200);
+}
+
+function claimPrize(label, code) {
+  closeFun();
+  botPush(
+    `🎁 *You won: ${label}!*\n\n` +
+    `Code: *${code}*\n` +
+    `Show this to your server at Table ${MY_TABLE}, or save it for your next visit (valid 15 days).\n\n` +
+    `_Thanks for playing at Crumb & Co._ ☕`
+  );
+  setChips(["🎉 Fun Zone", "Order more", "🧾 Bill please"]);
+  toast(`✅ Prize sent to their WhatsApp — and their number is now in your customer list`, "green");
+}
+
+/* --- 2. Match the Menu --- */
+const GM_EMOJIS = ["☕", "🥐", "🍫", "🥑"];
+let gmCards = [], gmOpen = [], gmDone = [], gmMoves = 0, gmSec = 0, gmTimer = null, gmLock = false;
+
+function startMemory() {
+  document.getElementById("funTitle").textContent = "🃏 Match the Menu";
+  document.getElementById("funSub").textContent   = "Find all 4 pairs — beat 30 seconds to win";
+  gmCards = [...GM_EMOJIS, ...GM_EMOJIS].sort(() => Math.random() - 0.5);
+  gmOpen = []; gmDone = []; gmMoves = 0; gmSec = 0; gmLock = false;
+  paintMemory();
+  gmTimer = setInterval(() => {
+    gmSec++;
+    const e = document.getElementById("gmSec");
+    if (e) e.textContent = gmSec;
+  }, 1000);
+}
+
+function paintMemory() {
+  document.getElementById("funBody").innerHTML =
+    `<div class="hudrow">
+       <span class="hud">⏱ <b id="gmSec">${gmSec}</b>s</span>
+       <span class="hud">Moves <b>${gmMoves}</b></span>
+       <span class="hud">Pairs <b>${gmDone.length / 2}</b>/4</span>
+     </div>
+     <div class="gm-grid">` +
+    gmCards.map((c, i) => {
+      const shown = gmOpen.includes(i) || gmDone.includes(i);
+      const cls = gmDone.includes(i) ? "done" : shown ? "open" : "";
+      return `<div class="gm-card ${cls}" onclick="gmTap(${i})">${shown ? c : '<span class="back">🍽</span>'}</div>`;
+    }).join("") +
+    `</div><div id="gmResult"></div>`;
+}
+
+function gmTap(i) {
+  if (gmLock || gmOpen.includes(i) || gmDone.includes(i)) return;
+  gmOpen.push(i);
+  paintMemory();
+  if (gmOpen.length < 2) return;
+  gmMoves++;
+  const [a, b] = gmOpen;
+  if (gmCards[a] === gmCards[b]) {
+    gmDone.push(a, b);
+    gmOpen = [];
+    paintMemory();
+    if (gmDone.length === gmCards.length) {
+      clearInterval(gmTimer);
+      const code = "CAFE" + (10 + Math.floor(Math.random() * 89));
+      myCoupon = code;
+      document.getElementById("gmResult").innerHTML =
+        `<div class="prize">
+           <div class="pz-win">🎉 All pairs matched!</div>
+           <div class="pz-text">${gmSec}s and ${gmMoves} moves. Here's a free cookie with your coffee 🍪</div>
+           <div class="pz-code">${code}</div>
+           <button class="pz-btn" onclick="claimPrize('Free Cookie','${code}')">📲 Send to my WhatsApp</button>
+         </div>`;
+      toast(`🃏 Table ${MY_TABLE} solved the match game in ${gmSec}s`, "purple");
+    }
+  } else {
+    gmLock = true;
+    paintMemory();
+    setTimeout(() => { gmOpen = []; gmLock = false; paintMemory(); }, 700);
+  }
+}
+
+/* --- 3. Coffee Quiz --- */
+const QUIZ = [
+  { q: "What makes a cappuccino different from a latte?", opts: ["More milk foam", "More sugar", "Cold milk"], right: 0 },
+  { q: "Which country grows the most coffee in the world?", opts: ["India", "Brazil", "Italy"], right: 1 },
+  { q: "What's in our house cold brew?", opts: ["Instant coffee", "Espresso + ice", "Beans steeped 18 hours"], right: 2 },
+];
+let qzIdx = 0, qzScore = 0;
+
+function startQuiz() {
+  document.getElementById("funTitle").textContent = "🧠 Coffee Quiz";
+  document.getElementById("funSub").textContent   = "3 questions — get 2 right for a treat";
+  qzIdx = 0; qzScore = 0;
+  paintQuiz();
+}
+
+function paintQuiz() {
+  const q = QUIZ[qzIdx];
+  document.getElementById("funBody").innerHTML =
+    `<div class="hudrow"><span class="hud">Q <b>${qzIdx + 1}</b>/3</span><span class="hud">Score <b>${qzScore}</b></span></div>
+     <div class="qz-q">${q.q}</div>
+     <div class="qz-opts">` +
+    q.opts.map((o, i) => `<button class="qz-opt" id="qz-${i}" onclick="qzPick(${i})">${o}</button>`).join("") +
+    `</div>`;
+}
+
+function qzPick(i) {
+  const q = QUIZ[qzIdx];
+  document.querySelectorAll(".qz-opt").forEach(b => b.onclick = null);
+  document.getElementById("qz-" + q.right).classList.add("right");
+  if (i === q.right) qzScore++;
+  else document.getElementById("qz-" + i).classList.add("wrong");
+  setTimeout(() => {
+    qzIdx++;
+    if (qzIdx < QUIZ.length) { paintQuiz(); return; }
+    if (qzScore >= 2) {
+      const code = "CAFE" + (10 + Math.floor(Math.random() * 89));
+      myCoupon = code;
+      document.getElementById("funBody").innerHTML =
+        `<div class="prize">
+           <div class="pz-win">☕ ${qzScore}/3 — you know your coffee!</div>
+           <div class="pz-text">Free size upgrade on your next coffee.</div>
+           <div class="pz-code">${code}</div>
+           <button class="pz-btn" onclick="claimPrize('Free Size Upgrade','${code}')">📲 Send to my WhatsApp</button>
+         </div>`;
+      toast(`🧠 Table ${MY_TABLE} scored ${qzScore}/3 in the coffee quiz`, "purple");
+    } else {
+      document.getElementById("funBody").innerHTML =
+        `<div class="prize">
+           <div class="pz-win" style="color:#d97706">${qzScore}/3 — so close</div>
+           <div class="pz-text">Two right wins a free upgrade. Your coffee's still brewing, so there's time.</div>
+           <button class="pz-btn" style="background:#4f46e5" onclick="startQuiz()">Try again</button>
+         </div>`;
+    }
+  }, 950);
+}
+
+/* --- 4. Jukebox --- */
+const JUKEBOX = [
+  { name: "Kesariya",          artist: "Arijit Singh" },
+  { name: "Iraaday",           artist: "Anuv Jain" },
+  { name: "Golden Hour",       artist: "JVKE" },
+  { name: "Tum Se Hi",         artist: "Mohit Chauhan" },
+  { name: "Sunroof",           artist: "Nicky Youre" },
+];
+
+function startJukebox() {
+  document.getElementById("funTitle").textContent = "🎵 Jukebox";
+  document.getElementById("funSub").textContent   = "Pick a song — it plays in the cafe next";
+  document.getElementById("funBody").innerHTML =
+    `<div class="jb-list">` +
+    JUKEBOX.map((s, i) => `
+      <button class="jb-song" id="jb-${i}" onclick="pickSong(${i})">
+        🎵 <span class="jt"><span class="jn">${s.name}</span><div class="ja">${s.artist}</div></span> ▶
+      </button>`).join("") +
+    `</div><div id="jbResult"></div>`;
+}
+
+function pickSong(i) {
+  const s = JUKEBOX[i];
+  if (songs.some(x => x.name === s.name && x.table === MY_TABLE)) return;
+  songs.push({ ...s, table: MY_TABLE });
+  renderDash();
+  document.getElementById("jb-" + i).classList.add("picked");
+  document.getElementById("jbResult").innerHTML =
+    `<div class="prize">
+       <div class="pz-win">🎶 Added to the queue!</div>
+       <div class="pz-text"><b>${s.name}</b> by ${s.artist} is now #${songs.length} in the cafe's playlist — look at the counter screen 👉</div>
+     </div>`;
+  toast(`🎵 Table ${MY_TABLE} requested "${s.name}" — it's in your jukebox queue`, "purple");
+}
+
+/* --- 5. Table Talk --- */
+const TALK = [
+  "What's the best thing that happened to you this week?",
+  "If you could have coffee with anyone in the world, who would it be?",
+  "What's a small thing that always makes your day better?",
+  "What did you want to be when you were ten?",
+  "What's the last thing that made you laugh out loud?",
+  "If money didn't matter, what would you do on a Tuesday?",
+];
+let talkIdx = 0;
+
+function startTalk() {
+  document.getElementById("funTitle").textContent = "💬 Table Talk";
+  document.getElementById("funSub").textContent   = "Put the phones down — one question at a time";
+  paintTalk();
+}
+function paintTalk() {
+  document.getElementById("funBody").innerHTML =
+    `<div class="tt-num">CARD ${talkIdx + 1} OF ${TALK.length}</div>
+     <div class="tt-card">${TALK[talkIdx]}</div>
+     <button class="spin-btn" style="background:#d97706" onclick="nextTalk()">Next card →</button>`;
+}
+function nextTalk() { talkIdx = (talkIdx + 1) % TALK.length; paintTalk(); }
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+
+function nowTime() {
+  return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+    .replace(/_([^_\n]+)_/g, "<i>$1</i>")
+    .replace(/\{\{MENU\}\}/g, `<span class="linktext" onclick="openMenu()">selly.app/menu/crumbco?table=7</span>`)
+    .replace(/\{\{FUN\}\}/g,  `<span class="linktext" onclick="openFun()">selly.app/fun/crumbco?table=7</span>`);
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement("div");
+  div.className = "msg " + dir;
+  const ticks = dir === "out" ? `<span class="ticks">✓✓</span>` : "";
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t = div.querySelector(".ticks"); if (t) t.classList.add("read"); }, 1200);
+}
+
+function botPush(text) {
+  const status = document.getElementById("waStatus");
+  status.textContent = "typing…";
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = "online";
+    addMsg(text, "in");
+  }, 1000 + Math.random()*400);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g, "\\'")}')">${c}</button>`).join("");
+}
+
+function sendUser() {
+  const input = document.getElementById("waText");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, "out");
+  setTimeout(() => botReply(text), 500);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain                                                         */
+/* ------------------------------------------------------------------ */
+function botReply(text) {
+  const t = text.toLowerCase().trim();
+
+  /* --- bill --- */
+  if (/bill|check|pay|invoice/.test(t)) {
+    const mine = orders.filter(o => o.table === MY_TABLE);
+    if (!mine.length) {
+      botPush(`🧾 No open order on Table ${MY_TABLE} yet. Tap the menu to order first:\n{{MENU}}`);
+      return;
+    }
+    const total = mine.reduce((s, o) => s + orderTotal(o), 0);
+    const disc = myCoupon ? 50 : 0;
+    tables[MY_TABLE] = "bill";
+    renderDash();
+    botPush(
+      `🧾 *Bill — Table ${MY_TABLE}*\n\n` +
+      mine.flatMap(o => o.items.map(l => `${findItem(l.id).name} ×${l.q} — ${inr(findItem(l.id).price * l.q)}`)).join("\n") +
+      `\n──────────────\n` +
+      `Subtotal: ${inr(total)}\n` +
+      (disc ? `Coupon ${myCoupon}: −${inr(disc)}\n` : "") +
+      `*Total: ${inr(total - disc)}*\n\n` +
+      `💳 Pay by UPI: *crumbco@upi*\nOr just tell your server — they've been notified.\n\n` +
+      `_No waiting, no waving._ 🙂`
+    );
+    setChips(["Order more", "🎉 Fun Zone"]);
+    toast(`🧾 Table ${MY_TABLE} requested the bill — see the purple table on your floor plan`, "purple");
+    return;
+  }
+
+  /* --- entertainment --- */
+  if (/fun|game|play|bored|entertain|music|song|jukebox|quiz|spin/.test(t)) {
+    const mode = /music|song|jukebox/.test(t) ? "jukebox"
+               : /quiz/.test(t) ? "quiz"
+               : /spin|wheel/.test(t) ? "wheel"
+               : /talk|conversation/.test(t) ? "talk" : "wheel";
+    botPush(
+      `🎉 *Table ${MY_TABLE} Fun Zone*\n\n` +
+      `🎡 Spin & Win — free cookie, upgrades, discounts\n` +
+      `🃏 Match the Menu · 🧠 Coffee Quiz\n` +
+      `🎵 Jukebox — pick what plays in the cafe next\n` +
+      `💬 Table Talk — conversation cards\n\n` +
+      `Tap to open (works in your browser):\n{{FUN}}`
+    );
+    setChips(["🧾 Bill please", "Order more", "Menu"]);
+    if (mode !== "wheel") setTimeout(() => openFun(mode), 900);
+    return;
+  }
+
+  /* --- menu / order --- */
+  if (/menu|order|eat|drink|coffee|hungry|card/.test(t)) {
+    botPush(
+      `📖 Here's our full menu for *Table ${MY_TABLE}* — tap to browse and order:\n{{MENU}}\n\n` +
+      `_Your order comes straight to our counter with your table number — no waiting for a server._`
+    );
+    setChips(["🎉 Fun Zone", "🧾 Bill please"]);
+    return;
+  }
+
+  /* --- call server --- */
+  if (/waiter|server|help|water|napkin/.test(t)) {
+    botPush(`🙋 Done — our server has been buzzed for *Table ${MY_TABLE}*. Someone will be with you in a moment.`);
+    toast(`🔔 Table ${MY_TABLE} needs a server`, "amber");
+    return;
+  }
+
+  /* --- greeting --- */
+  if (/\b(hi|hello|hey|namaste)\b/.test(t)) {
+    botPush(
+      `👋 Welcome to *Crumb & Co.*, Table ${MY_TABLE}!\n\n` +
+      `📖 Type *menu* to order\n` +
+      `🎉 Type *fun* for games, quiz and our jukebox\n` +
+      `🧾 Type *bill* when you're ready to pay\n` +
+      `🙋 Type *server* if you need anything`
+    );
+    setChips(["📖 Menu", "🎉 Fun Zone", "🧾 Bill please"]);
+    return;
+  }
+
+  if (/\b(thank|thanks|nice|great|lovely)\b/.test(t)) {
+    botPush(`So glad you're enjoying it! ☕ Come back soon — we'll remember your usual. 🙂`);
+    setChips(["📖 Menu", "🎉 Fun Zone", "🧾 Bill please"]);
+    return;
+  }
+
+  botPush(
+    `🤖 I didn't catch that. At Table ${MY_TABLE} you can:\n\n` +
+    `📖 *menu* — browse & order\n` +
+    `🎉 *fun* — games, jukebox, table talk\n` +
+    `🧾 *bill* — get your bill here\n` +
+    `🙋 *server* — call someone over`
+  );
+  setChips(["📖 Menu", "🎉 Fun Zone", "🧾 Bill please"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = "opacity .4s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderDash();
+setChips(["📖 Menu", "🎉 Fun Zone", "🧾 Bill please"]);
+setTimeout(() => botPush(
+  `👋 *Welcome to Crumb & Co.!*\n\n` +
+  `You're seated at *Table ${MY_TABLE}* ☕\n\n` +
+  `No need to wait for a server — browse our menu and order right from your phone. Everything comes to your table.\n\n` +
+  `📖 Our menu:\n{{MENU}}`
+), 700);
+</script>
