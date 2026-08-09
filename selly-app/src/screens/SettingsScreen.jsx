@@ -8,6 +8,7 @@ import { Colors } from "../constants/colors";
 import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { friendlyError } from "../lib/errors";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -31,15 +32,8 @@ const DEFAULT_SETTINGS = {
 };
 
 const INDUSTRY_OPTIONS = [
-  { id: "product",    icon: "🛍️", label: "Product Business"      },
-  { id: "education",  icon: "📚", label: "Education"               },
-  { id: "tourism",    icon: "✈️", label: "Tourism & Travel"        },
-  { id: "kirana",     icon: "🛒", label: "Kirana / Grocery"        },
-  { id: "cakes",      icon: "🎂", label: "Cake & Bakery"           },
-  { id: "icecream",   icon: "🍦", label: "Ice Cream & Desserts"    },
-  { id: "restaurant", icon: "🍽️", label: "Restaurant / Cafe"      },
-  { id: "salon",      icon: "💅", label: "Salon & Spa"             },
-  { id: "medical",    icon: "💊", label: "Medical & Pharmacy"      },
+  { id: "restaurant", icon: "🍽️", label: "Restaurant / Cafe / Food Court" },
+  { id: "education",  icon: "📚", label: "Classes"                        },
 ];
 
 export default function SettingsScreen() {
@@ -132,7 +126,7 @@ export default function SettingsScreen() {
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 2000);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setBizSaving(false);
     }
@@ -158,7 +152,7 @@ export default function SettingsScreen() {
         setTestResult({ ok: false, msg: `❌ Server responded with ${resp.status}` });
       }
     } catch (e) {
-      setTestResult({ ok: false, msg: "❌ " + e.message });
+      setTestResult({ ok: false, msg: "❌ " + friendlyError(e) });
     } finally {
       setTesting(false);
     }

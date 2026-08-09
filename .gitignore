@@ -55,3 +55,7 @@ release_v*.ps1
 fix_*.ps1
 reupload_*.ps1
 list_repos.ps1
+
+# Python bytecode (asset generator)
+__pycache__/
+*.pyc

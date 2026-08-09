@@ -1,5 +1,7 @@
+import "react-native-gesture-handler";       // must be first — required by the drawer
 import React, { useEffect, useState } from "react";
 import { Platform }         from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar }        from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications   from "expo-notifications";
@@ -70,19 +72,21 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" backgroundColor="#0a0a0f" />
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar style="light" backgroundColor="#0a0a12" />
+        <AuthProvider>
+          <AppNavigator />
+        </AuthProvider>
 
-      {/* Force-update modal renders on top of the entire navigator */}
-      <UpdateModal
-        visible={!!forceUpdateInfo}
-        apkUrl={forceUpdateInfo?.apkUrl}
-        releaseNotes={forceUpdateInfo?.releaseNotes}
-        latestVersion={forceUpdateInfo?.latestVersion}
-      />
-    </SafeAreaProvider>
+        {/* Force-update modal renders on top of the entire navigator */}
+        <UpdateModal
+          visible={!!forceUpdateInfo}
+          apkUrl={forceUpdateInfo?.apkUrl}
+          releaseNotes={forceUpdateInfo?.releaseNotes}
+          latestVersion={forceUpdateInfo?.latestVersion}
+        />
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

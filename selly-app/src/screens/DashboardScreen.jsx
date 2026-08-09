@@ -8,13 +8,14 @@ import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { fetchDashboard, fetchBusinessSettings } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import StatCard from "../components/StatCard";
 import OrderRow from "../components/OrderRow";
 
 // ── Industry configuration ────────────────────────────────────────────────────
 // All industries use the SAME backend stats keys — only labels change here.
 const INDUSTRY_CONFIG = {
-  product: {
+  restaurant: {
     revenueLabel  : "Today's Revenue",
     stat1Label    : "Total Orders",    stat1Icon: "📦",
     stat2Label    : "Pending",         stat2Icon: "⏳",
@@ -48,80 +49,12 @@ const INDUSTRY_CONFIG = {
       { icon: "📣", label: "Promo Blast",   screen: "Promotions",  color: Colors.accent  },
     ],
   },
-  tourism: {
-    revenueLabel  : "Today's Bookings Value",
-    stat1Label    : "Total Bookings",   stat1Icon: "🗓️",
-    stat2Label    : "Pending",          stat2Icon: "⏳",
-    stat3Label    : "Confirmed",        stat3Icon: "✅",
-    stat4Label    : "Upcoming",         stat4Icon: "✈️",
-    stat5Label    : "Completed",        stat5Icon: "🎉",
-    stat6Label    : "Travelers",        stat6Icon: "🧳",
-    recentTitle   : "Recent Bookings",
-    emptyRecent   : "No bookings yet",
-    quickActions  : [
-      { icon: "🌴", label: "Add Package",     screen: "Packages",    color: Colors.primary },
-      { icon: "💥", label: "Flash Deal",      screen: "Promotions",  color: Colors.yellow  },
-      { icon: "📋", label: "Send Itinerary",  screen: "Promotions",  color: Colors.blue    },
-      { icon: "📣", label: "Promo Blast",     screen: "Promotions",  color: Colors.accent  },
-    ],
-  },
-  kirana: {
-    revenueLabel  : "Today's Sales",
-    stat1Label    : "Total Orders",     stat1Icon: "🧾",
-    stat2Label    : "Requested",        stat2Icon: "🛒",
-    stat3Label    : "Confirmed",        stat3Icon: "✅",
-    stat4Label    : "Out for Delivery", stat4Icon: "🛵",
-    stat5Label    : "Delivered",        stat5Icon: "🎉",
-    stat6Label    : "Customers",        stat6Icon: "👥",
-    recentTitle   : "Recent Orders",
-    emptyRecent   : "No orders yet",
-    quickActions  : [
-      { icon: "📦", label: "Add Item",      screen: "Inventory",   color: Colors.primary },
-      { icon: "⚡", label: "Flash Deal",    screen: "Promotions",  color: Colors.yellow  },
-      { icon: "📢", label: "Daily Special", screen: "Promotions",  color: Colors.blue    },
-      { icon: "📣", label: "Promo Blast",   screen: "Promotions",  color: Colors.accent  },
-    ],
-  },
-  cakes: {
-    revenueLabel  : "Today's Orders Value",
-    stat1Label    : "Total Orders",     stat1Icon: "🎂",
-    stat2Label    : "Inquiry",          stat2Icon: "⏳",
-    stat3Label    : "Confirmed",        stat3Icon: "✅",
-    stat4Label    : "Baking",           stat4Icon: "🔥",
-    stat5Label    : "Ready",            stat5Icon: "🎉",
-    stat6Label    : "Customers",        stat6Icon: "👥",
-    recentTitle   : "Recent Orders",
-    emptyRecent   : "No cake orders yet",
-    quickActions  : [
-      { icon: "🎂", label: "Add Cake",     screen: "Menu",        color: Colors.primary },
-      { icon: "💥", label: "Flash Deal",   screen: "Promotions",  color: Colors.yellow  },
-      { icon: "📸", label: "Share Design", screen: "Promotions",  color: Colors.blue    },
-      { icon: "📣", label: "Promo Blast",  screen: "Promotions",  color: Colors.accent  },
-    ],
-  },
-  icecream: {
-    revenueLabel  : "Today's Sales",
-    stat1Label    : "Total Orders",     stat1Icon: "🍦",
-    stat2Label    : "Pending",          stat2Icon: "⏳",
-    stat3Label    : "Confirmed",        stat3Icon: "✅",
-    stat4Label    : "Ready",            stat4Icon: "🎯",
-    stat5Label    : "Delivered",        stat5Icon: "🎉",
-    stat6Label    : "Customers",        stat6Icon: "👥",
-    recentTitle   : "Recent Orders",
-    emptyRecent   : "No orders yet",
-    quickActions  : [
-      { icon: "🎨", label: "Add Flavor",   screen: "Flavors",     color: Colors.primary },
-      { icon: "💥", label: "Flash Deal",   screen: "Promotions",  color: Colors.yellow  },
-      { icon: "🎁", label: "Combo Offer",  screen: "Promotions",  color: Colors.blue    },
-      { icon: "📣", label: "Promo Blast",  screen: "Promotions",  color: Colors.accent  },
-    ],
-  },
 };
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
   const { industry } = useAuth();
-  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG.product;
+  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG.restaurant;
 
   const [data,       setData]       = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -143,7 +76,7 @@ export default function DashboardScreen({ navigation }) {
       setData(d);
     } catch (e) {
       if (!data) setData({ stats: {}, recent: [], customers: [] });
-      setError(e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
       setRefreshing(false);

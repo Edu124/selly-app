@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
+import { friendlyError } from "../lib/errors";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, RefreshControl, TextInput, Modal,
@@ -39,7 +40,7 @@ export default function AdminScreen() {
       const data = await fetchAdminClients();
       setClients(data.clients || []);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchReturns, updateReturn } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 
 // Industry-aware labels
@@ -90,7 +91,7 @@ export default function ReturnsScreen() {
           : "Return rejected. Your note has been saved."
       );
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSaving(false);
     }

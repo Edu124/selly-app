@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchInquiries, replyToInquiry, fetchCatalog } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 export default function PhotoInquiriesScreen() {
   const [inquiries, setInquiries]   = useState([]);
@@ -57,7 +58,7 @@ export default function PhotoInquiriesScreen() {
       ));
       setSelected(null);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSending(false);
     }

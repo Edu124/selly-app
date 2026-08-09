@@ -1,0 +1,243 @@
+<title>Selly — Logo &amp; Brand Concepts</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#0a0a0f; --card:#13131a; --card2:#16161f; --border:#25253a;
+    --text:#f0f0f8; --sub:#8888aa; --muted:#55556a;
+    --purple:#6c47ff; --purple-l:#8b6bff; --pink:#ff6b9d; --green:#22c55e;
+  }
+  body {
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height:1.55; padding:48px 24px 80px;
+  }
+  .wrap { max-width:1060px; margin:0 auto; }
+  .eyebrow { color:var(--purple-l); font-size:12px; letter-spacing:.18em; text-transform:uppercase; font-weight:600; }
+  h1 { font-size:34px; font-weight:700; margin:10px 0 8px; text-wrap:balance; }
+  .lede { color:var(--sub); font-size:15px; max-width:640px; }
+  .note {
+    margin-top:22px; background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:14px 18px; font-size:13.5px; color:var(--sub);
+  }
+  .note b { color:var(--text); }
+
+  .concept {
+    margin-top:44px; background:var(--card); border:1px solid var(--border);
+    border-radius:16px; overflow:hidden;
+  }
+  .c-head { padding:22px 26px 6px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .c-num { font-size:13px; color:var(--muted); font-weight:600; }
+  .c-name { font-size:22px; font-weight:700; }
+  .c-tag { color:var(--sub); font-size:13.5px; }
+  .c-body { display:flex; flex-wrap:wrap; gap:26px; padding:20px 26px 26px; }
+  .cell { display:flex; flex-direction:column; gap:10px; }
+  .cell .lbl { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+
+  .icon-stage {
+    width:180px; height:180px; border-radius:24px; background:var(--card2);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+  }
+  .splash {
+    width:150px; height:250px; border-radius:22px; background:#0a0a0f;
+    border:1px solid var(--border); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px;
+  }
+  .splash .wm { font-size:21px; font-weight:700; }
+  .sizes { display:flex; align-items:flex-end; gap:14px; background:var(--card2);
+    border:1px solid var(--border); border-radius:14px; padding:16px 18px; height:180px; }
+  .sizes .sz { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .sizes .sz span { font-size:10px; color:var(--muted); }
+  .wordmark-stage {
+    background:var(--card2); border:1px solid var(--border); border-radius:14px;
+    padding:0 26px; height:76px; display:flex; align-items:center; font-size:34px; font-weight:700; letter-spacing:-.02em;
+  }
+  .tabbar {
+    background:var(--card2); border:1px solid var(--border); border-radius:14px;
+    height:56px; display:flex; align-items:center; gap:0; width:320px; margin-top:8px;
+  }
+  .tabbar .t { flex:1; text-align:center; font-size:10.5px; color:var(--muted); }
+  .tabbar .t.on { font-weight:700; }
+  .pal { display:flex; gap:8px; }
+  .chipc { width:38px; height:38px; border-radius:10px; border:1px solid rgba(255,255,255,.08); }
+  .why { padding:0 26px 24px; color:var(--sub); font-size:13.5px; max-width:820px; }
+  .why b { color:var(--text); }
+
+  .next { margin-top:44px; background:var(--card); border:1px solid var(--border); border-radius:16px; padding:24px 26px; }
+  .next h2 { font-size:18px; margin-bottom:10px; }
+  .next ol { margin-left:20px; color:var(--sub); font-size:14px; display:flex; flex-direction:column; gap:6px; }
+  .next b { color:var(--text); }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Selly · Brand Refresh</div>
+  <h1>Three logo directions for Selly</h1>
+  <p class="lede">Selly runs AI-powered WhatsApp ordering bots for small businesses. Each concept below is shown the four ways it will actually live: app icon, splash screen, in-app wordmark, and tiny favicon sizes.</p>
+  <div class="note"><b>Current state:</b> the app ships a text-only wordmark ("selly", purple <b>#6c47ff</b>, dark UI) and the icon/splash image files are empty placeholders. Every concept keeps your dark + purple identity as the base so the app UI needs polish, not a repaint.</div>
+
+  <!-- ================= CONCEPT A ================= -->
+  <div class="concept">
+    <div class="c-head">
+      <span class="c-num">CONCEPT A</span>
+      <span class="c-name">Bubble S</span>
+      <span class="c-tag">the conversation is the store — a chat bubble that owns the letter S</span>
+    </div>
+    <div class="c-body">
+      <div class="cell"><span class="lbl">App icon</span>
+        <div class="icon-stage">
+          <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Concept A icon">
+            <defs><linearGradient id="ga" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#8b6bff"/><stop offset="1" stop-color="#5b2fe0"/>
+            </linearGradient></defs>
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#ga)"/>
+            <path d="M30 38 h60 a12 12 0 0 1 12 12 v22 a12 12 0 0 1 -12 12 h-38 l-16 14 v-14 h-6 a12 12 0 0 1 -12 -12 v-22 a12 12 0 0 1 12 -12 z" fill="#ffffff" transform="translate(-2,-2)"/>
+            <text x="58" y="74" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="40" font-weight="800" fill="#6c47ff">S</text>
+          </svg>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Splash</span>
+        <div class="splash">
+          <svg width="64" height="64" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#ga)"/>
+            <path d="M30 38 h60 a12 12 0 0 1 12 12 v22 a12 12 0 0 1 -12 12 h-38 l-16 14 v-14 h-6 a12 12 0 0 1 -12 -12 v-22 a12 12 0 0 1 12 -12 z" fill="#ffffff" transform="translate(-2,-2)"/>
+            <text x="58" y="74" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="40" font-weight="800" fill="#6c47ff">S</text>
+          </svg>
+          <div class="wm">sell<span style="color:#8b6bff">y</span></div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Favicon / small sizes</span>
+        <div class="sizes">
+          <div class="sz"><svg width="48" height="48" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#6c47ff"/><path d="M30 38 h60 a12 12 0 0 1 12 12 v22 a12 12 0 0 1 -12 12 h-38 l-16 14 v-14 h-6 a12 12 0 0 1 -12 -12 v-22 a12 12 0 0 1 12 -12 z" fill="#fff" transform="translate(-2,-2)"/><text x="58" y="74" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="40" font-weight="800" fill="#6c47ff">S</text></svg><span>48</span></div>
+          <div class="sz"><svg width="32" height="32" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#6c47ff"/><path d="M30 38 h60 a12 12 0 0 1 12 12 v22 a12 12 0 0 1 -12 12 h-38 l-16 14 v-14 h-6 a12 12 0 0 1 -12 -12 v-22 a12 12 0 0 1 12 -12 z" fill="#fff" transform="translate(-2,-2)"/><text x="58" y="74" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="40" font-weight="800" fill="#6c47ff">S</text></svg><span>32</span></div>
+          <div class="sz"><svg width="20" height="20" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#6c47ff"/><path d="M30 38 h60 a12 12 0 0 1 12 12 v22 a12 12 0 0 1 -12 12 h-38 l-16 14 v-14 h-6 a12 12 0 0 1 -12 -12 v-22 a12 12 0 0 1 12 -12 z" fill="#fff" transform="translate(-2,-2)"/><text x="58" y="74" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-size="40" font-weight="800" fill="#6c47ff">S</text></svg><span>20</span></div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Wordmark &amp; palette</span>
+        <div class="wordmark-stage">sell<span style="color:#8b6bff">y</span></div>
+        <div class="pal">
+          <div class="chipc" style="background:#6c47ff"></div>
+          <div class="chipc" style="background:#8b6bff"></div>
+          <div class="chipc" style="background:#0a0a0f"></div>
+          <div class="chipc" style="background:#13131a"></div>
+          <div class="chipc" style="background:#f0f0f8"></div>
+        </div>
+      </div>
+    </div>
+    <p class="why"><b>Why it works:</b> the safest, most recognizable evolution of what you have. Chat bubble = WhatsApp commerce at a glance; the bold S carries the name. Reads perfectly even at 20&nbsp;px. This is the "clean SaaS brand" option.</p>
+  </div>
+
+  <!-- ================= CONCEPT B ================= -->
+  <div class="concept">
+    <div class="c-head">
+      <span class="c-num">CONCEPT B</span>
+      <span class="c-name">Bolt</span>
+      <span class="c-tag">instant AI replies — energy inside the conversation</span>
+    </div>
+    <div class="c-body">
+      <div class="cell"><span class="lbl">App icon</span>
+        <div class="icon-stage">
+          <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Concept B icon">
+            <defs><linearGradient id="gb" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#8b6bff"/><stop offset="1" stop-color="#ff6b9d"/>
+            </linearGradient></defs>
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="#13131a" stroke="#30304a" stroke-width="2"/>
+            <path d="M28 34 h64 a10 10 0 0 1 10 10 v28 a10 10 0 0 1 -10 10 h-42 l-15 13 v-13 h-7 a10 10 0 0 1 -10 -10 v-28 a10 10 0 0 1 10 -10 z" fill="none" stroke="url(#gb)" stroke-width="6"/>
+            <path d="M66 40 L46 66 h12 l-6 22 22 -28 h-13 z" fill="url(#gb)"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Splash</span>
+        <div class="splash">
+          <svg width="64" height="64" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="#13131a" stroke="#30304a" stroke-width="2"/>
+            <path d="M28 34 h64 a10 10 0 0 1 10 10 v28 a10 10 0 0 1 -10 10 h-42 l-15 13 v-13 h-7 a10 10 0 0 1 -10 -10 v-28 a10 10 0 0 1 10 -10 z" fill="none" stroke="url(#gb)" stroke-width="6"/>
+            <path d="M66 40 L46 66 h12 l-6 22 22 -28 h-13 z" fill="url(#gb)"/>
+          </svg>
+          <div class="wm" style="background:linear-gradient(90deg,#8b6bff,#ff6b9d); -webkit-background-clip:text; background-clip:text; color:transparent;">selly</div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Favicon / small sizes</span>
+        <div class="sizes">
+          <div class="sz"><svg width="48" height="48" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#13131a"/><path d="M66 34 L40 68 h14 l-8 26 28 -36 h-15 z" fill="#8b6bff"/></svg><span>48</span></div>
+          <div class="sz"><svg width="32" height="32" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#13131a"/><path d="M66 34 L40 68 h14 l-8 26 28 -36 h-15 z" fill="#8b6bff"/></svg><span>32</span></div>
+          <div class="sz"><svg width="20" height="20" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#13131a"/><path d="M66 34 L40 68 h14 l-8 26 28 -36 h-15 z" fill="#8b6bff"/></svg><span>20</span></div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Wordmark &amp; palette</span>
+        <div class="wordmark-stage"><span style="background:linear-gradient(90deg,#8b6bff,#ff6b9d); -webkit-background-clip:text; background-clip:text; color:transparent;">selly</span></div>
+        <div class="pal">
+          <div class="chipc" style="background:#8b6bff"></div>
+          <div class="chipc" style="background:#ff6b9d"></div>
+          <div class="chipc" style="background:#13131a"></div>
+          <div class="chipc" style="background:#0a0a0f"></div>
+          <div class="chipc" style="background:#f0f0f8"></div>
+        </div>
+      </div>
+    </div>
+    <p class="why"><b>Why it works:</b> leans into the AI story — the bot answers <i>instantly</i>. The purple→pink gradient uses accents already in your palette, so the app feels upgraded, not rebranded. Most "startup energy" of the three; the outline bubble is the riskiest at tiny sizes, so the favicon simplifies to bolt-only.</p>
+  </div>
+
+  <!-- ================= CONCEPT C ================= -->
+  <div class="concept">
+    <div class="c-head">
+      <span class="c-num">CONCEPT C</span>
+      <span class="c-name">Duo</span>
+      <span class="c-tag">two bubbles, one deal — the merchant's bot and the customer, mid-conversation</span>
+    </div>
+    <div class="c-body">
+      <div class="cell"><span class="lbl">App icon</span>
+        <div class="icon-stage">
+          <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Concept C icon">
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="#0a0a0f" stroke="#30304a" stroke-width="2"/>
+            <rect x="22" y="26" width="56" height="30" rx="14" fill="#6c47ff"/>
+            <path d="M30 54 l-4 10 12 -6 z" fill="#6c47ff"/>
+            <rect x="44" y="64" width="56" height="30" rx="14" fill="#22c55e"/>
+            <path d="M92 92 l4 10 -12 -6 z" fill="#22c55e"/>
+            <circle cx="40" cy="41" r="4" fill="#fff"/><circle cx="52" cy="41" r="4" fill="#fff"/><circle cx="64" cy="41" r="4" fill="#fff"/>
+            <path d="M58 79 l7 7 13 -13" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Splash</span>
+        <div class="splash">
+          <svg width="64" height="64" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="#0a0a0f" stroke="#30304a" stroke-width="2"/>
+            <rect x="22" y="26" width="56" height="30" rx="14" fill="#6c47ff"/>
+            <path d="M30 54 l-4 10 12 -6 z" fill="#6c47ff"/>
+            <rect x="44" y="64" width="56" height="30" rx="14" fill="#22c55e"/>
+            <path d="M92 92 l4 10 -12 -6 z" fill="#22c55e"/>
+            <circle cx="40" cy="41" r="4" fill="#fff"/><circle cx="52" cy="41" r="4" fill="#fff"/><circle cx="64" cy="41" r="4" fill="#fff"/>
+            <path d="M58 79 l7 7 13 -13" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <div class="wm">selly<span style="color:#22c55e">.</span></div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Favicon / small sizes</span>
+        <div class="sizes">
+          <div class="sz"><svg width="48" height="48" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#0a0a0f"/><rect x="20" y="24" width="58" height="32" rx="15" fill="#6c47ff"/><rect x="42" y="62" width="58" height="32" rx="15" fill="#22c55e"/></svg><span>48</span></div>
+          <div class="sz"><svg width="32" height="32" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#0a0a0f"/><rect x="20" y="24" width="58" height="32" rx="15" fill="#6c47ff"/><rect x="42" y="62" width="58" height="32" rx="15" fill="#22c55e"/></svg><span>32</span></div>
+          <div class="sz"><svg width="20" height="20" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="4" y="4" width="112" height="112" rx="28" fill="#0a0a0f"/><rect x="20" y="24" width="58" height="32" rx="15" fill="#6c47ff"/><rect x="42" y="62" width="58" height="32" rx="15" fill="#22c55e"/></svg><span>20</span></div>
+        </div>
+      </div>
+      <div class="cell"><span class="lbl">Wordmark &amp; palette</span>
+        <div class="wordmark-stage">selly<span style="color:#22c55e">.</span></div>
+        <div class="pal">
+          <div class="chipc" style="background:#6c47ff"></div>
+          <div class="chipc" style="background:#22c55e"></div>
+          <div class="chipc" style="background:#0a0a0f"></div>
+          <div class="chipc" style="background:#13131a"></div>
+          <div class="chipc" style="background:#f0f0f8"></div>
+        </div>
+      </div>
+    </div>
+    <p class="why"><b>Why it works:</b> tells the literal product story — customer messages (typing dots), bot closes the deal (checkmark). The green nods to WhatsApp without copying it, and green is already your success color. Strongest storytelling; slightly busier icon than A.</p>
+  </div>
+
+  <div class="next">
+    <h2>What happens after you pick</h2>
+    <ol>
+      <li><b>Real assets:</b> I generate production files — <b>icon.png</b> (1024×1024), <b>adaptive-icon.png</b> (Android), <b>splash.png</b>, <b>favicon.png</b> — replacing the empty placeholders in <b>selly-app/assets/</b>, plus a master SVG.</li>
+      <li><b>In-app branding:</b> login screen, splash and header get the real logo instead of styled text.</li>
+      <li><b>UI polish pass:</b> consistent spacing/typography on the main screens (Login, Dashboard, AI Studio, Catalog, Orders), tuned color tokens in <b>constants/colors.js</b>, unified the two different purples currently in the code (#6c47ff vs #7c3aed).</li>
+    </ol>
+  </div>
+</div>

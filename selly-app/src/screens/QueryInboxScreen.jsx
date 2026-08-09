@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchQueries, replyToQuery } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 const TYPE_LABELS = { query: "Query", product_request: "Product Request" };
 const TYPE_EMOJI  = { query: "💬", product_request: "📦" };
@@ -53,7 +54,7 @@ export default function QueryInboxScreen() {
       ));
       setSelected(null);
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSending(false);
     }

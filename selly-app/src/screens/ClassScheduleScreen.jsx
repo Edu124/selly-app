@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchSchedules, createSchedule, deleteSchedule, fetchBatches } from "../lib/api";
 import { fetchCatalog } from "../lib/supabase_data";
+import { friendlyError } from "../lib/errors";
 
 function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -119,7 +120,7 @@ export default function ClassScheduleScreen() {
       setAddModal(false);
       load();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -138,7 +139,7 @@ export default function ClassScheduleScreen() {
               await deleteSchedule(item.id);
               setSchedules(prev => prev.filter(s => s.id !== item.id));
             } catch (e) {
-              Alert.alert("Error", e.message);
+              Alert.alert("Error", friendlyError(e));
             }
           },
         },

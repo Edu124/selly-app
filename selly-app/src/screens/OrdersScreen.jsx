@@ -12,7 +12,7 @@ import StatusPill from "../components/StatusPill";
 
 // ── Industry configuration ────────────────────────────────────────────────────
 const ORDER_CONFIG = {
-  product: {
+  restaurant: {
     itemLabel    : "order",
     itemLabelCap : "Order",
     personLabel  : "Customer",
@@ -34,55 +34,11 @@ const ORDER_CONFIG = {
     showTracking : false,
     showAddress  : false,
   },
-  tourism: {
-    itemLabel    : "booking",
-    itemLabelCap : "Booking",
-    personLabel  : "Traveler",
-    cartLabel    : "Packages",
-    filters      : ["all", "pending_payment", "confirmed", "shipped", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Inquiry", confirmed: "Confirmed", shipped: "Upcoming", delivered: "Completed" },
-    statusFlow   : ["pending_payment", "confirmed", "shipped", "delivered"],
-    showTracking : false,
-    showAddress  : true,
-  },
-  kirana: {
-    itemLabel    : "order",
-    itemLabelCap : "Order",
-    personLabel  : "Customer",
-    cartLabel    : "Items",
-    filters      : ["all", "pending_payment", "confirmed", "packed", "out_for_delivery", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Pending", confirmed: "Confirmed", packed: "Packed", out_for_delivery: "Out for Delivery", delivered: "Delivered" },
-    statusFlow   : ["pending_payment", "confirmed", "packed", "out_for_delivery", "delivered"],
-    showTracking : false,
-    showAddress  : true,
-  },
-  cakes: {
-    itemLabel    : "order",
-    itemLabelCap : "Order",
-    personLabel  : "Customer",
-    cartLabel    : "Items",
-    filters      : ["all", "pending_payment", "confirmed", "packed", "out_for_delivery", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Pending", confirmed: "Confirmed", packed: "Ready", out_for_delivery: "Out for Delivery", delivered: "Delivered" },
-    statusFlow   : ["pending_payment", "confirmed", "packed", "out_for_delivery", "delivered"],
-    showTracking : false,
-    showAddress  : true,
-  },
-  icecream: {
-    itemLabel    : "order",
-    itemLabelCap : "Order",
-    personLabel  : "Customer",
-    cartLabel    : "Items",
-    filters      : ["all", "pending_payment", "confirmed", "out_for_delivery", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Pending", confirmed: "Confirmed", out_for_delivery: "Out for Delivery", delivered: "Delivered" },
-    statusFlow   : ["pending_payment", "confirmed", "out_for_delivery", "delivered"],
-    showTracking : false,
-    showAddress  : true,
-  },
 };
 
 export default function OrdersScreen({ navigation, route }) {
   const { industry } = useAuth();
-  const cfg = ORDER_CONFIG[industry] || ORDER_CONFIG.product;
+  const cfg = ORDER_CONFIG[industry] || ORDER_CONFIG.restaurant;
   const [orders, setOrders]       = useState([]);
   const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);

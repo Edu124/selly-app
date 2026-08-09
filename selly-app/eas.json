@@ -7,13 +7,22 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "production": {
       "channel": "production",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "autoIncrement": "buildNumber"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

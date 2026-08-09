@@ -1,0 +1,961 @@
+<title>MedEquip — WhatsApp Order Bot Demo</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #e9edf1;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1f2937;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #9ca3af; }
+  .demo-bar .spacer { flex: 1; }
+  .btn-outlook {
+    background: #0f6cbd;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background .15s;
+  }
+  .btn-outlook:hover { background: #0b5394; }
+  .btn-outlook:disabled { background: #64748b; cursor: not-allowed; }
+
+  .main {
+    flex: 1;
+    display: flex;
+    gap: 16px;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px;
+    flex-shrink: 0;
+    background: #111;
+    border-radius: 28px;
+    padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex;
+    flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1;
+    border-radius: 20px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #ECE5DD;
+    min-height: 0;
+  }
+  .wa-header {
+    background: #075E54;
+    color: #fff;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #25D366;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .day-chip {
+    align-self: center;
+    background: #dcf0fa;
+    color: #506575;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 82%;
+    padding: 7px 9px 6px 9px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    line-height: 1.42;
+    position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    animation: pop .18s ease-out;
+    color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right;
+    margin: 6px -2px -2px 8px;
+    font-size: 10.5px;
+    color: #8696a0;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+
+  .typing {
+    align-self: flex-start;
+    background: #fff;
+    border-radius: 8px;
+    border-top-left-radius: 2px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    display: flex; gap: 4px;
+  }
+  .typing span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #9ca3af;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex;
+    gap: 6px;
+    padding: 8px 10px 0 10px;
+    flex-wrap: wrap;
+    background: #f0f2f5;
+    flex-shrink: 0;
+  }
+  .chip {
+    border: 1px solid #25D366;
+    color: #075E54;
+    background: #fff;
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: background .15s;
+    font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .btn-outlook:focus-visible { outline: 2px solid #0f6cbd; outline-offset: 2px; }
+
+  .wa-input {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #f0f2f5;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .wa-input input {
+    flex: 1;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 16px;
+    font-size: 13.5px;
+    outline: none;
+    background: #fff;
+    color: #111b21;
+    font-family: inherit;
+    min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #25D366;
+    color: #fff;
+    font-size: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Excel panel ---------- */
+  .excel {
+    flex: 1;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    color: #333;
+  }
+  .xl-titlebar {
+    background: #217346;
+    color: #fff;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+  }
+  .xl-logo {
+    background: #fff;
+    color: #217346;
+    font-weight: 800;
+    border-radius: 4px;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+  }
+  .xl-ribbon {
+    background: #f3f2f1;
+    border-bottom: 1px solid #e1dfdd;
+    padding: 6px 14px;
+    display: flex;
+    gap: 18px;
+    font-size: 12.5px;
+    color: #444;
+  }
+  .xl-ribbon .tab { padding: 3px 2px; cursor: default; }
+  .xl-ribbon .tab.active { color: #217346; font-weight: 600; border-bottom: 2px solid #217346; }
+  .xl-formulabar {
+    display: flex;
+    border-bottom: 1px solid #e1dfdd;
+    font-size: 12px;
+    color: #666;
+  }
+  .xl-namebox { width: 70px; padding: 5px 10px; border-right: 1px solid #e1dfdd; }
+  .xl-fx { flex: 1; padding: 5px 10px; color: #999; }
+
+  .xl-grid-wrap { flex: 1; overflow: auto; }
+  table.xl-grid { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .xl-grid th {
+    background: #f3f2f1;
+    color: #555;
+    font-weight: 500;
+    border: 1px solid #d4d4d4;
+    padding: 4px 8px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    text-align: center;
+    font-size: 11.5px;
+  }
+  .xl-grid td {
+    border: 1px solid #e1e1e1;
+    padding: 6px 8px;
+    white-space: nowrap;
+    background: #fff;
+    color: #333;
+  }
+  .xl-grid td[contenteditable]:hover { background: #f8faf8; }
+  .xl-grid td[contenteditable]:focus {
+    outline: 2px solid #217346;
+    outline-offset: -2px;
+    background: #fff;
+  }
+  .xl-grid td.rowhead {
+    background: #f3f2f1;
+    color: #777;
+    text-align: center;
+    width: 34px;
+    font-size: 11px;
+  }
+  .xl-grid tr.header-row td {
+    background: #217346;
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+  }
+  .xl-grid tr.flash td { animation: rowflash 1.6s ease-out; }
+  @keyframes rowflash { 0% { background: #fff3bf; } 100% { background: #fff; } }
+  .xl-grid tr.new-row td { animation: rowflash 2.4s ease-out; }
+
+  select.status {
+    border: 1px solid transparent;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    outline: none;
+    font-family: inherit;
+  }
+  select.status:hover, select.status:focus-visible { border-color: #999; }
+  .st-received   { background: #fff4ce; color: #8a6d00; }
+  .st-processing { background: #deecf9; color: #0b5394; }
+  .st-dispatched { background: #e6dcf5; color: #5b2d90; }
+  .st-out        { background: #ffe8d9; color: #b4470b; }
+  .st-delivered  { background: #dff6dd; color: #107c10; }
+  .st-instock    { background: #dff6dd; color: #107c10; }
+  .st-nostock    { background: #fde7e9; color: #a4262c; }
+
+  .xl-hint {
+    background: #fffbe6;
+    border-top: 1px solid #f0e6b3;
+    color: #7a6a1f;
+    font-size: 12px;
+    padding: 7px 14px;
+    flex-shrink: 0;
+  }
+  .xl-sheettabs {
+    display: flex;
+    background: #f3f2f1;
+    border-top: 1px solid #e1dfdd;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .xl-sheettabs .stab {
+    padding: 6px 18px;
+    color: #666;
+    cursor: pointer;
+    border-right: 1px solid #e1dfdd;
+    user-select: none;
+  }
+  .xl-sheettabs .stab:hover { background: #e9e8e7; }
+  .xl-sheettabs .stab.active { background: #fff; color: #217346; font-weight: 600; border-top: 2px solid #217346; }
+
+  /* ---------- Toast ---------- */
+  #toasts {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 50;
+  }
+  .toast {
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: toast-in .25s ease-out;
+    max-width: 380px;
+  }
+  .toast.green { border-left: 4px solid #25D366; }
+  .toast.blue  { border-left: 4px solid #0f6cbd; }
+  .toast.red   { border-left: 4px solid #d13438; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .toast, .xl-grid tr.flash td, .xl-grid tr.new-row td { animation: none; }
+    .typing span { animation-duration: 2.4s; }
+  }
+
+  /* ---------- Small screens: stack vertically ---------- */
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .excel { min-height: 480px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>🏥 MedEquip Solutions — WhatsApp Order Bot</h1>
+    <div class="sub">Client demo · Orders arrive via Outlook → tracked in Excel (orders + live stock) → bot answers &amp; notifies customers on WhatsApp</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn-outlook" id="btnOutlook" onclick="simulateOutlook()">📧 Simulate new order (Outlook)</button>
+</div>
+
+<div class="main">
+
+  <!-- WhatsApp phone -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">🏥</div>
+        <div>
+          <div class="wa-title">MedEquip Orders</div>
+          <div class="wa-status" id="waStatus">online</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today</div>
+      </div>
+      <div class="chips">
+        <button class="chip" onclick="quickSend('Hi')">👋 Hi</button>
+        <button class="chip" onclick="quickSend('Status of ORD-1043')">Status of ORD-1043</button>
+        <button class="chip" onclick="quickSend('I need 2 ICU Ventilators')">Need 2 ICU Ventilators</button>
+        <button class="chip" onclick="quickSend('My orders')">My orders</button>
+      </div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Excel sheet -->
+  <div class="excel">
+    <div class="xl-titlebar">
+      <div class="xl-logo">X</div>
+      <span>Order&nbsp;Tracker.xlsx — Excel</span>
+      <span style="margin-left:auto; font-size:11px; opacity:.8">AutoSave <b>On</b> · Shared with Sales Team</span>
+    </div>
+    <div class="xl-ribbon">
+      <span class="tab">File</span>
+      <span class="tab active">Home</span>
+      <span class="tab">Insert</span>
+      <span class="tab">Formulas</span>
+      <span class="tab">Data</span>
+      <span class="tab">Review</span>
+      <span class="tab">View</span>
+    </div>
+    <div class="xl-formulabar">
+      <div class="xl-namebox" id="nameBox">A1</div>
+      <div class="xl-fx">fx</div>
+    </div>
+    <div class="xl-grid-wrap">
+      <table class="xl-grid" id="grid">
+        <thead id="gridHead"></thead>
+        <tbody id="gridBody"></tbody>
+      </table>
+    </div>
+    <div class="xl-hint" id="sheetHint"></div>
+    <div class="xl-sheettabs">
+      <span class="stab active" id="tab-orders" onclick="switchSheet('orders')">Open Orders</span>
+      <span class="stab" id="tab-stock" onclick="switchSheet('stock')">Stock Availability</span>
+    </div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Data                                                              */
+/* ------------------------------------------------------------------ */
+const ACTIVE_CLIENT = 'City Care Hospital';   // the customer on this WhatsApp chat
+
+const STATUSES = ['Order Received', 'Processing', 'Dispatched', 'Out for Delivery', 'Delivered'];
+const STATUS_CLASS = {
+  'Order Received':   'st-received',
+  'Processing':       'st-processing',
+  'Dispatched':       'st-dispatched',
+  'Out for Delivery': 'st-out',
+  'Delivered':        'st-delivered',
+};
+const STATUS_EMOJI = {
+  'Order Received':   '📥',
+  'Processing':       '⚙️',
+  'Dispatched':       '🚚',
+  'Out for Delivery': '🛵',
+  'Delivered':        '✅',
+};
+
+let orders = [
+  { id:'ORD-1041', client:'City Care Hospital',    item:'Oxygen Concentrator 10L',    qty:5,  value:'₹3,75,000', status:'Dispatched',     eta:'18 Jul 2026', awb:'BlueDart BD-88231' },
+  { id:'ORD-1042', client:'Sunrise Diagnostics',   item:'ECG Machine 12-Channel',     qty:2,  value:'₹1,90,000', status:'Processing',     eta:'21 Jul 2026', awb:'—' },
+  { id:'ORD-1043', client:'City Care Hospital',    item:'Patient Monitor 5-Para',     qty:10, value:'₹6,20,000', status:'Processing',     eta:'22 Jul 2026', awb:'—' },
+  { id:'ORD-1044', client:'Apollo Clinic, Pune',   item:'Infusion Pump (Volumetric)', qty:8,  value:'₹2,64,000', status:'Order Received', eta:'25 Jul 2026', awb:'—' },
+  { id:'ORD-1045', client:'GreenLeaf Nursing Home', item:'Motorized Hospital Bed',    qty:4,  value:'₹4,10,000', status:'Dispatched',     eta:'19 Jul 2026', awb:'Delhivery DL-55910' },
+];
+
+let stock = [
+  { sku:'EQ-01', item:'ICU Ventilator',             price:485000, stock:0,   avail:'Out of Stock' },
+  { sku:'EQ-02', item:'Oxygen Concentrator 10L',    price:75000,  stock:24,  avail:'In Stock' },
+  { sku:'EQ-03', item:'Patient Monitor 5-Para',     price:62000,  stock:18,  avail:'In Stock' },
+  { sku:'EQ-04', item:'Defibrillator (Biphasic)',   price:245000, stock:3,   avail:'In Stock' },
+  { sku:'EQ-05', item:'Infusion Pump (Volumetric)', price:33000,  stock:40,  avail:'In Stock' },
+  { sku:'EQ-06', item:'Motorized Hospital Bed',     price:102500, stock:0,   avail:'Out of Stock' },
+  { sku:'EQ-07', item:'Nebulizer Compressor',       price:5500,   stock:120, avail:'In Stock' },
+  { sku:'EQ-08', item:'Syringe Pump (Dual)',        price:26000,  stock:9,   avail:'In Stock' },
+];
+
+const OUTLOOK_QUEUE = [
+  { id:'ORD-1046', client:'City Care Hospital',  item:'Nebulizer Compressor',    qty:20, value:'₹1,10,000', status:'Order Received', eta:'27 Jul 2026', awb:'—' },
+  { id:'ORD-1047', client:'Sunrise Diagnostics', item:'Syringe Pump (Dual)',     qty:6,  value:'₹1,56,000', status:'Order Received', eta:'28 Jul 2026', awb:'—' },
+  { id:'ORD-1048', client:'City Care Hospital',  item:'Defibrillator (Biphasic)',qty:1,  value:'₹2,45,000', status:'Order Received', eta:'30 Jul 2026', awb:'—' },
+];
+
+let nextOrderNo = 1049;
+let waitlist = [];        // items the customer asked for while out of stock: {sku, qty}
+let pendingOffer = null;  // bot offered an order, waiting for "Yes": {sku, qty}
+let activeSheet = 'orders';
+
+const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+function etaDate(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }).replace(/-/g,' ');
+}
+
+/* ------------------------------------------------------------------ */
+/*  Excel grid (fully editable)                                       */
+/* ------------------------------------------------------------------ */
+function ed(idx, field, value, align) {
+  return `<td contenteditable="true" spellcheck="false" data-idx="${idx}" data-field="${field}"` +
+         (align ? ` style="text-align:${align}"` : '') + `>${value}</td>`;
+}
+
+function renderGrid() {
+  const head = document.getElementById('gridHead');
+  const body = document.getElementById('gridBody');
+  document.getElementById('tab-orders').className = 'stab' + (activeSheet==='orders' ? ' active' : '');
+  document.getElementById('tab-stock').className  = 'stab' + (activeSheet==='stock'  ? ' active' : '');
+
+  if (activeSheet === 'orders') {
+    head.innerHTML = '<tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th></tr>';
+    let rows = `<tr class="header-row"><td class="rowhead">1</td>` +
+      `<td>Order ID</td><td>Client</td><td>Item</td><td>Qty</td><td>Value</td><td>Status</td><td>ETA</td><td>AWB / Courier</td></tr>`;
+    orders.forEach((o, i) => {
+      const sel = `<select class="status ${STATUS_CLASS[o.status]}" onchange="statusChanged(${i}, this)" aria-label="Status of ${o.id}">` +
+        STATUSES.map(s => `<option ${s===o.status?'selected':''}>${s}</option>`).join('') + `</select>`;
+      rows += `<tr data-row="${i}"><td class="rowhead">${i+2}</td>` +
+        ed(i,'id',`<b>${o.id}</b>`) + ed(i,'client',o.client) + ed(i,'item',o.item) +
+        ed(i,'qty',o.qty,'center') + ed(i,'value',o.value) +
+        `<td>${sel}</td>` + ed(i,'eta',o.eta) + ed(i,'awb',o.awb) + `</tr>`;
+    });
+    body.innerHTML = rows;
+    document.getElementById('sheetHint').innerHTML =
+      `💡 Every cell is editable — click &amp; type. Change a <b>Status</b> (col F) and the bot WhatsApps the customer instantly. Check the <b>Stock Availability</b> sheet for the out-of-stock flow.`;
+  } else {
+    head.innerHTML = '<tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th></tr>';
+    let rows = `<tr class="header-row"><td class="rowhead">1</td>` +
+      `<td>SKU</td><td>Equipment</td><td>Unit Price</td><td>Stock Qty</td><td>Availability</td></tr>`;
+    stock.forEach((s, i) => {
+      const sel = `<select class="status ${s.avail==='In Stock'?'st-instock':'st-nostock'}" onchange="availChanged(${i}, this)" aria-label="Availability of ${s.item}">` +
+        `<option ${s.avail==='In Stock'?'selected':''}>In Stock</option>` +
+        `<option ${s.avail==='Out of Stock'?'selected':''}>Out of Stock</option></select>`;
+      rows += `<tr data-row="${i}"><td class="rowhead">${i+2}</td>` +
+        ed(i,'sku',`<b>${s.sku}</b>`) + ed(i,'item',s.item) +
+        ed(i,'price',inr(s.price)) + ed(i,'stock',s.stock,'center') +
+        `<td>${sel}</td></tr>`;
+    });
+    body.innerHTML = rows;
+    document.getElementById('sheetHint').innerHTML =
+      `💡 Flip <b>Availability</b> (col E) to <b>Out of Stock</b> → the bot tells customers it's unavailable. Flip it back to <b>In Stock</b> → the bot proactively messages the customer: <i>“it's available now — would you like to place the order?”</i>`;
+  }
+}
+
+function switchSheet(name) {
+  activeSheet = name;
+  renderGrid();
+}
+
+/* --- write edited cells back to the data model --- */
+document.getElementById('grid').addEventListener('focusout', e => {
+  const td = e.target.closest('td[contenteditable]');
+  if (!td) return;
+  const idx = +td.dataset.idx, field = td.dataset.field;
+  const raw = td.textContent.trim();
+  if (activeSheet === 'orders') {
+    const o = orders[idx]; if (!o) return;
+    if (field === 'qty') o.qty = parseInt(raw.replace(/\D/g,'')) || o.qty;
+    else o[field] = raw || o[field];
+  } else {
+    const s = stock[idx]; if (!s) return;
+    if (field === 'price') s.price = parseInt(raw.replace(/\D/g,'')) || s.price;
+    else if (field === 'stock') {
+      s.stock = raw.replace(/\D/g,'') === '' ? s.stock : parseInt(raw.replace(/\D/g,''));
+      if (s.stock === 0 && s.avail === 'In Stock') { s.avail = 'Out of Stock'; renderGrid(); toast(`⚠️ <b>${s.item}</b> stock is 0 — marked Out of Stock`, 'red'); return; }
+    }
+    else s[field] = raw || s[field];
+  }
+  renderGrid();
+});
+
+document.getElementById('grid').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.closest('td[contenteditable]')) {
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+
+document.getElementById('grid').addEventListener('focusin', e => {
+  const td = e.target.closest('td[data-field]');
+  if (!td) return;
+  const cols = activeSheet==='orders'
+    ? {id:'A',client:'B',item:'C',qty:'D',value:'E',eta:'G',awb:'H'}
+    : {sku:'A',item:'B',price:'C',stock:'D'};
+  document.getElementById('nameBox').textContent = (cols[td.dataset.field]||'A') + (+td.dataset.idx + 2);
+});
+
+/* ------------------------------------------------------------------ */
+/*  Order status change → WhatsApp update                             */
+/* ------------------------------------------------------------------ */
+function statusChanged(idx, sel) {
+  const o = orders[idx];
+  const oldStatus = o.status;
+  o.status = sel.value;
+  if (o.status === 'Dispatched' && o.awb === '—') {
+    o.awb = 'BlueDart BD-' + (88000 + Math.floor(Math.random()*999));
+  }
+  renderGrid();
+  flashRow(idx);
+
+  if (o.client === ACTIVE_CLIENT) {
+    botPush(
+      `🔔 *Order Update*\n\n` +
+      `📦 *${o.id}* — ${o.item} (Qty ${o.qty})\n` +
+      `Status: ${oldStatus} → *${o.status}* ${STATUS_EMOJI[o.status]}\n` +
+      (o.awb !== '—' ? `🚚 Tracking: ${o.awb}\n` : '') +
+      `📅 Expected delivery: ${o.eta}\n\n` +
+      `Reply *${o.id}* anytime for the latest status.`
+    );
+  } else {
+    toast(`✅ WhatsApp update sent to <b>${o.client}</b> — ${o.id}: ${o.status}`, 'green');
+  }
+}
+
+function flashRow(idx) {
+  const tr = document.querySelector(`tr[data-row="${idx}"]`);
+  if (tr) { tr.classList.add('flash'); tr.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Stock availability change → proactive bot message                 */
+/* ------------------------------------------------------------------ */
+function availChanged(idx, sel) {
+  const s = stock[idx];
+  s.avail = sel.value;
+
+  if (s.avail === 'In Stock') {
+    if (s.stock === 0) s.stock = 10;
+    renderGrid();
+    flashRow(idx);
+    const waiting = waitlist.find(w => w.sku === s.sku);
+    if (waiting) {
+      waitlist = waitlist.filter(w => w.sku !== s.sku);
+      pendingOffer = { sku: s.sku, qty: waiting.qty };
+      botPush(
+        `🎉 *Good news, ${ACTIVE_CLIENT}!*\n\n` +
+        `The *${s.item}* you asked for is *now available* ✅\n\n` +
+        `🔢 Qty you wanted: ${waiting.qty}\n` +
+        `💰 Price: ${inr(s.price)}/unit — Total: *${inr(s.price * waiting.qty)}*\n\n` +
+        `Would you like to place the order now? Reply *Yes* to confirm — I'll book it right away 📦`
+      );
+    } else {
+      pendingOffer = { sku: s.sku, qty: 1 };
+      botPush(
+        `📣 *Stock Update*\n\n` +
+        `*${s.item}* is *back in stock* ✅ (${s.stock} units available)\n` +
+        `💰 Price: ${inr(s.price)}/unit\n\n` +
+        `Would you like to place an order? Reply *Yes* and I'll book it for you right away.`
+      );
+    }
+  } else {
+    if (s.stock !== 0) s.stock = 0;
+    renderGrid();
+    flashRow(idx);
+    toast(`⚠️ <b>${s.item}</b> marked Out of Stock — the bot will inform customers who ask for it`, 'red');
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Outlook simulation                                                */
+/* ------------------------------------------------------------------ */
+function simulateOutlook() {
+  if (!OUTLOOK_QUEUE.length) { toast('📭 No more sample emails in the queue', 'blue'); return; }
+  const o = OUTLOOK_QUEUE.shift();
+  toast(`📧 New order email received from <b>${o.client}</b> — parsed automatically`, 'blue');
+  setTimeout(() => {
+    orders.push(o);
+    if (activeSheet !== 'orders') { activeSheet = 'orders'; }
+    renderGrid();
+    const tr = document.querySelector(`tr[data-row="${orders.length-1}"]`);
+    if (tr) { tr.classList.add('new-row'); tr.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+    toast(`📊 Row added to Order Tracker.xlsx — <b>${o.id}</b>`, 'green');
+    if (o.client === ACTIVE_CLIENT) {
+      botPush(
+        `🧾 *Order Confirmed!*\n\n` +
+        `Thank you for your order, ${o.client} 🙏\n\n` +
+        `📦 *${o.id}* — ${o.item}\n` +
+        `Qty: ${o.qty} | Value: ${o.value}\n` +
+        `📅 Expected delivery: ${o.eta}\n\n` +
+        `We'll keep you posted here at every step — no need to call or email!`
+      );
+    }
+  }, 900);
+  if (!OUTLOOK_QUEUE.length) document.getElementById('btnOutlook').disabled = true;
+}
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById('chat');
+
+function nowTime() {
+  return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+
+function fmt(text) {
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<b>$1</b>')
+    .replace(/_([^_\n]+)_/g, '<i>$1</i>');
+}
+
+function addMsg(text, dir) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + dir;
+  const ticks = dir === 'out' ? `<span class="ticks">✓✓</span>` : '';
+  div.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${ticks}</span>`;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === 'out') setTimeout(() => { const t = div.querySelector('.ticks'); if (t) t.classList.add('read'); }, 1200);
+  return div;
+}
+
+function botPush(text) {
+  const status = document.getElementById('waStatus');
+  status.textContent = 'typing…';
+  const typing = document.createElement('div');
+  typing.className = 'typing';
+  typing.innerHTML = '<span></span><span></span><span></span>';
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => {
+    typing.remove();
+    status.textContent = 'online';
+    addMsg(text, 'in');
+  }, 1100 + Math.random()*500);
+}
+
+function sendUser() {
+  const input = document.getElementById('waText');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addMsg(text, 'out');
+  setTimeout(() => botReply(text), 500);
+}
+
+function quickSend(text) {
+  addMsg(text, 'out');
+  setTimeout(() => botReply(text), 500);
+}
+
+/* --- match free text against the stock sheet --- */
+function findStockItem(text) {
+  const t = text.toLowerCase();
+  let best = null;
+  stock.forEach((s, i) => {
+    const name = s.item.toLowerCase();
+    if (t.includes(name)) { best = { s, i, score: 100 }; return; }
+    const words = name.split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+    const hits = words.filter(w => t.includes(w)).length;
+    if (hits > 0 && (!best || hits > best.score)) best = { s, i, score: hits };
+  });
+  return best;
+}
+
+function placeOrder(sku, qty) {
+  const s = stock.find(x => x.sku === sku);
+  if (!s) return;
+  const id = 'ORD-' + (nextOrderNo++);
+  const eta = etaDate(7);
+  const o = { id, client: ACTIVE_CLIENT, item: s.item, qty, value: inr(s.price * qty), status: 'Order Received', eta, awb: '—' };
+  orders.push(o);
+  s.stock = Math.max(0, s.stock - qty);
+  if (s.stock === 0) s.avail = 'Out of Stock';
+  activeSheet = 'orders';
+  renderGrid();
+  const tr = document.querySelector(`tr[data-row="${orders.length-1}"]`);
+  if (tr) { tr.classList.add('new-row'); tr.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  toast(`📊 New row added to Order Tracker.xlsx — <b>${id}</b>`, 'green');
+  botPush(
+    `🧾 *Order Placed Successfully!*\n\n` +
+    `📦 Order No: *${id}*\n` +
+    `🩺 ${s.item} × ${qty}\n` +
+    `💰 Total: *${inr(s.price * qty)}*\n` +
+    `📅 Expected delivery: *${eta}*\n\n` +
+    `Our team has been notified — you'll get every status update right here. Thank you! 🙏`
+  );
+}
+
+function botReply(text) {
+  const t = text.toLowerCase();
+
+  /* --- pending "would you like to order?" offer --- */
+  if (pendingOffer) {
+    if (/^(yes|yeah|yep|sure|ok|okay|confirm|book|haan|place)/.test(t)) {
+      const offer = pendingOffer;
+      pendingOffer = null;
+      placeOrder(offer.sku, offer.qty);
+      return;
+    }
+    if (/^(no|not now|later|cancel|nahi)/.test(t)) {
+      pendingOffer = null;
+      botPush(`No problem! 👍 I won't book it. Message me anytime if you change your mind — I'm here 24×7.`);
+      return;
+    }
+  }
+
+  /* --- order number lookup --- */
+  const idMatch = text.match(/ord[\s-]?(\d{3,5})/i);
+  if (idMatch) {
+    const id = 'ORD-' + idMatch[1];
+    const o = orders.find(x => x.id === id);
+    if (!o) {
+      botPush(`❌ I couldn't find order *${id}*.\n\nPlease check the order number, or type *my orders* to see all your active orders.`);
+      return;
+    }
+    if (o.client !== ACTIVE_CLIENT) {
+      botPush(`🔒 Order *${id}* belongs to a different account, so I can't share its details here.\n\nType *my orders* to see the orders on this account.`);
+      return;
+    }
+    botPush(
+      `📦 *${o.id}* — Order Status\n\n` +
+      `🏥 ${o.client}\n` +
+      `🩺 Item: ${o.item}\n` +
+      `🔢 Qty: ${o.qty} | 💰 ${o.value}\n` +
+      `${STATUS_EMOJI[o.status]} Status: *${o.status}*\n` +
+      (o.awb !== '—' ? `🚚 Tracking: ${o.awb}\n` : '') +
+      `📅 Expected delivery: *${o.eta}*\n\n` +
+      `_Live from Order Tracker.xlsx — updated by our team in real time._`
+    );
+    return;
+  }
+
+  /* --- greeting --- */
+  if (/\b(hi|hello|hey|namaste|good (morning|afternoon|evening))\b/.test(t)) {
+    botPush(
+      `👋 Hello! Welcome to *MedEquip Solutions*.\n\n` +
+      `I'm your order assistant 🤖 — I can help you with:\n\n` +
+      `1️⃣  Track an order — send the order no. (e.g. *ORD-1043*)\n` +
+      `2️⃣  Check equipment and prices — just name it (e.g. *ICU Ventilator*)\n` +
+      `3️⃣  *My orders* — see all your active orders\n` +
+      `4️⃣  *Help* — talk to our sales team\n\n` +
+      `How can I help you today?`
+    );
+    return;
+  }
+
+  /* --- equipment / availability enquiry --- */
+  const wantsItem = /\b(need|want|require|order|buy|purchase|available|availability|stock|price|quote|do you have|looking for)\b/.test(t);
+  const match = findStockItem(text);
+  if (match && (wantsItem || match.score >= 1)) {
+    const s = match.s;
+    const qtyMatch = t.match(/\b(\d{1,4})\b/);
+    const qty = qtyMatch ? Math.max(1, parseInt(qtyMatch[1])) : 1;
+
+    if (s.avail === 'Out of Stock' || s.stock === 0) {
+      if (!waitlist.find(w => w.sku === s.sku)) waitlist.push({ sku: s.sku, qty });
+      botPush(
+        `😔 I'm sorry — *${s.item}* is currently *out of stock*.\n\n` +
+        `✅ I've added you to the priority notify list (Qty ${qty}).\n` +
+        `The moment our team marks it available, I'll message you *right here* — you won't need to follow up.\n\n` +
+        `_Meanwhile, is there anything else you need?_`
+      );
+      toast(`📝 ${ACTIVE_CLIENT} asked for <b>${s.item}</b> (out of stock) — added to notify list. Now flip its Availability to “In Stock” on the Stock sheet!`, 'blue');
+      return;
+    }
+
+    const capped = Math.min(qty, s.stock);
+    pendingOffer = { sku: s.sku, qty: capped };
+    botPush(
+      `✅ *${s.item}* is *available!*\n\n` +
+      `💰 Price: ${inr(s.price)}/unit\n` +
+      `📦 In stock: ${s.stock} units\n` +
+      (capped < qty ? `⚠️ You asked for ${qty}, but only ${s.stock} are in stock right now.\n` : '') +
+      `\n🧾 Qty ${capped} → Total: *${inr(s.price * capped)}*\n` +
+      `🚚 Delivery in ~7 days\n\n` +
+      `Shall I place the order? Reply *Yes* to confirm.`
+    );
+    return;
+  }
+
+  /* --- list my orders --- */
+  if (/\b(my|all|active) orders?\b|order list|^orders?$/.test(t)) {
+    const mine = orders.filter(o => o.client === ACTIVE_CLIENT);
+    const lines = mine.map(o => `${STATUS_EMOJI[o.status]} *${o.id}* — ${o.item}\n      ${o.status} · ETA ${o.eta}`).join('\n\n');
+    botPush(
+      `📋 *Your active orders* (${ACTIVE_CLIENT}):\n\n${lines}\n\n` +
+      `Send any order number for full details.`
+    );
+    return;
+  }
+
+  /* --- human help --- */
+  if (/\b(help|agent|human|team|call|support)\b/.test(t)) {
+    botPush(`🙋 Sure! I've notified our sales team — someone will reply to you right here within *15 minutes*.\n\nMeanwhile, you can send an order number or equipment name anytime for an instant answer.`);
+    return;
+  }
+
+  /* --- thanks --- */
+  if (/\b(thank|thanks|great|nice)\b/.test(t)) {
+    botPush(`You're welcome! 😊 We're always here — just message anytime for instant order updates.`);
+    return;
+  }
+
+  botPush(
+    `🤖 Sorry, I didn't get that.\n\nYou can try:\n` +
+    `• An order number, e.g. *ORD-1043*\n` +
+    `• An equipment name, e.g. *ICU Ventilator*\n` +
+    `• *My orders* — list all your orders\n` +
+    `• *Help* — reach our team`
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toasts                                                            */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById('toasts');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (color || '');
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 5200);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                              */
+/* ------------------------------------------------------------------ */
+renderGrid();
+setTimeout(() => botPush(
+  `👋 Hello *${ACTIVE_CLIENT}*!\n\nThis is the *MedEquip Solutions* order assistant. You can:\n\n` +
+  `• Send *Hi* for the menu\n` +
+  `• Send an order no. like *ORD-1041* for status\n` +
+  `• Ask for any equipment, e.g. *"I need 2 ICU Ventilators"* — I'll check stock instantly`
+), 700);
+</script>

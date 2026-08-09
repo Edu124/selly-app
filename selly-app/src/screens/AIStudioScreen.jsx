@@ -5,448 +5,46 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, TextInput, Modal, Image,
+  ActivityIndicator, Alert, TextInput, Modal,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { getBaseUrl, getBusinessId } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 // ── Feature Cards Config ──────────────────────────────────────────────────────
 const AI_FEATURES = [
   {
-    id       : "insights",
-    icon     : "📊",
-    title    : "Smart Insights",
-    desc     : "Sales forecast, best time to post, top products",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
+    id: "insights", icon: "stats-chart", tile: "violet",
+    title: "Smart Insights",
+    desc : "Sales forecast, best time to post and top products",
+    badge: "Popular", badgeTone: "amber", tech: "Groq Llama 3", action: "Open",
+    comingSoon: false, industries: "all",
   },
   {
-    id       : "caption",
-    icon     : "✍️",
-    title    : "Caption Writer",
-    desc     : "AI writes Instagram captions & broadcast messages",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
+    id: "notebook", icon: "book", tile: "blue",
+    title: "AI Notebooks",
+    desc : "Upload notes \u2192 AI answers student doubts on WhatsApp",
+    badge: "New", badgeTone: "green", tech: "Groq Llama 3", action: "Open",
+    comingSoon: false, industries: "education",
   },
   {
-    id       : "image",
-    icon     : "🖼️",
-    title    : "Image Generator",
-    desc     : "Generate product photos & promotional banners",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
+    id: "flashcard", icon: "albums", tile: "pink",
+    title: "Flashcard Generator",
+    desc : "Upload chapter \u2192 AI creates study flashcards instantly",
+    badge: "", badgeTone: "violet", tech: "Groq Llama 3", action: "Create",
+    comingSoon: false, industries: "education",
   },
   {
-    id       : "voice",
-    icon     : "🎙️",
-    title    : "Voice Ordering",
-    desc     : "Customers send voice notes — bot auto-transcribes & orders",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
-  },
-  {
-    id       : "video",
-    icon     : "🎬",
-    title    : "Video Generator",
-    desc     : "AI generates a 5-second promo video from your description",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
-  },
-  {
-    id       : "reel",
-    icon     : "📝",
-    title    : "Reel Script Writer",
-    desc     : "AI writes 30-second Reel scripts for your products",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
-  },
-  {
-    id       : "notebook",
-    icon     : "📚",
-    title    : "AI Notebooks",
-    desc     : "Upload notes → AI answers student doubts on WhatsApp",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "education",
-  },
-  {
-    id       : "flashcard",
-    icon     : "🃏",
-    title    : "Flashcard Generator",
-    desc     : "Upload chapter → AI creates study flashcards instantly",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "education",
-  },
-  {
-    id       : "bulkimport",
-    icon     : "📦",
-    title    : "Bulk Product Import",
-    desc     : "Paste price list or describe products → auto-add all",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
-  },
-  {
-    id       : "scanner",
-    icon     : "📷",
-    title    : "Scan & Sell",
-    desc     : "Barcode/SKU lookup → quick bill generation",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "kirana,icecream,cakes,product",
-  },
-  {
-    id       : "pricing",
-    icon     : "💰",
-    title    : "Smart Pricing",
-    desc     : "AI suggests optimal prices based on demand & competition",
-    badge    : "Free",
-    badgeColor: "#22c55e",
-    comingSoon: false,
-    industries: "all",
+    id: "pricing", icon: "pricetag", tile: "green",
+    title: "Smart Pricing",
+    desc : "AI suggests optimal prices based on demand & competition",
+    badge: "", badgeTone: "violet", tech: "Groq Llama 3", action: "Analyze",
+    comingSoon: false, industries: "all",
   },
 ];
-
-// ── Caption Writer Modal ──────────────────────────────────────────────────────
-function CaptionWriterModal({ visible, onClose, industry }) {
-  const [prompt,   setPrompt]   = useState("");
-  const [result,   setResult]   = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [type,     setType]     = useState("instagram");
-
-  const TYPES = [
-    { id: "instagram", label: "📸 Instagram" },
-    { id: "broadcast", label: "📢 Broadcast" },
-    { id: "reel",      label: "🎬 Reel Script" },
-  ];
-
-  async function generate() {
-    if (!prompt.trim()) return Alert.alert("Enter a prompt first");
-    setLoading(true);
-    setResult("");
-    try {
-      const systemMap = {
-        instagram : `You are a social media expert for Indian small businesses. Write an engaging Instagram caption with emojis and relevant hashtags. Keep it under 150 words. Industry: ${industry}.`,
-        broadcast : `You are a marketing expert for Indian small businesses. Write a WhatsApp broadcast message that's personal, warm, and drives action. Keep it under 100 words. Industry: ${industry}.`,
-        reel      : `You are a content creator for Indian small businesses. Write a 30-second Reel script with a hook, main content, and CTA. Use simple Hindi-English mix. Industry: ${industry}.`,
-      };
-
-      const base = await getBaseUrl();
-      const res = await fetch(`${base}/api/ai/generate`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({ type, context: prompt.trim(), industry }),
-      });
-      const data = await res.json();
-      setResult(data.result || data.error || "No response");
-    } catch (e) {
-      setResult("Error: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>✍️ AI Content Writer</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody}>
-          {/* Type selector */}
-          <View style={styles.typeRow}>
-            {TYPES.map(t => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.typeBtn, type === t.id && styles.typeBtnActive]}
-                onPress={() => setType(t.id)}
-              >
-                <Text style={[styles.typeBtnText, type === t.id && styles.typeBtnTextActive]}>{t.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {/* Prompt */}
-          <Text style={styles.fieldLabel}>What do you want to promote?</Text>
-          <TextInput
-            style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-            placeholder={`e.g. "New summer collection kurtas starting ₹499"`}
-            placeholderTextColor={Colors.textMuted}
-            value={prompt}
-            onChangeText={setPrompt}
-            multiline
-          />
-          <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
-            {loading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.generateBtnText}>✨ Generate</Text>
-            }
-          </TouchableOpacity>
-          {/* Result */}
-          {result ? (
-            <View style={styles.resultBox}>
-              <Text style={styles.resultLabel}>Result:</Text>
-              <Text style={styles.resultText}>{result}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
-// ── Image Generator Modal (Text→Image + Image→Image) ─────────────────────────
-function ImageGeneratorModal({ visible, onClose }) {
-  const [mode,      setMode]      = useState("text");   // "text" | "transform"
-  const [prompt,    setPrompt]    = useState("");
-  const [loading,   setLoading]   = useState(false);
-  const [imageUrl,  setImageUrl]  = useState("");
-  const [srcImage,  setSrcImage]  = useState(null);     // { uri, base64 }
-  const [strength,  setStrength]  = useState("0.75");   // 0-1
-
-  const MODES = [
-    { id: "text",      label: "✨ Text → Image" },
-    { id: "transform", label: "🔄 Transform Image" },
-  ];
-
-  // Pick image from gallery or camera for img2img
-  async function pickImage() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow photo access to use this feature.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.6,
-      base64: true,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      setSrcImage({
-        uri   : asset.uri,
-        base64: `data:image/jpeg;base64,${asset.base64}`,
-      });
-    }
-  }
-
-  async function takePhoto() {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Allow camera access to use this feature.");
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.6,
-      base64: true,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      setSrcImage({
-        uri   : asset.uri,
-        base64: `data:image/jpeg;base64,${asset.base64}`,
-      });
-    }
-  }
-
-  async function generate() {
-    if (!prompt.trim()) return Alert.alert("Enter a prompt first");
-    if (mode === "transform" && !srcImage) return Alert.alert("Pick a source image first");
-    setLoading(true);
-    setImageUrl("");
-    try {
-
-      const base = await getBaseUrl();
-
-      if (mode === "text") {
-        const res = await fetch(`${base}/api/ai/image`, {
-          method : "POST",
-          headers: { "Content-Type": "application/json" },
-          body   : JSON.stringify({ prompt: prompt.trim() }),
-        });
-        const data = await res.json();
-        if (data.error) return Alert.alert("Error", data.error);
-        setImageUrl(data.imageUrl || "");
-      } else {
-        // img2img — sends base64 source + prompt
-        const res = await fetch(`${base}/api/ai/image-transform`, {
-          method : "POST",
-          headers: { "Content-Type": "application/json" },
-          body   : JSON.stringify({
-            image   : srcImage.base64,
-            prompt  : prompt.trim(),
-            strength: Number(strength) || 0.75,
-          }),
-        });
-        const data = await res.json();
-        if (data.error) return Alert.alert("Error", data.error);
-        setImageUrl(data.imageUrl || "");
-      }
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const isTransform = mode === "transform";
-  const [igOpen, setIgOpen] = useState(false);
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>🖼️ AI Image Studio</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-
-          {/* Mode selector */}
-          <View style={styles.typeRow}>
-            {MODES.map(m => (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.typeBtn, mode === m.id && styles.typeBtnActive]}
-                onPress={() => { setMode(m.id); setImageUrl(""); }}
-              >
-                <Text style={[styles.typeBtnText, mode === m.id && styles.typeBtnTextActive]}>{m.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Source image picker (img2img mode only) */}
-          {isTransform && (
-            <>
-              <Text style={styles.fieldLabel}>Source Image</Text>
-              {srcImage ? (
-                <View style={styles.srcImageWrap}>
-                  <Image source={{ uri: srcImage.uri }} style={styles.srcImagePreview} resizeMode="cover" />
-                  <TouchableOpacity style={styles.changeSrcBtn} onPress={() => setSrcImage(null)}>
-                    <Text style={styles.changeSrcText}>✕ Remove</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.pickRow}>
-                  <TouchableOpacity style={styles.pickBtn} onPress={pickImage}>
-                    <Text style={styles.pickBtnIcon}>🖼️</Text>
-                    <Text style={styles.pickBtnText}>Gallery</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.pickBtn} onPress={takePhoto}>
-                    <Text style={styles.pickBtnIcon}>📷</Text>
-                    <Text style={styles.pickBtnText}>Camera</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              <Text style={styles.fieldLabel}>Transformation Strength</Text>
-              <View style={styles.strengthRow}>
-                {["0.4","0.6","0.75","0.9"].map(v => (
-                  <TouchableOpacity
-                    key={v}
-                    style={[styles.strengthBtn, strength === v && styles.strengthBtnActive]}
-                    onPress={() => setStrength(v)}
-                  >
-                    <Text style={[styles.strengthBtnText, strength === v && styles.strengthBtnTextActive]}>
-                      {v === "0.4" ? "Subtle" : v === "0.6" ? "Moderate" : v === "0.75" ? "Strong" : "Max"}
-                    </Text>
-                    <Text style={[styles.strengthBtnSub, strength === v && { color: Colors.primary }]}>{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              <Text style={styles.hintText}>
-                💡 "Subtle" keeps the original close. "Max" heavily transforms it. Use "Strong" for style changes like making a product photo look like a painting.
-              </Text>
-            </>
-          )}
-
-          {/* Prompt */}
-          <Text style={styles.fieldLabel}>
-            {isTransform ? "How should it be transformed?" : "Describe the image you want"}
-          </Text>
-          <TextInput
-            style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-            placeholder={isTransform
-              ? `e.g. "Make it look like a professional studio product photo with white background"`
-              : `e.g. "A beautiful Indian woman wearing a blue silk saree, white background, professional product photo"`
-            }
-            placeholderTextColor={Colors.textMuted}
-            value={prompt}
-            onChangeText={setPrompt}
-            multiline
-          />
-
-          {!isTransform && (
-            <Text style={styles.hintText}>💡 Tip: Describe the product, style, background, and mood for best results</Text>
-          )}
-
-          <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
-            {loading
-              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>
-                  {isTransform ? "Transforming (~45s)..." : "Generating (~30s)..."}
-                </Text></>
-              : <Text style={styles.generateBtnText}>
-                  {isTransform ? "🔄 Transform Image" : "✨ Generate Image"}
-                </Text>
-            }
-          </TouchableOpacity>
-
-          {/* Result */}
-          {imageUrl ? (
-            <View style={styles.resultBox}>
-              {isTransform && srcImage && (
-                <>
-                  <Text style={styles.resultLabel}>Before:</Text>
-                  <Image source={{ uri: srcImage.uri }} style={styles.resultImagePreview} resizeMode="cover" />
-                  <Text style={[styles.resultLabel, { marginTop: 12 }]}>After (AI Transformed):</Text>
-                </>
-              )}
-              {!isTransform && <Text style={styles.resultLabel}>Generated Image:</Text>}
-              <Image source={{ uri: imageUrl }} style={styles.resultImagePreview} resizeMode="cover" />
-              <Text style={[styles.resultText, { color: Colors.textMuted, fontSize: 11, marginTop: 6 }]} numberOfLines={2}>{imageUrl}</Text>
-              {/* Post to Instagram */}
-              <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 14 }]}
-                onPress={() => setIgOpen(true)}
-              >
-                <Text style={styles.generateBtnText}>📲 Post to Instagram</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-        </ScrollView>
-      </View>
-      {/* Instagram post modal */}
-      <InstagramPostModal
-        visible={igOpen}
-        onClose={() => setIgOpen(false)}
-        mediaUrl={imageUrl}
-        mediaType="IMAGE"
-      />
-    </Modal>
-  );
-}
 
 // ── Smart Insights Modal ──────────────────────────────────────────────────────
 function InsightsModal({ visible, onClose, industry }) {
@@ -533,286 +131,6 @@ function InsightsModal({ visible, onClose, industry }) {
     </Modal>
   );
 }
-
-// ── Instagram Post Modal (shared by Image + Video) ────────────────────────────
-function InstagramPostModal({ visible, onClose, mediaUrl, mediaType = "IMAGE", defaultCaption = "" }) {
-  const [caption,  setCaption]  = useState(defaultCaption);
-  const [posting,  setPosting]  = useState(false);
-  const [genning,  setGenning]  = useState(false);
-  const [done,     setDone]     = useState(false);
-
-  // reset when opened
-  React.useEffect(() => {
-    if (visible) { setCaption(defaultCaption); setDone(false); }
-  }, [visible]);
-
-  async function generateCaption() {
-    setGenning(true);
-    try {
-
-      const base = await getBaseUrl();
-      const res = await fetch(`${base}/api/ai/generate`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({
-          type   : "instagram",
-          context: mediaType === "VIDEO"
-            ? `Generate an Instagram Reel caption for this video: "${mediaUrl.slice(-40)}". Be engaging, use emojis and 5 relevant hashtags.`
-            : `Generate an Instagram post caption for this product image. Be engaging, use emojis and 5 relevant hashtags.`,
-        }),
-      });
-      const data = await res.json();
-      setCaption(data.result || "");
-    } catch (_) {
-    } finally {
-      setGenning(false);
-    }
-  }
-
-  async function post() {
-    if (!caption.trim()) return Alert.alert("Add a caption first");
-    setPosting(true);
-    try {
-
-      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
-      const res = await fetch(`${base}/api/instagram/post`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
-        body   : JSON.stringify({ mediaUrl, caption: caption.trim(), mediaType, bid }),
-      });
-      const data = await res.json();
-      if (data.error) return Alert.alert("Instagram Error", data.error);
-      setDone(true);
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setPosting(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>📲 Post to Instagram</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-          {done ? (
-            <View style={styles.successBox}>
-              <Text style={{ fontSize: 52, marginBottom: 12 }}>✅</Text>
-              <Text style={styles.successTitle}>Posted to Instagram!</Text>
-              <Text style={styles.successSub}>Your {mediaType === "VIDEO" ? "Reel" : "post"} is now live.</Text>
-              <TouchableOpacity style={[styles.generateBtn, { marginTop: 24 }]} onPress={onClose}>
-                <Text style={styles.generateBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              {/* Media type badge */}
-              <View style={styles.igMediaBadge}>
-                <Text style={styles.igMediaBadgeText}>{mediaType === "VIDEO" ? "🎬 Reel (Video)" : "🖼️ Photo Post"}</Text>
-              </View>
-
-              {/* Caption */}
-              <View style={styles.captionHeaderRow}>
-                <Text style={styles.fieldLabel}>Caption</Text>
-                <TouchableOpacity style={styles.aiCaptionBtn} onPress={generateCaption} disabled={genning}>
-                  {genning
-                    ? <ActivityIndicator color={Colors.primary} size="small" />
-                    : <Text style={styles.aiCaptionBtnText}>✨ AI Write</Text>
-                  }
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={[styles.input, { height: 120, textAlignVertical: "top" }]}
-                placeholder="Write a caption, or tap ✨ AI Write to generate one..."
-                placeholderTextColor={Colors.textMuted}
-                value={caption}
-                onChangeText={setCaption}
-                multiline
-              />
-
-              {/* Tips */}
-              <View style={styles.igTipCard}>
-                <Text style={styles.igTipTitle}>💡 Tips for better reach</Text>
-                <Text style={styles.igTipText}>• Use 5-10 relevant hashtags</Text>
-                <Text style={styles.igTipText}>• Post in the evening (7-9pm) for max engagement</Text>
-                <Text style={styles.igTipText}>• Tag your location for local discoverability</Text>
-                {mediaType === "VIDEO" && <Text style={styles.igTipText}>• Reels get 3× more reach than regular posts</Text>}
-              </View>
-
-              {/* Requirements reminder */}
-              <View style={[styles.igTipCard, { backgroundColor: "rgba(234,179,8,0.08)", borderColor: "rgba(234,179,8,0.25)" }]}>
-                <Text style={[styles.igTipTitle, { color: "#eab308" }]}>⚙️ Requirements</Text>
-                <Text style={styles.igTipText}>Instagram account ID + access token must be set in Settings → Instagram Integration.</Text>
-                <Text style={[styles.igTipText, { marginTop: 4 }]}>Image/video must be publicly accessible (Railway-hosted URLs work).</Text>
-              </View>
-
-              {/* Post button */}
-              <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 8 }, posting && { opacity: 0.6 }]}
-                onPress={post}
-                disabled={posting}
-              >
-                {posting
-                  ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Posting...</Text></>
-                  : <Text style={styles.generateBtnText}>📤 Post to Instagram</Text>
-                }
-              </TouchableOpacity>
-            </>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
-// ── Video Generator Modal ─────────────────────────────────────────────────────
-function VideoGeneratorModal({ visible, onClose, industry }) {
-  const [prompt,   setPrompt]   = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [videoUrl, setVideoUrl] = useState("");
-  const [igOpen,   setIgOpen]   = useState(false);
-
-  async function generate() {
-    if (!prompt.trim()) return Alert.alert("Enter a prompt first");
-    setLoading(true);
-    setVideoUrl("");
-    try {
-
-      const base = await getBaseUrl();
-      const res = await fetch(`${base}/api/ai/video`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json" },
-        body   : JSON.stringify({ prompt: prompt.trim() }),
-      });
-      const data = await res.json();
-      if (data.error) return Alert.alert("Error", data.error);
-      setVideoUrl(data.videoUrl || "");
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>🎬 AI Video Generator</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-          <Text style={styles.fieldLabel}>Describe your video</Text>
-          <TextInput
-            style={[styles.input, { height: 90, textAlignVertical: "top" }]}
-            placeholder={`e.g. "A beautiful silk saree elegantly flowing in slow motion, golden light, cinematic product showcase"`}
-            placeholderTextColor={Colors.textMuted}
-            value={prompt}
-            onChangeText={setPrompt}
-            multiline
-          />
-          <Text style={styles.hintText}>
-            💡 Generates a ~5 second HD clip. Best for product showcases, food shots, fashion reels. Takes 1-3 minutes.
-          </Text>
-
-          <TouchableOpacity style={styles.generateBtn} onPress={generate} disabled={loading}>
-            {loading
-              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Generating video (1-3 min)...</Text></>
-              : <Text style={styles.generateBtnText}>🎬 Generate Video</Text>
-            }
-          </TouchableOpacity>
-
-          {loading && (
-            <View style={styles.videoWaitCard}>
-              <Text style={styles.videoWaitText}>⏳ AI is rendering your video...</Text>
-              <Text style={styles.videoWaitSub}>This takes 1-3 minutes. Don't close this screen.</Text>
-            </View>
-          )}
-
-          {videoUrl ? (
-            <View style={styles.resultBox}>
-              <Text style={styles.resultLabel}>✅ Video Generated!</Text>
-              <Text style={[styles.resultText, { color: Colors.primary }]} numberOfLines={2}>{videoUrl}</Text>
-              <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 6, lineHeight: 16 }}>
-                Open the URL in a browser to preview. Then post it to Instagram below!
-              </Text>
-              {/* Post to Instagram button */}
-              <TouchableOpacity
-                style={[styles.generateBtn, { backgroundColor: "#E1306C", marginTop: 14 }]}
-                onPress={() => setIgOpen(true)}
-              >
-                <Text style={styles.generateBtnText}>📲 Post as Instagram Reel</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          {/* Video prompts inspiration */}
-          <View style={styles.insightCard}>
-            <Text style={styles.insightTitle}>💡 Video prompt ideas</Text>
-            {[
-              "Product rotating on a pedestal with golden light",
-              "Food being plated beautifully in slow motion",
-              "Happy customer receiving their package, unboxing",
-              "Clothes on a model walking on a runway, vibrant colors",
-              "Cake being decorated with cream, close-up shot",
-            ].map((p, i) => (
-              <TouchableOpacity key={i} style={styles.promptIdea} onPress={() => setPrompt(p)}>
-                <Text style={styles.promptIdeaText}>"{p}"</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-      {/* Instagram post modal */}
-      <InstagramPostModal
-        visible={igOpen}
-        onClose={() => setIgOpen(false)}
-        mediaUrl={videoUrl}
-        mediaType="VIDEO"
-      />
-    </Modal>
-  );
-}
-
-// ── Voice Ordering Info Modal ─────────────────────────────────────────────────
-function VoiceModal({ visible, onClose }) {
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>🎙️ Voice Ordering</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody}>
-          <View style={[styles.resultBox, { marginTop: 0 }]}>
-            <Text style={styles.resultLabel}>How it works</Text>
-            <Text style={styles.resultText}>
-              {`Your customers can already send voice notes on WhatsApp!\n\n` +
-               `1️⃣  Customer sends a voice note saying what they want\n` +
-               `2️⃣  Bot transcribes using Groq Whisper AI\n` +
-               `3️⃣  Intent is extracted from the speech\n` +
-               `4️⃣  Order flow continues automatically\n\n` +
-               `✅  This feature is active by default on your bot — no setup needed!`}
-            </Text>
-          </View>
-          <View style={[styles.resultBox, { marginTop: 12 }]}>
-            <Text style={styles.resultLabel}>Tip for better results</Text>
-            <Text style={styles.resultText}>
-              {`Train your customers to say clear product names. Example:\n\n` +
-               `"Mujhe 2 blue cotton kurta chahiye size M"\n` +
-               `("I want 2 blue cotton kurta size M")\n\n` +
-               `The AI understands Hindi, English, and Hinglish!`}
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
 // ── AI Notebooks Info Modal ───────────────────────────────────────────────────
 function NotebookModal({ visible, onClose }) {
   return (
@@ -888,7 +206,7 @@ function FlashcardModal({ visible, onClose, industry }) {
         setCards([{ q: "Error parsing response", a: data.result || "" }]);
       }
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -942,114 +260,6 @@ function FlashcardModal({ visible, onClose, industry }) {
     </Modal>
   );
 }
-
-// ── Bulk Import Modal ─────────────────────────────────────────────────────────
-function BulkImportModal({ visible, onClose }) {
-  const [text,    setText]    = useState("");
-  const [result,  setResult]  = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [importing, setImporting] = useState(false);
-
-  async function parseProducts() {
-    if (!text.trim()) return Alert.alert("Enter product list text first");
-    setLoading(true);
-    setResult(null);
-    try {
-
-      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
-      const res = await fetch(`${base}/api/catalog/parse-import`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
-        body   : JSON.stringify({ text: text.trim(), bid }),
-      });
-      const data = await res.json();
-      setResult(data);
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function doImport() {
-    if (!result?.products?.length) return;
-    setImporting(true);
-    try {
-
-      const [base, bid] = await Promise.all([getBaseUrl(), getBusinessId()]);
-      const res = await fetch(`${base}/api/catalog/bulk-import`, {
-        method : "POST",
-        headers: { "Content-Type": "application/json", "X-Business-ID": bid },
-        body   : JSON.stringify({ products: result.products, bid }),
-      });
-      const data = await res.json();
-      Alert.alert("Success!", `${data.imported || result.products.length} products added to catalog!`, [
-        { text: "Done", onPress: () => { setText(""); setResult(null); onClose(); } }
-      ]);
-    } catch (e) {
-      Alert.alert("Error", e.message);
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>📦 Bulk Product Import</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-          <Text style={styles.fieldLabel}>Paste your product list</Text>
-          <Text style={styles.hintText}>
-            {"Format: Name - Price - Description (one per line)\nExample:\nBlue Cotton Kurta - 499 - Premium cotton, summer wear\nRed Silk Saree - 1299 - Pure silk, festival special"}
-          </Text>
-          <TextInput
-            style={[styles.input, { height: 140, textAlignVertical: "top" }]}
-            placeholder={"Product Name - Price - Description\nAnother Product - Price"}
-            placeholderTextColor={Colors.textMuted}
-            value={text}
-            onChangeText={setText}
-            multiline
-          />
-          <TouchableOpacity style={styles.generateBtn} onPress={parseProducts} disabled={loading}>
-            {loading
-              ? <><ActivityIndicator color="#fff" /><Text style={[styles.generateBtnText, { marginLeft: 8 }]}>Parsing...</Text></>
-              : <Text style={styles.generateBtnText}>🔍 Parse Products</Text>
-            }
-          </TouchableOpacity>
-
-          {result?.products?.length > 0 && (
-            <View style={[styles.resultBox, { marginTop: 16 }]}>
-              <Text style={styles.resultLabel}>Found {result.products.length} products — preview:</Text>
-              {result.products.slice(0, 5).map((p, i) => (
-                <View key={i} style={{ borderBottomWidth: 1, borderBottomColor: Colors.border, paddingVertical: 8 }}>
-                  <Text style={{ color: Colors.textPrimary, fontSize: 13, fontWeight: "700" }}>{p.name}</Text>
-                  <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>₹{p.price} · {p.description}</Text>
-                </View>
-              ))}
-              {result.products.length > 5 && (
-                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 6 }}>...and {result.products.length - 5} more</Text>
-              )}
-              <TouchableOpacity
-                style={[styles.generateBtn, { marginTop: 12, backgroundColor: "#22c55e" }]}
-                onPress={doImport}
-                disabled={importing}
-              >
-                {importing
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.generateBtnText}>✅ Import {result.products.length} Products</Text>
-                }
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Smart Pricing Modal ───────────────────────────────────────────────────────
 function SmartPricingModal({ visible, onClose, industry }) {
   const [product,  setProduct]  = useState("");
@@ -1140,133 +350,115 @@ function SmartPricingModal({ visible, onClose, industry }) {
     </Modal>
   );
 }
-
-// ── Scan & Sell Modal (redirect info) ────────────────────────────────────────
-function ScanSellInfoModal({ visible, onClose }) {
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.modal}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>📷 Scan & Sell</Text>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalClose}>✕</Text></TouchableOpacity>
-        </View>
-        <ScrollView style={styles.modalBody}>
-          <View style={[styles.resultBox, { marginTop: 0 }]}>
-            <Text style={styles.resultLabel}>Quick Bill from Barcode/SKU</Text>
-            <Text style={styles.resultText}>
-              {`Find it in the More tab!\n\n` +
-               `Go to: More → Scan & Sell\n\n` +
-               `Features:\n` +
-               `• Type or scan product barcode/SKU\n` +
-               `• Instantly add to bill\n` +
-               `• Adjust quantities\n` +
-               `• Generate bill with total\n\n` +
-               `💡 Add SKU/Product Numbers to your Catalog/Inventory items to enable barcode search.`}
-            </Text>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
-}
-
 // ── Main AI Studio Screen ─────────────────────────────────────────────────────
 export default function AIStudioScreen() {
   const { industry } = useAuth();
-  const [captionOpen,  setCaptionOpen]  = useState(false);
-  const [imageOpen,    setImageOpen]    = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
-  const [voiceOpen,    setVoiceOpen]    = useState(false);
-  const [videoOpen,    setVideoOpen]    = useState(false);
   const [notebookOpen, setNotebookOpen] = useState(false);
   const [flashcardOpen,setFlashcardOpen]= useState(false);
-  const [bulkOpen,     setBulkOpen]     = useState(false);
   const [pricingOpen,  setPricingOpen]  = useState(false);
-  const [scanOpen,     setScanOpen]     = useState(false);
 
   function handleFeature(id, comingSoon) {
     if (comingSoon) {
       Alert.alert("Coming Soon", "This feature is in development and will be available soon! 🚀");
       return;
     }
-    if (id === "caption" || id === "reel") setCaptionOpen(true);
-    if (id === "image")    setImageOpen(true);
     if (id === "insights") setInsightsOpen(true);
-    if (id === "voice")    setVoiceOpen(true);
-    if (id === "video")    setVideoOpen(true);
     if (id === "notebook") setNotebookOpen(true);
     if (id === "flashcard")setFlashcardOpen(true);
-    if (id === "bulkimport") setBulkOpen(true);
     if (id === "pricing")  setPricingOpen(true);
-    if (id === "scanner")  setScanOpen(true);
   }
 
   const visibleFeatures = AI_FEATURES.filter(f =>
     f.industries === "all" || f.industries.split(",").includes(industry)
   );
 
+  const tile = k => Colors.tile[k] || Colors.tile.violet;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerGlow} />
-        <View style={styles.headerTop}>
-          <View style={styles.headerLogoWrap}>
-            <Text style={styles.headerLogoIcon}>⚡</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>AI Studio</Text>
-            <Text style={styles.headerSub}>Grow faster with artificial intelligence</Text>
-          </View>
+
+      {/* ── Hero ─────────────────────────────────────────────── */}
+      <LinearGradient
+        colors={Colors.gradHero}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={styles.hero}
+      >
+        <View style={styles.heroGlowA} />
+        <View style={styles.heroGlowB} />
+
+        <View style={styles.heroEyebrow}>
+          <Ionicons name="sparkles" size={11} color="#d9ccff" />
+          <Text style={styles.heroEyebrowText}>Smarter tools, bigger results</Text>
         </View>
-        <View style={styles.headerBadgeRow}>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeDot}>●</Text>
-            <Text style={styles.headerBadgeText}>Groq Llama 3</Text>
-          </View>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeDot}>●</Text>
-            <Text style={styles.headerBadgeText}>Flux Images</Text>
-          </View>
-          <View style={[styles.headerBadge, styles.headerBadgeFree]}>
-            <Text style={styles.headerBadgeFreeText}>✦ FREE</Text>
-          </View>
-        </View>
+
+        <Text style={styles.heroTitle}>Create, Automate & Grow</Text>
+        <Text style={styles.heroTitleAccent}>with AI</Text>
+        <Text style={styles.heroSub}>
+          Smart insights and pricing help for your business — powered by Groq Llama 3.
+        </Text>
+      </LinearGradient>
+
+      {/* ── Popular Tools ────────────────────────────────────── */}
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>Popular Tools</Text>
+        <Text style={styles.sectionLink}>{visibleFeatures.length} tools</Text>
       </View>
 
-      {/* Feature cards */}
       {visibleFeatures.map(f => (
         <TouchableOpacity
           key={f.id}
-          style={[styles.featureCard, f.comingSoon && styles.featureCardDim]}
+          style={[styles.toolCard, f.comingSoon && styles.toolCardDim]}
           onPress={() => handleFeature(f.id, f.comingSoon)}
-          activeOpacity={0.75}
+          activeOpacity={0.8}
         >
-          <Text style={styles.featureIcon}>{f.icon}</Text>
-          <View style={styles.featureMeta}>
-            <View style={styles.featureTitleRow}>
-              <Text style={styles.featureTitle}>{f.title}</Text>
-              <View style={[styles.badge, { backgroundColor: f.badgeColor + "22", borderColor: f.badgeColor + "44" }]}>
-                <Text style={[styles.badgeText, { color: f.badgeColor }]}>{f.comingSoon ? "Soon" : f.badge}</Text>
-              </View>
+          <View style={styles.toolTop}>
+            <View style={[styles.toolIcon, { backgroundColor: tile(f.tile)[0] }]}>
+              <Ionicons name={f.icon} size={19} color={tile(f.tile)[1]} />
             </View>
-            <Text style={styles.featureDesc}>{f.desc}</Text>
+            {!!f.badge && !f.comingSoon && (
+              <View style={[styles.pill, { backgroundColor: tile(f.badgeTone)[0] }]}>
+                <Text style={[styles.pillText, { color: tile(f.badgeTone)[1] }]}>{f.badge}</Text>
+              </View>
+            )}
+            {f.comingSoon && (
+              <View style={styles.pill}><Text style={styles.pillText}>Soon</Text></View>
+            )}
           </View>
-          <Text style={styles.chevron}>{f.comingSoon ? "🔒" : "›"}</Text>
+
+          <Text style={styles.toolTitle}>{f.title}</Text>
+          <Text style={styles.toolDesc}>{f.desc}</Text>
+
+          <View style={styles.toolFoot}>
+            <View style={styles.techTag}><Text style={styles.techTagText}>{f.tech}</Text></View>
+            <View style={styles.toolBtn}>
+              <Text style={styles.toolBtnText}>{f.action}</Text>
+              <Ionicons name="arrow-forward" size={12} color="#fff" />
+            </View>
+          </View>
         </TouchableOpacity>
       ))}
 
+      {/* ── Upgrade banner ───────────────────────────────────── */}
+      <LinearGradient
+        colors={Colors.gradPrimary}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={styles.upsell}
+      >
+        <View style={styles.upsellIcon}>
+          <Ionicons name="rocket" size={19} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.upsellTitle}>Do more with AI</Text>
+          <Text style={styles.upsellSub}>Save time and focus on what really matters — your growth.</Text>
+        </View>
+      </LinearGradient>
+
       {/* Modals */}
-      <CaptionWriterModal  visible={captionOpen}   onClose={() => setCaptionOpen(false)}   industry={industry} />
-      <ImageGeneratorModal visible={imageOpen}     onClose={() => setImageOpen(false)} />
       <InsightsModal       visible={insightsOpen}  onClose={() => setInsightsOpen(false)}  industry={industry} />
-      <VoiceModal          visible={voiceOpen}     onClose={() => setVoiceOpen(false)} />
-      <VideoGeneratorModal visible={videoOpen}     onClose={() => setVideoOpen(false)}     industry={industry} />
       <NotebookModal       visible={notebookOpen}  onClose={() => setNotebookOpen(false)} />
       <FlashcardModal      visible={flashcardOpen} onClose={() => setFlashcardOpen(false)} industry={industry} />
-      <BulkImportModal     visible={bulkOpen}      onClose={() => setBulkOpen(false)} />
       <SmartPricingModal   visible={pricingOpen}   onClose={() => setPricingOpen(false)}   industry={industry} />
-      <ScanSellInfoModal   visible={scanOpen}      onClose={() => setScanOpen(false)} />
     </ScrollView>
   );
 }
@@ -1274,33 +466,67 @@ export default function AIStudioScreen() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container : { flex: 1, backgroundColor: Colors.bg },
-  content   : { padding: 16, gap: 10, paddingBottom: 40 },
+  content   : { padding: 14, gap: 10, paddingBottom: 40 },
 
-  // Header — professional gradient card
-  header         : { backgroundColor: "#0f0a1e", borderRadius: 20, padding: 20, marginBottom: 6, borderWidth: 1, borderColor: Colors.primary + "55", overflow: "hidden" },
-  headerGlow     : { position: "absolute", top: -40, right: -40, width: 160, height: 160, borderRadius: 80, backgroundColor: Colors.primary + "25" },
-  headerTop      : { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 },
-  headerLogoWrap : { width: 52, height: 52, borderRadius: 16, backgroundColor: Colors.primary + "33", borderWidth: 1, borderColor: Colors.primary + "66", alignItems: "center", justifyContent: "center" },
-  headerLogoIcon : { fontSize: 26 },
-  headerTitle    : { color: "#fff", fontSize: 22, fontWeight: "900", letterSpacing: 0.3 },
-  headerSub      : { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  headerBadgeRow : { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  headerBadge    : { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
-  headerBadgeDot : { color: "#22c55e", fontSize: 7 },
-  headerBadgeText: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "600" },
-  headerBadgeFree: { backgroundColor: Colors.primary + "33", borderColor: Colors.primary + "66" },
-  headerBadgeFreeText: { color: Colors.primary, fontSize: 11, fontWeight: "800" },
+  // ── Hero ──────────────────────────────────────────────────
+  hero        : { borderRadius: 22, padding: 20, overflow: "hidden", marginBottom: 4 },
+  heroGlowA   : { position: "absolute", top: -70, right: -50, width: 190, height: 190, borderRadius: 95, backgroundColor: "rgba(157,135,255,0.30)" },
+  heroGlowB   : { position: "absolute", bottom: -80, left: -60, width: 170, height: 170, borderRadius: 85, backgroundColor: "rgba(45,212,191,0.12)" },
+  heroEyebrow : { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5, marginBottom: 14 },
+  heroEyebrowText: { color: "#e6dcff", fontSize: 10.5, fontWeight: "700", letterSpacing: 0.3 },
+  heroTitle       : { color: "#fff", fontSize: 26, fontWeight: "800", letterSpacing: -0.4, lineHeight: 31 },
+  heroTitleAccent : { color: "#c9b6ff", fontSize: 26, fontWeight: "800", letterSpacing: -0.4, lineHeight: 31, marginBottom: 8 },
+  heroSub         : { color: "rgba(255,255,255,0.72)", fontSize: 12.5, lineHeight: 18, marginBottom: 16 },
 
-  featureCard    : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgCard, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border, gap: 14 },
-  featureCardDim : { opacity: 0.65 },
-  featureIcon    : { fontSize: 32 },
-  featureMeta    : { flex: 1 },
-  featureTitleRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
-  featureTitle   : { color: Colors.textPrimary, fontSize: 15, fontWeight: "800" },
-  featureDesc    : { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
-  badge          : { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20, borderWidth: 1 },
-  badgeText      : { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
-  chevron        : { color: Colors.textMuted, fontSize: 22 },
+  promptBar   : { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "rgba(10,10,18,0.55)", borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.16)", paddingLeft: 13, paddingRight: 6, paddingVertical: 6 },
+  promptInput : { flex: 1, color: "#fff", fontSize: 13.5, paddingVertical: 8, outlineStyle: "none" },
+  promptSend  : { width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center" },
+
+  chipRow     : { flexDirection: "row", gap: 7 },
+  promptChip  : { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(255,255,255,0.11)", borderWidth: 1, borderColor: "rgba(255,255,255,0.14)", borderRadius: 18, paddingHorizontal: 11, paddingVertical: 6 },
+  promptChipText: { color: "rgba(255,255,255,0.88)", fontSize: 11, fontWeight: "600" },
+
+  // ── Sections ──────────────────────────────────────────────
+  sectionRow  : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 2 },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 15.5, fontWeight: "800", letterSpacing: -0.2 },
+  sectionLink : { color: Colors.textMuted, fontSize: 11.5, fontWeight: "600" },
+
+  // ── Activity stat tiles ───────────────────────────────────
+  statGrid  : { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+  statCard  : { flexGrow: 1, flexBasis: "46%", backgroundColor: Colors.bgCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 12 },
+  statIcon  : { width: 28, height: 28, borderRadius: 9, alignItems: "center", justifyContent: "center", marginBottom: 9 },
+  statLabel : { color: Colors.textMuted, fontSize: 10.5, fontWeight: "600", letterSpacing: 0.2 },
+  statValRow: { flexDirection: "row", alignItems: "flex-end", gap: 7, marginTop: 2 },
+  statValue : { color: Colors.textPrimary, fontSize: 20, fontWeight: "800", letterSpacing: -0.4 },
+  statDelta : { color: Colors.green, fontSize: 10.5, fontWeight: "700", marginBottom: 3 },
+
+  // ── Quick actions ─────────────────────────────────────────
+  quickRow  : { flexDirection: "row", gap: 9, paddingVertical: 2 },
+  quickCard : { flexDirection: "row", alignItems: "center", gap: 10, width: 218, backgroundColor: Colors.bgCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 12 },
+  quickIcon : { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  quickTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: "700" },
+  quickSub  : { color: Colors.textMuted, fontSize: 10.5, marginTop: 1 },
+
+  // ── Tool cards ────────────────────────────────────────────
+  toolCard  : { backgroundColor: Colors.bgCard, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 14 },
+  toolCardDim: { opacity: 0.6 },
+  toolTop   : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 11 },
+  toolIcon  : { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  pill      : { backgroundColor: Colors.bgElevated, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 3 },
+  pillText  : { color: Colors.textMuted, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.4 },
+  toolTitle : { color: Colors.textPrimary, fontSize: 15, fontWeight: "700", letterSpacing: -0.2 },
+  toolDesc  : { color: Colors.textSecondary, fontSize: 12, lineHeight: 17.5, marginTop: 3 },
+  toolFoot  : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 13 },
+  techTag   : { backgroundColor: Colors.bgElevated, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
+  techTagText: { color: Colors.textMuted, fontSize: 10.5, fontWeight: "600" },
+  toolBtn   : { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: Colors.primary, borderRadius: 9, paddingHorizontal: 13, paddingVertical: 7 },
+  toolBtnText: { color: "#fff", fontSize: 11.5, fontWeight: "700" },
+
+  // ── Upgrade banner ────────────────────────────────────────
+  upsell     : { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 16, padding: 15, marginTop: 14 },
+  upsellIcon : { width: 38, height: 38, borderRadius: 11, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
+  upsellTitle: { color: "#fff", fontSize: 14.5, fontWeight: "800" },
+  upsellSub  : { color: "rgba(255,255,255,0.82)", fontSize: 11.5, marginTop: 2, lineHeight: 16 },
 
   // Modal
   modal       : { flex: 1, backgroundColor: Colors.bg },

@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
+import { friendlyError } from "../lib/errors";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, Image, Alert, Switch,
@@ -251,7 +252,7 @@ function CourseModal({ visible, course, onClose, onDone }) {
         const d = await addProduct({ ...payload, inStock: true });
         onDone(d.product || payload);
       }
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
     finally { setSaving(false); }
   };
 
@@ -359,7 +360,7 @@ export default function CoursesScreen() {
       const d = await fetchCatalog();
       setCourses(d.products || []);
     } catch (e) {
-      setLoadError(e.message);
+      setLoadError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -371,7 +372,7 @@ export default function CoursesScreen() {
     try {
       await toggleStock(id, !current);
       setCourses(prev => prev.map(c => c.id === id ? { ...c, inStock: !current } : c));
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
   };
 
   const del = (id, name) => {
@@ -381,7 +382,7 @@ export default function CoursesScreen() {
         try {
           await deleteProduct(id);
           setCourses(prev => prev.filter(c => c.id !== id));
-        } catch (e) { Alert.alert("Error", e.message); }
+        } catch (e) { Alert.alert("Error", friendlyError(e)); }
       }},
     ]);
   };

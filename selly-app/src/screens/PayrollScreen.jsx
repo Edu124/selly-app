@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
+import { friendlyError } from "../lib/errors";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, Modal, FlatList,
@@ -40,7 +41,7 @@ function AddEmployeeModal({ visible, onClose, onAdded }) {
       await addEmployee({ name: name.trim(), role, salary: Number(salary), mobile: mobile.trim() });
       reset(); onClose(); onAdded();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -171,7 +172,7 @@ function AttendanceTab({ employees }) {
       await markAttendance(empId, date, status);
       setAttendance(prev => ({ ...prev, [empId]: status }));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSaving(null);
     }
@@ -295,7 +296,7 @@ function SalaryTab({ employees }) {
             await loadReport();
             Alert.alert("Done", "Salary calculated and records saved!");
           } catch (e) {
-            Alert.alert("Error", e.message);
+            Alert.alert("Error", friendlyError(e));
           } finally {
             setProcessing(false);
           }
@@ -407,7 +408,7 @@ export default function PayrollScreen() {
       await deleteEmployee(id);
       setEmployees(prev => prev.filter(e => e.id !== id));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     }
   }
 

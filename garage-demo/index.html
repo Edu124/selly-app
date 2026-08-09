@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TorqueWorks — Pro Garage Equipment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0f14;
+    --panel:#121820;
+    --panel-2:#161e28;
+    --line:#233040;
+    --text:#e8edf2;
+    --muted:#93a1b0;
+    --accent:#f5a524;
+    --accent-dark:#c47f0e;
+    --good:#3ecf8e;
+    --display:'Barlow Condensed',Arial,sans-serif;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:var(--body);line-height:1.6;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+
+  /* ---------- NAV ---------- */
+  nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:28px;
+      padding:14px 5vw;background:rgba(11,15,20,.85);backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--line)}
+  .logo{font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:10px}
+  .logo .bolt{width:30px;height:30px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#131313;font-size:17px}
+  .logo span em{color:var(--accent);font-style:normal}
+  .nav-links{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--muted)}
+  .nav-links a:hover{color:var(--text)}
+  .kit-btn{margin-left:8px;display:flex;align-items:center;gap:8px;background:var(--panel-2);
+      border:1px solid var(--line);padding:8px 16px;border-radius:99px;font-size:14px;font-weight:600;transition:.2s}
+  .kit-btn:hover{border-color:var(--accent)}
+  .kit-btn .count{background:var(--accent);color:#131313;font-size:12px;font-weight:700;
+      min-width:20px;height:20px;border-radius:99px;display:grid;place-items:center;padding:0 5px}
+
+  /* ---------- WORKSHOP HERO ---------- */
+  #workshop{padding:48px 5vw 30px;max-width:1200px;margin:0 auto}
+  .shop-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:20px;margin-bottom:18px}
+  .shop-head h1{font-family:var(--display);font-size:clamp(38px,5.5vw,64px);line-height:1.02;font-weight:700;letter-spacing:.01em}
+  .shop-head h1 em{color:var(--accent);font-style:normal}
+  .shop-head p{color:var(--muted);max-width:460px;font-size:15px}
+  .progress-box{margin-left:auto;text-align:right}
+  .progress-label{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:8px}
+  .progress-label b{color:var(--accent)}
+  .pips{display:flex;gap:6px;justify-content:flex-end}
+  .pip{width:34px;height:8px;border-radius:4px;background:var(--panel-2);border:1px solid var(--line);transition:.5s}
+  .pip.on{background:var(--good);border-color:var(--good);box-shadow:0 0 12px rgba(62,207,142,.5)}
+
+  .scene-wrap{position:relative;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+      background:linear-gradient(180deg,#141b25 0%,#0e141c 100%)}
+  .scene-wrap svg{display:block;width:100%;height:auto}
+  .hint{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--muted);font-size:14px}
+  .hint .dot{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#131313;
+      display:grid;place-items:center;font-weight:800;font-size:13px;flex:none;animation:hintPulse 1.8s infinite}
+  @keyframes hintPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,.5)}50%{box-shadow:0 0 0 9px rgba(245,165,36,0)}}
+
+  /* ---------- SVG SCENE ---------- */
+  .hotspot{cursor:pointer}
+  .hotspot .hit{fill:transparent}
+  .hotspot .ring{fill:none;stroke:var(--accent);stroke-width:2;transform-box:fill-box;transform-origin:center;
+      animation:ring 1.8s ease-out infinite}
+  @keyframes ring{0%{transform:scale(.7);opacity:.9}80%{transform:scale(2.1);opacity:0}100%{opacity:0}}
+  .hotspot .core{fill:var(--accent)}
+  .hotspot text{fill:#131313;font:800 15px var(--body);pointer-events:none}
+  .hotspot:hover .core{fill:#ffc255}
+  .hotspot.done{display:none}
+
+  .smoke{fill:#9aa5ad;transform-box:fill-box;transform-origin:center;animation:puff 2.4s ease-out infinite}
+  @keyframes puff{0%{transform:translateY(0) scale(.55);opacity:.55}100%{transform:translateY(-95px) scale(1.5);opacity:0}}
+  .flicker{animation:flick .5s steps(2) infinite}
+  @keyframes flick{50%{opacity:.15}}
+
+  .dmg{transition:opacity .8s ease}
+  .fixed-engine .dmg-engine,
+  .fixed-windshield .dmg-windshield,
+  .fixed-headlight .dmg-headlight,
+  .fixed-door .dmg-door{opacity:0 !important;pointer-events:none}
+
+  #headlightGlass{fill:#5a5648;transition:fill .8s}
+  .fixed-headlight #headlightGlass{fill:#ffd97a}
+
+  #wheelRearFlat{transition:opacity .5s}
+  #wheelRearOK{opacity:0;transition:opacity .5s .15s}
+  .fixed-tire #wheelRearFlat{opacity:0}
+  .fixed-tire #wheelRearOK{opacity:1}
+
+  #carTilt{transform:rotate(-1.7deg);transform-box:view-box;transform-origin:730px 380px;
+      transition:transform 1s cubic-bezier(.34,1.56,.64,1)}
+  .fixed-tire #carTilt{transform:rotate(0deg)}
+
+  #carMove{transform:translateX(-1150px);transition:transform 1.9s cubic-bezier(.22,.9,.3,1)}
+  #carMove.arrived{transform:translateX(0)}
+  #carMove.depart{transform:translateX(1250px);transition:transform 1.7s cubic-bezier(.6,0,.9,.5)}
+  #carMove.revving{animation:rev .1s linear 8}
+  @keyframes rev{0%,100%{transform:translateX(0)}50%{transform:translateX(0) translateY(-2px)}}
+
+  .rim{transform-box:fill-box;transform-origin:center}
+  .rolling .rim{animation:spin .5s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  #beams{opacity:0;transition:opacity .6s}
+  .celebrate #beams{opacity:1}
+
+  .fix-burst{fill:none;stroke:var(--good);stroke-width:3;transform-box:fill-box;transform-origin:center;
+      animation:burst .7s ease-out forwards}
+  @keyframes burst{0%{transform:scale(.3);opacity:1}100%{transform:scale(2.6);opacity:0}}
+
+  /* done overlay */
+  #doneOverlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+      background:radial-gradient(ellipse at center,rgba(11,15,20,.55),rgba(11,15,20,.88));
+      opacity:0;pointer-events:none;transition:opacity .7s;padding:20px}
+  #doneOverlay.show{opacity:1;pointer-events:auto}
+  #doneOverlay h2{font-family:var(--display);font-size:clamp(34px,5vw,56px);font-weight:700}
+  #doneOverlay h2 em{color:var(--good);font-style:normal}
+  #doneOverlay p{color:var(--muted);max-width:520px;margin:10px auto 22px}
+  .btn{display:inline-block;padding:13px 26px;border-radius:12px;font-weight:700;font-size:15px;transition:.2s}
+  .btn-primary{background:var(--accent);color:#131313}
+  .btn-primary:hover{background:#ffc255;transform:translateY(-2px)}
+  .btn-ghost{border:1px solid var(--line);color:var(--text);margin-left:10px}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+  /* ---------- DRAWER ---------- */
+  #backdrop{position:fixed;inset:0;background:rgba(5,8,12,.6);opacity:0;pointer-events:none;transition:.3s;z-index:60}
+  #backdrop.show{opacity:1;pointer-events:auto}
+  #drawer{position:fixed;top:0;right:0;bottom:0;width:min(430px,94vw);background:var(--panel);
+      border-left:1px solid var(--line);z-index:70;transform:translateX(110%);
+      transition:transform .38s cubic-bezier(.25,.9,.3,1);display:flex;flex-direction:column}
+  #drawer.show{transform:translateX(0)}
+  .drawer-head{padding:22px 24px 16px;border-bottom:1px solid var(--line)}
+  .drawer-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+      color:var(--accent);border:1px solid rgba(245,165,36,.4);padding:4px 10px;border-radius:99px;margin-bottom:10px}
+  .drawer-tag.fixed-tag{color:var(--good);border-color:rgba(62,207,142,.4)}
+  .drawer-head h3{font-family:var(--display);font-size:30px;font-weight:700;line-height:1.1}
+  .drawer-head p{color:var(--muted);font-size:14px;margin-top:6px}
+  .drawer-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:10px;
+      border:1px solid var(--line);display:grid;place-items:center;font-size:16px;color:var(--muted)}
+  .drawer-close:hover{color:var(--text);border-color:var(--muted)}
+  .drawer-body{flex:1;overflow-y:auto;padding:18px 24px 30px}
+  .drawer-sub{font-size:12px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:14px}
+  .product{background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;transition:.2s}
+  .product:hover{border-color:rgba(245,165,36,.5)}
+  .product .row{display:flex;gap:14px;align-items:flex-start}
+  .p-icon{width:52px;height:52px;flex:none;border-radius:12px;background:rgba(245,165,36,.12);
+      display:grid;place-items:center;font-size:26px}
+  .p-name{font-weight:600;font-size:15px}
+  .p-spec{color:var(--muted);font-size:13px;margin:3px 0 8px}
+  .p-foot{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+  .p-price{font-family:var(--display);font-size:22px;font-weight:700;color:var(--accent)}
+  .use-btn{background:var(--accent);color:#131313;font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;transition:.2s}
+  .use-btn:hover{background:#ffc255}
+  .use-btn.added{background:var(--good);color:#06231a}
+  .kit-line{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .kit-line .qty{color:var(--muted)}
+  .kit-total{display:flex;justify-content:space-between;padding:18px 0;font-weight:700;font-size:17px}
+  .kit-total span:last-child{color:var(--accent);font-family:var(--display);font-size:24px}
+  .empty-kit{color:var(--muted);text-align:center;padding:40px 0}
+
+  /* ---------- TOAST ---------- */
+  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);z-index:90;
+      background:#1a222d;border:1px solid var(--line);border-left:4px solid var(--good);
+      padding:13px 20px;border-radius:12px;font-size:14px;font-weight:500;max-width:92vw;
+      box-shadow:0 10px 30px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.25,.9,.3,1),opacity .35s;opacity:0}
+  #toast.show{transform:translate(-50%,0);opacity:1}
+
+  /* ---------- SECTIONS ---------- */
+  section{padding:70px 5vw;max-width:1200px;margin:0 auto}
+  .sec-head{margin-bottom:34px}
+  .sec-kicker{font-size:12px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .sec-head h2{font-family:var(--display);font-size:clamp(30px,4vw,46px);font-weight:700;line-height:1.05}
+  .sec-head p{color:var(--muted);max-width:560px;margin-top:8px;font-size:15px}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;
+      border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:34px 5vw !important}
+  .stat b{display:block;font-family:var(--display);font-size:42px;font-weight:700;color:var(--accent);line-height:1}
+  .stat span{color:var(--muted);font-size:14px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;transition:.25s}
+  .card:hover{transform:translateY(-5px);border-color:rgba(245,165,36,.5);box-shadow:0 14px 34px rgba(0,0,0,.4)}
+  .card .c-icon{font-size:34px;margin-bottom:12px}
+  .card .c-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--muted);background:var(--panel-2);border:1px solid var(--line);padding:3px 9px;border-radius:99px;margin-bottom:10px}
+  .card h4{font-size:15px;font-weight:600;margin-bottom:4px}
+  .card .c-price{font-family:var(--display);font-size:23px;font-weight:700;color:var(--accent);margin:8px 0 12px}
+  .card .use-btn{width:100%}
+
+  footer{border-top:1px solid var(--line);padding:44px 5vw;display:flex;flex-wrap:wrap;gap:30px;
+      justify-content:space-between;color:var(--muted);font-size:14px;max-width:1200px;margin:0 auto}
+  footer h5{font-family:var(--display);font-size:22px;color:var(--text);margin-bottom:8px}
+  footer .foot-col p{margin-bottom:4px}
+  footer .accent{color:var(--accent)}
+
+  @media(max-width:720px){
+    .nav-links{display:none}
+    .progress-box{margin-left:0;text-align:left}
+    .pips{justify-content:flex-start}
+  }
+</style>
+</head>
+<body id="top">
+
+<nav>
+  <a class="logo" href="#top"><span class="bolt">⚙</span><span>TORQUE<em>WORKS</em></span></a>
+  <div class="nav-links">
+    <a href="#workshop">The Workshop</a>
+    <a href="#catalog">Catalog</a>
+    <a href="#why">Why Us</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <button class="kit-btn" id="kitBtn">🧰 My Kit <span class="count" id="kitCount">0</span></button>
+</nav>
+
+<!-- ================= INTERACTIVE WORKSHOP ================= -->
+<section id="workshop">
+  <div class="shop-head">
+    <div>
+      <h1>This one just rolled in.<br><em>Fix it with our gear.</em></h1>
+      <p>Every glowing marker is a real problem — and every problem has a tool we sell.
+         Tap the markers, pick your equipment, and watch the repair happen.</p>
+    </div>
+    <div class="progress-box">
+      <div class="progress-label">Repair progress — <b id="progText">0 / 5</b></div>
+      <div class="pips">
+        <div class="pip" data-pip="1"></div><div class="pip" data-pip="2"></div>
+        <div class="pip" data-pip="3"></div><div class="pip" data-pip="4"></div>
+        <div class="pip" data-pip="5"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene-wrap">
+    <svg id="scene" viewBox="0 0 1000 500" xmlns="http://www.w3.org/2000/svg" aria-label="Interactive garage: a damaged car with clickable repair markers">
+      <defs>
+        <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#18212d"/><stop offset="1" stop-color="#101720"/>
+        </linearGradient>
+        <linearGradient id="stripe" x1="0" y1="0" x2="0.06" y2="0.03" spreadMethod="repeat">
+          <stop offset="0" stop-color="#f5a524"/><stop offset=".5" stop-color="#f5a524"/>
+          <stop offset=".5" stop-color="#191d23"/><stop offset="1" stop-color="#191d23"/>
+        </linearGradient>
+        <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#4b8ec4"/><stop offset=".6" stop-color="#3b76a8"/><stop offset="1" stop-color="#2d5d87"/>
+        </linearGradient>
+        <linearGradient id="glassGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#26384a"/><stop offset="1" stop-color="#15202c"/>
+        </linearGradient>
+      </defs>
+
+      <!-- backdrop -->
+      <rect width="1000" height="430" fill="url(#wallGrad)"/>
+      <g opacity=".55" stroke="#1e2936" stroke-width="2">
+        <line x1="0" y1="90" x2="1000" y2="90"/><line x1="0" y1="180" x2="1000" y2="180"/>
+        <line x1="0" y1="270" x2="1000" y2="270"/><line x1="0" y1="360" x2="1000" y2="360"/>
+      </g>
+      <text x="42" y="150" font-family="Barlow Condensed,Arial" font-size="96" font-weight="700"
+            fill="#1c2734" letter-spacing="6">SERVICE BAY 03</text>
+      <!-- tool board -->
+      <g opacity=".8">
+        <rect x="60" y="196" width="200" height="120" rx="8" fill="#161f2a" stroke="#233040"/>
+        <rect x="80" y="216" width="10" height="58" rx="4" fill="#2b3a4c"/>
+        <circle cx="85" cy="284" r="12" fill="none" stroke="#2b3a4c" stroke-width="7"/>
+        <rect x="118" y="216" width="34" height="16" rx="5" fill="#2b3a4c"/>
+        <rect x="128" y="232" width="12" height="46" rx="5" fill="#2b3a4c"/>
+        <rect x="172" y="216" width="10" height="70" rx="4" fill="#2b3a4c"/>
+        <rect x="164" y="210" width="26" height="14" rx="6" fill="#2b3a4c"/>
+        <rect x="210" y="220" width="30" height="64" rx="6" fill="#22303f"/>
+        <circle cx="225" cy="238" r="7" fill="#2f4053"/>
+      </g>
+      <!-- caution stripe + floor -->
+      <rect x="0" y="418" width="1000" height="12" fill="url(#stripe)" opacity=".5"/>
+      <rect x="0" y="430" width="1000" height="70" fill="#0d1218"/>
+      <line x1="0" y1="430" x2="1000" y2="430" stroke="#060a0e" stroke-width="3"/>
+
+      <!-- ======================= CAR ======================= -->
+      <g id="carMove">
+        <ellipse cx="515" cy="436" rx="330" ry="14" fill="#000" opacity=".35"/>
+        <g id="carTilt">
+
+          <!-- headlight beams (celebration only) -->
+          <g id="beams">
+            <polygon points="882,278 1000,246 1000,318" fill="#ffe9a8" opacity=".35"/>
+          </g>
+
+          <!-- body -->
+          <path d="M155,355 L155,300 C155,275 175,262 210,258 L330,246
+                   C370,196 430,175 520,172 L610,172 C690,176 742,205 776,250
+                   L830,258 C866,263 880,276 880,300 L880,355
+                   C880,364 872,370 862,370 L173,370 C163,370 155,364 155,355 Z"
+                fill="url(#bodyGrad)" stroke="#22405c" stroke-width="3"/>
+          <!-- rocker shade -->
+          <rect x="165" y="352" width="705" height="18" rx="9" fill="#24506f" opacity=".7"/>
+          <!-- hood + trunk seams -->
+          <path d="M770,252 L866,264" stroke="#274a66" stroke-width="3" fill="none"/>
+          <path d="M340,248 L232,258" stroke="#274a66" stroke-width="3" fill="none"/>
+
+          <!-- windows -->
+          <path d="M618,184 C662,187 702,208 736,246 L618,246 Z" fill="url(#glassGrad)" stroke="#22405c" stroke-width="3"/>
+          <path d="M472,184 L600,184 L600,246 L472,246 Z" fill="url(#glassGrad)" stroke="#22405c" stroke-width="3"/>
+          <path d="M350,190 L454,184 L454,246 L336,246 Z" fill="url(#glassGrad)" stroke="#22405c" stroke-width="3"/>
+          <path d="M640,196 C668,200 690,214 706,232" stroke="#4a6478" stroke-width="3" fill="none" opacity=".7"/>
+
+          <!-- doors -->
+          <line x1="463" y1="252" x2="463" y2="362" stroke="#274a66" stroke-width="3"/>
+          <line x1="608" y1="252" x2="608" y2="362" stroke="#274a66" stroke-width="3"/>
+          <rect x="478" y="270" width="34" height="9" rx="4.5" fill="#22405c"/>
+          <rect x="620" y="270" width="34" height="9" rx="4.5" fill="#22405c"/>
+
+          <!-- lights + bumpers -->
+          <rect id="headlightGlass" x="844" y="272" width="32" height="20" rx="8"/>
+          <rect x="156" y="274" width="24" height="18" rx="7" fill="#c0392b"/>
+          <rect x="146" y="330" width="30" height="14" rx="7" fill="#1f3448"/>
+          <rect x="862" y="330" width="30" height="14" rx="7" fill="#1f3448"/>
+
+          <!-- FRONT WHEEL -->
+          <g class="wheel">
+            <circle cx="730" cy="380" r="50" fill="#1a2129" stroke="#0b0f13" stroke-width="6"/>
+            <g class="rim">
+              <circle cx="730" cy="380" r="26" fill="#aeb9c4"/>
+              <g stroke="#5c6a77" stroke-width="5" stroke-linecap="round">
+                <line x1="730" y1="358" x2="730" y2="402"/>
+                <line x1="708" y1="380" x2="752" y2="380"/>
+                <line x1="714" y1="364" x2="746" y2="396"/>
+                <line x1="746" y1="364" x2="714" y2="396"/>
+              </g>
+              <circle cx="730" cy="380" r="7" fill="#3d4854"/>
+            </g>
+          </g>
+
+          <!-- REAR WHEEL — flat -->
+          <g id="wheelRearFlat" class="dmg">
+            <ellipse cx="300" cy="396" rx="57" ry="35" fill="#1a2129" stroke="#0b0f13" stroke-width="6"/>
+            <ellipse cx="300" cy="390" rx="25" ry="21" fill="#aeb9c4"/>
+            <ellipse cx="300" cy="390" rx="7" ry="6" fill="#3d4854"/>
+            <path d="M352,414 q10,-4 16,-12 M356,424 q12,-5 20,-14" stroke="#7f8b96" stroke-width="3" fill="none" opacity=".8"/>
+          </g>
+          <!-- REAR WHEEL — fixed -->
+          <g id="wheelRearOK" class="wheel">
+            <circle cx="300" cy="380" r="50" fill="#1a2129" stroke="#0b0f13" stroke-width="6"/>
+            <g class="rim">
+              <circle cx="300" cy="380" r="26" fill="#aeb9c4"/>
+              <g stroke="#5c6a77" stroke-width="5" stroke-linecap="round">
+                <line x1="300" y1="358" x2="300" y2="402"/>
+                <line x1="278" y1="380" x2="322" y2="380"/>
+                <line x1="284" y1="364" x2="316" y2="396"/>
+                <line x1="316" y1="364" x2="284" y2="396"/>
+              </g>
+              <circle cx="300" cy="380" r="7" fill="#3d4854"/>
+            </g>
+          </g>
+
+          <!-- DAMAGE: dented door -->
+          <g class="dmg dmg-door">
+            <path d="M496,286 C505,274 542,272 552,288 C560,301 553,319 534,324 C511,329 487,312 496,286 Z"
+                  fill="#0a1016" opacity=".5"/>
+            <g stroke="#9fb2c2" stroke-width="2" fill="none" opacity=".75">
+              <path d="M500,290 L522,300 L515,312"/>
+              <path d="M540,286 L532,302 L546,312"/>
+              <path d="M470,338 q45,10 92,4"/>
+            </g>
+          </g>
+
+          <!-- DAMAGE: cracked windshield -->
+          <g class="dmg dmg-windshield" stroke="#d9e5ef" stroke-width="2" fill="none" opacity=".85">
+            <circle cx="688" cy="214" r="4.5"/>
+            <path d="M688,214 L664,199 L649,191"/>
+            <path d="M688,214 L672,228 L654,238"/>
+            <path d="M688,214 L706,229 L718,241"/>
+            <path d="M688,214 L700,200"/>
+            <path d="M688,214 L676,206"/>
+          </g>
+
+          <!-- DAMAGE: broken headlight -->
+          <g class="dmg dmg-headlight" stroke="#e8eef4" stroke-width="2" fill="none" opacity=".85">
+            <path d="M849,275 L862,288"/>
+            <path d="M860,273 L853,290"/>
+            <path d="M869,276 L864,286 L872,290"/>
+          </g>
+
+          <!-- DAMAGE: smoking engine -->
+          <g class="dmg dmg-engine">
+            <path d="M778,252 L864,262" stroke="#0d1116" stroke-width="5" fill="none" opacity=".5"/>
+            <ellipse class="flicker" cx="822" cy="256" rx="30" ry="7" fill="#ff7847" opacity=".4"/>
+            <circle class="smoke" cx="802" cy="228" r="13" style="animation-delay:0s"/>
+            <circle class="smoke" cx="824" cy="206" r="17" style="animation-delay:.6s"/>
+            <circle class="smoke" cx="846" cy="182" r="21" style="animation-delay:1.2s"/>
+            <circle class="smoke" cx="814" cy="160" r="15" style="animation-delay:1.8s"/>
+          </g>
+
+          <!-- ============ HOTSPOTS ============ -->
+          <g class="hotspot" data-issue="engine">
+            <title>Smoking engine — tap to see the fix</title>
+            <circle class="hit" cx="820" cy="205" r="30"/>
+            <circle class="ring" cx="820" cy="205" r="13"/>
+            <circle class="core" cx="820" cy="205" r="13"/>
+            <text x="820" y="210.5" text-anchor="middle">!</text>
+          </g>
+          <g class="hotspot" data-issue="headlight">
+            <title>Shattered headlight — tap to see the fix</title>
+            <circle class="hit" cx="884" cy="300" r="26"/>
+            <circle class="ring" cx="884" cy="300" r="13"/>
+            <circle class="core" cx="884" cy="300" r="13"/>
+            <text x="884" y="305.5" text-anchor="middle">!</text>
+          </g>
+          <g class="hotspot" data-issue="windshield">
+            <title>Cracked windshield — tap to see the fix</title>
+            <circle class="hit" cx="688" cy="214" r="28"/>
+            <circle class="ring" cx="688" cy="214" r="13"/>
+            <circle class="core" cx="688" cy="214" r="13"/>
+            <text x="688" y="219.5" text-anchor="middle">!</text>
+          </g>
+          <g class="hotspot" data-issue="door">
+            <title>Dented door panel — tap to see the fix</title>
+            <circle class="hit" cx="522" cy="302" r="30"/>
+            <circle class="ring" cx="522" cy="302" r="13"/>
+            <circle class="core" cx="522" cy="302" r="13"/>
+            <text x="522" y="307.5" text-anchor="middle">!</text>
+          </g>
+          <g class="hotspot" data-issue="tire">
+            <title>Flat rear tyre — tap to see the fix</title>
+            <circle class="hit" cx="300" cy="396" r="32"/>
+            <circle class="ring" cx="300" cy="396" r="13"/>
+            <circle class="core" cx="300" cy="396" r="13"/>
+            <text x="300" y="401.5" text-anchor="middle">!</text>
+          </g>
+
+          <g id="burstLayer"></g>
+        </g>
+      </g>
+    </svg>
+
+    <div id="doneOverlay">
+      <div>
+        <h2>Good as new. <em>Rolled out in 5 repairs.</em></h2>
+        <p>Every tool you just used is real equipment from our catalog — the same gear
+           1,200+ workshops run every day. Kit yours out next.</p>
+        <button class="btn btn-primary" onclick="document.getElementById('catalog').scrollIntoView({behavior:'smooth'})">Shop the full catalog</button>
+        <button class="btn btn-ghost" id="resetBtn">🚗 Wreck another one</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint"><span class="dot">!</span> Tap the glowing markers on the car — each one shows the exact equipment a pro workshop uses for that repair.</div>
+</section>
+
+<!-- ================= STATS ================= -->
+<section class="stats" id="why">
+  <div class="stat"><b>1,200+</b><span>workshops equipped across India</span></div>
+  <div class="stat"><b>2-yr</b><span>warranty on every machine</span></div>
+  <div class="stat"><b>24h</b><span>dispatch on in-stock equipment</span></div>
+  <div class="stat"><b>Free</b><span>installation &amp; operator training</span></div>
+</section>
+
+<!-- ================= CATALOG ================= -->
+<section id="catalog">
+  <div class="sec-head">
+    <div class="sec-kicker">Full Catalog</div>
+    <h2>Everything a serious workshop runs on.</h2>
+    <p>From two-post lifts to torque wrenches — supplied, installed and serviced by TorqueWorks.</p>
+  </div>
+  <div class="grid" id="catalogGrid"></div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer id="contact">
+  <div class="foot-col">
+    <h5>TORQUE<span class="accent">WORKS</span></h5>
+    <p>Pro garage equipment for people who fix things.</p>
+    <p>© 2026 TorqueWorks Equipment Co.</p>
+  </div>
+  <div class="foot-col">
+    <h5>Visit</h5>
+    <p>Plot 14, Industrial Estate Phase II</p>
+    <p>Ulhasnagar, Maharashtra 421003</p>
+  </div>
+  <div class="foot-col">
+    <h5>Talk to us</h5>
+    <p>📞 +91 98200 00000</p>
+    <p>✉️ sales@torqueworks.in</p>
+    <p>Mon–Sat, 9:00–19:00</p>
+  </div>
+</footer>
+
+<!-- ================= DRAWER ================= -->
+<div id="backdrop"></div>
+<aside id="drawer">
+  <div class="drawer-head">
+    <button class="drawer-close" id="drawerClose">✕</button>
+    <span class="drawer-tag" id="drawerTag">Diagnosis</span>
+    <h3 id="drawerTitle"></h3>
+    <p id="drawerDesc"></p>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-sub" id="drawerSub">The gear that fixes it</div>
+    <div id="drawerProducts"></div>
+  </div>
+</aside>
+
+<div id="toast"></div>
+
+<script>
+const ISSUES = {
+  engine: {
+    label: 'Smoking Engine',
+    desc: 'Overheating and misfiring — it needs a proper diagnosis before anything gets replaced.',
+    products: [
+      {icon:'🔌', name:'OBD-II Pro Diagnostic Scanner', spec:'Reads 5,000+ fault codes, live sensor data', price:24500},
+      {icon:'🌡️', name:'Coolant Flush & Refill Machine', spec:'Full-system exchange in under 15 minutes', price:86000},
+      {icon:'🏗️', name:'2-Ton Foldable Engine Crane', spec:'Hydraulic lift for engine-out jobs', price:42500},
+    ],
+  },
+  windshield: {
+    label: 'Cracked Windshield',
+    desc: 'A stone-chip spider crack, right in the driver’s line of sight. Repair or replace — either way, you need the right glass tools.',
+    products: [
+      {icon:'💧', name:'Windshield Crack Repair Resin Kit', spec:'UV-cure resin, invisible finish on chips', price:3200},
+      {icon:'🪟', name:'Glass Suction Cup Lifter (pair)', spec:'120 kg rated, for safe glass handling', price:4800},
+      {icon:'🪛', name:'Auto Glass Cut-Out Wire Tool Set', spec:'Removes bonded glass without damage', price:6900},
+    ],
+  },
+  headlight: {
+    label: 'Shattered Headlight',
+    desc: 'Cracked lens, dead bulb — a failed inspection waiting to happen.',
+    products: [
+      {icon:'💡', name:'Headlight Restoration & Polish Kit', spec:'Restores hazy lenses to factory clear', price:2400},
+      {icon:'⚡', name:'Digital Automotive Multimeter', spec:'Traces wiring and relay faults fast', price:5600},
+      {icon:'🎯', name:'Headlight Beam Alignment Tester', spec:'Laser-guided aim, RTO-compliant', price:58000},
+    ],
+  },
+  door: {
+    label: 'Dented Door Panel',
+    desc: 'Deep dent with scratched paint down the rocker. Pull it, fill it, respray it.',
+    products: [
+      {icon:'🧲', name:'Paintless Dent Puller Kit (PDR)', spec:'Glue-pull tabs + slide hammer, no respray', price:12800},
+      {icon:'🎨', name:'HVLP Paint Spray Gun', spec:'1.3 mm tip, showroom-grade finish', price:9400},
+      {icon:'✨', name:'Dual-Action Polisher', spec:'Swirl-free blending after paint work', price:15200},
+    ],
+  },
+  tire: {
+    label: 'Flat Rear Tyre',
+    desc: 'Dead flat and sitting on the rim. Off, fixed, balanced, back on — in minutes with the right machines.',
+    products: [
+      {icon:'🛞', name:'Automatic Tyre Changer Machine', spec:'Handles 10"–24" rims, pneumatic bead breaker', price:185000},
+      {icon:'🔧', name:'1/2" Cordless Impact Wrench', spec:'1,000 Nm breakaway torque', price:18900},
+      {icon:'⚖️', name:'Digital Wheel Balancer', spec:'Auto data entry, ±1 g accuracy', price:142000},
+    ],
+  },
+};
+
+const CATALOG = [
+  {icon:'🏗️', tag:'Lifting',     name:'Two-Post Car Lift (4T)',            price:265000},
+  {icon:'💨', tag:'Air',         name:'Air Compressor 500 L',               price:98000},
+  {icon:'❄️', tag:'AC Service',  name:'AC Recovery & Recharge Station',     price:155000},
+  {icon:'🧰', tag:'Hand Tools',  name:'Mechanic’s Tool Chest (280 pc)',price:64000},
+  {icon:'⛽', tag:'Engine',      name:'Fuel Injector Cleaning Machine',     price:72000},
+  {icon:'🔋', tag:'Electrical',  name:'Battery Tester & Smart Charger',     price:14500},
+  {icon:'🛹', tag:'Workshop',    name:'Low-Profile Mechanic Creeper',       price:5200},
+  {icon:'🎛️', tag:'Hand Tools',  name:'Torque Wrench Set (5–350 Nm)',       price:21800},
+];
+
+const fmt = n => '₹' + n.toLocaleString('en-IN');
+
+const scene = document.getElementById('scene');
+const carMove = document.getElementById('carMove');
+const drawer = document.getElementById('drawer');
+const backdrop = document.getElementById('backdrop');
+const toast = document.getElementById('toast');
+
+let fixedIssues = new Set();
+let kit = [];            // {name, price}
+let currentIssue = null; // issue key or 'KIT'
+let toastTimer = null;
+
+/* ---------- drive in ---------- */
+function driveIn(){
+  carMove.classList.add('rolling');
+  setTimeout(() => carMove.classList.add('arrived'), 80);
+  setTimeout(() => carMove.classList.remove('rolling'), 2100);
+}
+window.addEventListener('load', driveIn);
+
+/* ---------- hotspots ---------- */
+document.querySelectorAll('.hotspot').forEach(h => {
+  h.addEventListener('click', () => openIssue(h.dataset.issue));
+});
+
+function openIssue(key){
+  currentIssue = key;
+  const issue = ISSUES[key];
+  const done = fixedIssues.has(key);
+  const tag = document.getElementById('drawerTag');
+  tag.textContent = done ? '✓ Repaired' : 'Diagnosis';
+  tag.classList.toggle('fixed-tag', done);
+  document.getElementById('drawerTitle').textContent = issue.label;
+  document.getElementById('drawerDesc').textContent = issue.desc;
+  document.getElementById('drawerSub').textContent = done ? 'Tools used on this job' : 'The gear that fixes it';
+  const wrap = document.getElementById('drawerProducts');
+  wrap.innerHTML = issue.products.map((p, i) => `
+    <div class="product">
+      <div class="row">
+        <div class="p-icon">${p.icon}</div>
+        <div style="flex:1">
+          <div class="p-name">${p.name}</div>
+          <div class="p-spec">${p.spec}</div>
+          <div class="p-foot">
+            <span class="p-price">${fmt(p.price)}</span>
+            <button class="use-btn" data-issue="${key}" data-idx="${i}">${done ? 'Add to kit +' : '🔧 Use this tool'}</button>
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.use-btn').forEach(btn => {
+    btn.addEventListener('click', () => useTool(btn.dataset.issue, +btn.dataset.idx, btn));
+  });
+  showDrawer();
+}
+
+function useTool(key, idx, btn){
+  const p = ISSUES[key].products[idx];
+  kit.push({name: p.name, price: p.price});
+  updateKitCount();
+  btn.textContent = '✓ In kit';
+  btn.classList.add('added');
+
+  if (!fixedIssues.has(key)) {
+    fixedIssues.add(key);
+    scene.classList.add('fixed-' + key);
+    const hs = document.querySelector(`.hotspot[data-issue="${key}"]`);
+    burstAt(hs);
+    hs.classList.add('done');
+    updateProgress();
+    showToast(`${p.icon} ${p.name} added — ${ISSUES[key].label.toLowerCase()} fixed!`);
+    setTimeout(hideDrawer, 900);
+    if (fixedIssues.size === 5) setTimeout(celebrate, 1400);
+  } else {
+    showToast(`${p.icon} ${p.name} added to your kit`);
+  }
+}
+
+function burstAt(hotspot){
+  const hit = hotspot.querySelector('.hit');
+  const layer = document.getElementById('burstLayer');
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  c.setAttribute('cx', hit.getAttribute('cx'));
+  c.setAttribute('cy', hit.getAttribute('cy'));
+  c.setAttribute('r', 18);
+  c.setAttribute('class', 'fix-burst');
+  layer.appendChild(c);
+  c.addEventListener('animationend', () => c.remove());
+}
+
+function updateProgress(){
+  const n = fixedIssues.size;
+  document.getElementById('progText').textContent = `${n} / 5`;
+  document.querySelectorAll('.pip').forEach((p, i) => p.classList.toggle('on', i < n));
+}
+
+function celebrate(){
+  scene.classList.add('celebrate');
+  carMove.classList.add('revving');
+  setTimeout(() => {
+    carMove.classList.remove('revving');
+    carMove.classList.add('rolling', 'depart');
+    setTimeout(() => {
+      document.getElementById('doneOverlay').classList.add('show');
+      carMove.classList.remove('rolling');
+    }, 1500);
+  }, 900);
+}
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  fixedIssues.clear();
+  ['engine','windshield','headlight','door','tire'].forEach(k => scene.classList.remove('fixed-' + k));
+  scene.classList.remove('celebrate');
+  document.querySelectorAll('.hotspot').forEach(h => h.classList.remove('done'));
+  updateProgress();
+  document.getElementById('doneOverlay').classList.remove('show');
+  carMove.classList.remove('arrived', 'depart');
+  carMove.style.transition = 'none';
+  void carMove.getBoundingClientRect();
+  carMove.style.transition = '';
+  driveIn();
+});
+
+/* ---------- drawer / kit ---------- */
+function showDrawer(){ drawer.classList.add('show'); backdrop.classList.add('show'); }
+function hideDrawer(){ drawer.classList.remove('show'); backdrop.classList.remove('show'); }
+document.getElementById('drawerClose').addEventListener('click', hideDrawer);
+backdrop.addEventListener('click', hideDrawer);
+
+function updateKitCount(){
+  document.getElementById('kitCount').textContent = kit.length;
+}
+
+document.getElementById('kitBtn').addEventListener('click', () => {
+  currentIssue = 'KIT';
+  const tag = document.getElementById('drawerTag');
+  tag.textContent = '🧰 Your Kit';
+  tag.classList.remove('fixed-tag');
+  document.getElementById('drawerTitle').textContent = 'My Equipment Kit';
+  document.getElementById('drawerDesc').textContent = kit.length
+    ? 'Everything you picked while fixing the car — ready to quote.'
+    : 'Fix the car in the workshop above, or add gear from the catalog.';
+  document.getElementById('drawerSub').textContent = kit.length ? `${kit.length} item(s)` : '';
+  const wrap = document.getElementById('drawerProducts');
+  if (!kit.length) {
+    wrap.innerHTML = '<div class="empty-kit">🧰<br>Your kit is empty — go fix that car!</div>';
+  } else {
+    const counts = {};
+    kit.forEach(p => { counts[p.name] = counts[p.name] || {qty:0, price:p.price}; counts[p.name].qty++; });
+    const total = kit.reduce((s,p) => s + p.price, 0);
+    wrap.innerHTML = Object.entries(counts).map(([name, c]) =>
+      `<div class="kit-line"><span>${name} <span class="qty">×${c.qty}</span></span><b>${fmt(c.price * c.qty)}</b></div>`
+    ).join('') +
+    `<div class="kit-total"><span>Total</span><span>${fmt(total)}</span></div>
+     <button class="btn btn-primary" style="width:100%" id="quoteBtn">Request a quote</button>`;
+    document.getElementById('quoteBtn').addEventListener('click', () => {
+      showToast('📋 Quote request sent — our team will call you back within 2 hours.');
+      hideDrawer();
+    });
+  }
+  showDrawer();
+});
+
+/* ---------- catalog ---------- */
+document.getElementById('catalogGrid').innerHTML = CATALOG.map((p, i) => `
+  <div class="card">
+    <div class="c-icon">${p.icon}</div>
+    <div><span class="c-tag">${p.tag}</span></div>
+    <h4>${p.name}</h4>
+    <div class="c-price">${fmt(p.price)}</div>
+    <button class="use-btn" data-cat="${i}">Add to kit +</button>
+  </div>`).join('');
+document.querySelectorAll('[data-cat]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = CATALOG[+btn.dataset.cat];
+    kit.push({name: p.name, price: p.price});
+    updateKitCount();
+    btn.textContent = '✓ In kit';
+    btn.classList.add('added');
+    showToast(`${p.icon} ${p.name} added to your kit`);
+  });
+});
+
+/* ---------- toast ---------- */
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+</script>
+</body>
+</html>

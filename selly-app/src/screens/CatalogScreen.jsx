@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from "react";
+import { friendlyError } from "../lib/errors";
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
   TextInput, Modal, ScrollView, ActivityIndicator, Image,
@@ -31,35 +32,24 @@ const INDUSTRIES = {
       "Mathematics": ["Algebra","Calculus","Statistics","Mental Maths"],
     },
   },
-  product: {
-    icon: "🛍️", label: "Products", color: "#6c47ff",
-    itemLabel: "Product",
-    categories: ["Clothing","Electronics","Food & Snacks","Accessories","Home Decor","Beauty & Skincare","Sports","Books & Stationery","Toys & Games","Other"],
+  restaurant: {
+    icon: "🍽️", label: "Menu", color: "#f59e0b",
+    itemLabel: "Dish",
+    categories: ["Starters","Main Course","Breads","Rice & Biryani","South Indian","Chinese","Snacks & Chaat","Pizza & Burgers","Desserts","Beverages"],
     subCategories: {
-      "Clothing":          ["Jeans","Pants","Cargo","Shorts","Shirts","T-Shirts","Tops","Kurtas","Sarees","Lehenga","Suits","Jackets","Dresses","Co-ord Sets","Hoodies","Sweaters"],
-      "Electronics":       ["Smartphones","Laptops","Earphones","Speakers","Smart Watches","Cameras","Accessories","Chargers"],
-      "Food & Snacks":     ["Snacks","Sweets","Pickles","Spices","Dry Fruits","Beverages","Bakery","Chocolates","Masalas","Namkeen"],
-      "Accessories":       ["Bags","Wallets","Belts","Sunglasses","Caps & Hats","Scarves","Jewellery","Keychains"],
-      "Home Decor":        ["Wall Art","Candles","Planters","Cushions","Table Decor","Lamps","Storage","Mirrors"],
-      "Beauty & Skincare": ["Skincare","Haircare","Makeup","Fragrances","Nail Care","Grooming","Organic"],
-      "Sports":            ["Cricket","Football","Badminton","Fitness Equipment","Yoga","Swimming","Cycling"],
+      "Starters":         ["Paneer Tikka","Chicken Tikka","Spring Roll","Manchurian","Kebab","Soup","Papad","Salad"],
+      "Main Course":      ["Paneer","Dal","Chicken","Mutton","Kofta","Mixed Veg","Egg Curry","Combo Meal"],
+      "Breads":           ["Roti","Naan","Butter Naan","Paratha","Kulcha","Bhatura","Rumali Roti"],
+      "Rice & Biryani":   ["Veg Biryani","Chicken Biryani","Mutton Biryani","Jeera Rice","Fried Rice","Pulao","Curd Rice"],
+      "South Indian":     ["Masala Dosa","Plain Dosa","Ghee Roast","Idli","Vada","Uttapam","Upma","Filter Coffee"],
+      "Chinese":          ["Hakka Noodles","Chowmein","Fried Rice","Manchurian","Chilli Paneer","Momos","Schezwan"],
+      "Snacks & Chaat":   ["Samosa","Pav Bhaji","Vada Pav","Pani Puri","Bhel","Sev Puri","Dabeli","Sandwich"],
+      "Pizza & Burgers":  ["Margherita","Farmhouse","Paneer Pizza","Veg Burger","Chicken Burger","Garlic Bread","Fries"],
+      "Desserts":         ["Gulab Jamun","Rasmalai","Ice Cream","Brownie","Gajar Halwa","Kulfi","Cake Slice"],
+      "Beverages":        ["Tea","Coffee","Cold Coffee","Lassi","Buttermilk","Fresh Juice","Soft Drink","Mojito"],
     },
     sizes: {
-      "Clothing": ["XS","S","M","L","XL","XXL","XXXL"],
-      "default":  ["28","30","32","34","36","38","40","42","Free Size"],
-    },
-  },
-  tourism: {
-    icon: "✈️", label: "Tourism & Travel", color: "#22c55e",
-    itemLabel: "Package",
-    categories: ["Beach","Mountains","Cultural","Adventure","Wildlife","Pilgrimage","Honeymoon","Family","Corporate","International"],
-    subCategories: {
-      "Beach":        ["Goa","Andaman","Kerala","Maldives","Bali","Thailand","Sri Lanka","Lakshadweep"],
-      "Mountains":    ["Himachal Pradesh","Uttarakhand","Kashmir","Ladakh","Sikkim","Nepal","Bhutan","Auli"],
-      "Cultural":     ["Rajasthan","Tamil Nadu","Karnataka","Delhi NCR","Varanasi","Gujarat","Odisha"],
-      "Adventure":    ["Trekking","River Rafting","Paragliding","Camping","Rock Climbing","Skiing","Bungee"],
-      "Wildlife":     ["Jim Corbett","Ranthambore","Kaziranga","Bandhavgarh","Periyar","Sariska"],
-      "Pilgrimage":   ["Char Dham","Vaishno Devi","Tirupati","Shirdi","Golden Temple","Rameshwaram"],
+      "default": ["Half","Full","Regular","Large","Family Pack"],
     },
   },
 };
@@ -243,7 +233,7 @@ const WAIST_SUBCATS  = ["Jeans","Pants","Cargo","Shorts"];
 const NEEDS_MATERIAL = new Set(["Clothing","Accessories","Home Decor","Sports"]);
 
 function ProductItemForm({ form, set }) {
-  const cfg     = INDUSTRIES.product;
+  const cfg     = INDUSTRIES.restaurant;
   const subCats = cfg.subCategories[form.category] || [];
 
   // Only Clothing gets size chips; waist sub-cats get waist sizes
@@ -448,7 +438,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const cfg = INDUSTRIES[industry] || INDUSTRIES.product;
+  const cfg = INDUSTRIES[industry] || INDUSTRIES.restaurant;
 
   // Add or replace image at slot index
   const handlePhotoAdd = async (localUri, slotIndex) => {
@@ -531,7 +521,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
         const d = await addProduct({ ...payload, inStock: true });
         onDone(d.product || payload);
       }
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
     finally { setSaving(false); }
   };
 
@@ -588,7 +578,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
 
 // ── Product Card ──────────────────────────────────────────────────────────────
 function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
-  const cfg = INDUSTRIES[industry] || INDUSTRIES.product;
+  const cfg = INDUSTRIES[industry] || INDUSTRIES.restaurant;
   const ef  = p.extraFields || {};
   const inStock = p.inStock;
 
@@ -688,7 +678,7 @@ export default function CatalogScreen() {
       setProducts(catalogData.products || []);
     } catch (e) {
       console.warn("[Catalog] load error:", e.message);
-      setLoadError(e.message);
+      setLoadError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -700,7 +690,7 @@ export default function CatalogScreen() {
     try {
       await toggleStock(id, !current);
       setProducts(prev => prev.map(p => p.id === id ? { ...p, inStock: !current } : p));
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
   };
 
   const del = (id, name) => {
@@ -710,12 +700,12 @@ export default function CatalogScreen() {
         try {
           await deleteProduct(id);
           setProducts(prev => prev.filter(p => p.id !== id));
-        } catch (e) { Alert.alert("Error", e.message); }
+        } catch (e) { Alert.alert("Error", friendlyError(e)); }
       }},
     ]);
   };
 
-  const cfg      = INDUSTRIES[industry] || INDUSTRIES.product;
+  const cfg      = INDUSTRIES[industry] || INDUSTRIES.restaurant;
   const filtered = search.trim()
     ? products.filter(p =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||

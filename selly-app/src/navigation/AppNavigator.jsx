@@ -8,19 +8,22 @@
 import React, { useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, TextInput,
+  useWindowDimensions,
 } from "react-native";
 import { NavigationContainer }            from "@react-navigation/native";
-import { createBottomTabNavigator }       from "@react-navigation/bottom-tabs";
+import { createDrawerNavigator, DrawerContentScrollView } from "@react-navigation/drawer";
 import { createStackNavigator }           from "@react-navigation/stack";
 import { useNavigation, useFocusEffect }  from "@react-navigation/native";
 import * as Clipboard                     from "expo-clipboard";
+import { Ionicons }                       from "@expo/vector-icons";
 
 import { Colors }  from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 
 import LoginScreen           from "../screens/LoginScreen";
 import DashboardScreen       from "../screens/DashboardScreen";
-import AIStudioScreen        from "../screens/AIStudioScreen";
+import HomeScreen            from "../screens/HomeScreen";
+import PaymentsScreen        from "../screens/PaymentsScreen";
 import OrdersScreen          from "../screens/OrdersScreen";
 import CatalogScreen         from "../screens/CatalogScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
@@ -34,80 +37,36 @@ import ReviewsScreen         from "../screens/ReviewsScreen";
 import ReturnsScreen         from "../screens/ReturnsScreen";
 import AdminScreen           from "../screens/AdminScreen";
 import IndustrySetupScreen   from "../screens/IndustrySetupScreen";
-// Education-specific screens
+// Classes-specific screens
 import EnrollmentsScreen     from "../screens/EnrollmentsScreen";
 import CoursesScreen         from "../screens/CoursesScreen";
-// Tourism-specific screens
-import BookingsScreen        from "../screens/BookingsScreen";
-import PackagesScreen        from "../screens/PackagesScreen";
-// Kirana-specific screens
-import KiranaOrdersScreen    from "../screens/KiranaOrdersScreen";
-import InventoryScreen       from "../screens/InventoryScreen";
-// Cakes-specific screens
-import CakeOrdersScreen      from "../screens/CakeOrdersScreen";
-import CakeMenuScreen        from "../screens/CakeMenuScreen";
-// Ice Cream-specific screens
-import IceCreamOrdersScreen  from "../screens/IceCreamOrdersScreen";
-import FlavorsScreen         from "../screens/FlavorsScreen";
 // Finance screens
 import AccountingScreen      from "../screens/AccountingScreen";
 import PayrollScreen         from "../screens/PayrollScreen";
-import ScanAndSellScreen     from "../screens/ScanAndSellScreen";
 
 const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
-const Tab        = createBottomTabNavigator();
+const Drawer     = createDrawerNavigator();
 const RootStack  = createStackNavigator();
 const MoreStack_ = createStackNavigator();
 
 // ── Industry-aware screen config ──────────────────────────────────────────────
+// Selly supports two sectors: Restaurant/Cafe/Food Court and Classes.
 const INDUSTRY_CONFIG = {
-  product: {
-    catalog  : { name: "Catalog",   icon: "🛍️", component: CatalogScreen         },
-    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
-    orders   : { name: "Orders",    icon: "📦", component: OrdersScreen           },
+  restaurant: {
+    catalog  : { name: "Menu",        icon: "🍽️", component: CatalogScreen      },
+    customers: { name: "Customers",   icon: "👥", component: CustomersScreen    },
+    orders   : { name: "Orders",      icon: "🧾", component: OrdersScreen       },
   },
   education: {
-    catalog  : { name: "Courses",     icon: "📚", component: CoursesScreen        },
-    customers: { name: "Students",    icon: "👨‍🎓", component: CustomersScreen      },
-    orders   : { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen    },
-  },
-  tourism: {
-    catalog  : { name: "Packages",  icon: "🌍", component: PackagesScreen         },
-    customers: { name: "Travelers", icon: "🧳", component: CustomersScreen        },
-    orders   : { name: "Bookings",  icon: "🗓️", component: BookingsScreen         },
-  },
-  kirana: {
-    catalog  : { name: "Inventory", icon: "📦", component: InventoryScreen        },
-    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
-    orders   : { name: "Orders",    icon: "🧾", component: KiranaOrdersScreen     },
-  },
-  cakes: {
-    catalog  : { name: "Menu",      icon: "📋", component: CakeMenuScreen         },
-    customers: { name: "Customers", icon: "👥", component: CustomersScreen        },
-    orders   : { name: "Orders",    icon: "🎂", component: CakeOrdersScreen       },
-  },
-  icecream: {
-    catalog  : { name: "Flavors",      icon: "🎨", component: FlavorsScreen         },
-    customers: { name: "Customers",    icon: "👥", component: CustomersScreen       },
-    orders   : { name: "Orders",       icon: "🍦", component: IceCreamOrdersScreen  },
-  },
-  restaurant: {
-    catalog  : { name: "Menu",         icon: "🍽️", component: CatalogScreen         },
-    customers: { name: "Customers",    icon: "👥", component: CustomersScreen       },
-    orders   : { name: "Orders",       icon: "🍕", component: OrdersScreen          },
-  },
-  salon: {
-    catalog  : { name: "Services",     icon: "💅", component: CatalogScreen         },
-    customers: { name: "Clients",      icon: "👤", component: CustomersScreen       },
-    orders   : { name: "Appointments", icon: "📅", component: BookingsScreen        },
-  },
-  medical: {
-    catalog  : { name: "Medicines",    icon: "💊", component: InventoryScreen       },
-    customers: { name: "Patients",     icon: "🏥", component: CustomersScreen       },
-    orders   : { name: "Orders",       icon: "🧾", component: KiranaOrdersScreen    },
+    catalog  : { name: "Courses",     icon: "📚", component: CoursesScreen      },
+    customers: { name: "Students",    icon: "👨‍🎓", component: CustomersScreen    },
+    orders   : { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen  },
   },
 };
+
+// Any legacy/unknown industry value falls back to the restaurant layout.
+const DEFAULT_INDUSTRY = "restaurant";
 
 // ── Placeholder screen for features under construction ────────────────────────
 function ComingSoonScreen({ route }) {
@@ -128,7 +87,7 @@ function ComingSoonScreen({ route }) {
 
 // ── More Stack ────────────────────────────────────────────────────────────────
 function MoreStack({ industry }) {
-  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG.product;
+  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
   return (
     <MoreStack_.Navigator
       screenOptions={{
@@ -161,7 +120,6 @@ function MoreStack({ industry }) {
       {/* Finance */}
       <MoreStack_.Screen name="Accounting"   component={AccountingScreen}   options={{ title: "Accounting & Reports" }} />
       <MoreStack_.Screen name="Payroll"      component={PayrollScreen}      options={{ title: "Payroll & Staff" }} />
-      <MoreStack_.Screen name="ScanAndSell"  component={ScanAndSellScreen}  options={{ title: "Scan & Sell" }} />
 
       {/* Account */}
       <MoreStack_.Screen name="Billing"        component={BillingScreen}             options={{ title: "Billing" }} />
@@ -176,7 +134,7 @@ function MoreHubScreen() {
   const nav = useNavigation();
   const { user, profile, industry } = useAuth();
   const isAdminUser = user?.email === ADMIN_EMAIL;
-  const cfg         = INDUSTRY_CONFIG[(industry || "").toLowerCase()] || INDUSTRY_CONFIG.product;
+  const cfg         = INDUSTRY_CONFIG[(industry || "").toLowerCase()] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
   const isEducation = (industry || "").toLowerCase() === "education";
 
   const sections = [
@@ -203,7 +161,6 @@ function MoreHubScreen() {
       items: [
         { icon: "📊", label: "Accounting",      desc: "Expenses, P&L, GST reports, supplier ledger",       screen: "Accounting"     },
         { icon: "💰", label: "Payroll",          desc: "Staff, attendance, salary & payslips",              screen: "Payroll"        },
-        { icon: "📷", label: "Scan & Sell",      desc: "Barcode/SKU lookup → quick bill generation",        screen: "ScanAndSell"    },
       ],
     },
     {
@@ -425,96 +382,104 @@ function ProfileScreen() {
   );
 }
 
-// ── Main Tabs — unified 4+More structure for all industries ───────────────────
-function MainTabs({ industry }) {
-  const ind = (industry || "product").toLowerCase();
-  const cfg = INDUSTRY_CONFIG[ind] || INDUSTRY_CONFIG.product;
+// ── Sidebar (left drawer) ─────────────────────────────────────────────────────
+// Permanent sidebar on wide screens (tablet / desktop web), slide-out drawer on
+// phones — the hamburger in the header opens it.
+function SidebarContent(props) {
+  const { state, navigation } = props;
+  const { profile } = useAuth();
+  const active = state.routeNames[state.index];
 
-  // Wrap MoreStack so it receives industry
+  const ICONS = {
+    Home: "home", Orders: "receipt", Enrollments: "ribbon",
+    Menu: "restaurant", Courses: "book",
+    Customers: "people", Students: "school",
+    Payments: "card", Reports: "bar-chart",
+    Settings: "settings", More: "grid",
+  };
+
+  return (
+    <DrawerContentScrollView {...props} contentContainerStyle={styles.sbScroll}>
+      {/* Brand */}
+      <View style={styles.sbBrand}>
+        <View style={styles.sbLogo}>
+          <Ionicons name="chatbubbles" size={17} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sbName}>selly<Text style={{ color: Colors.green }}>.</Text></Text>
+          <Text style={styles.sbTag} numberOfLines={1}>
+            {profile?.business_name || "My Business"}
+          </Text>
+        </View>
+      </View>
+
+      {/* Nav items */}
+      <View style={styles.sbNav}>
+        {state.routeNames.map(name => {
+          const on = name === active;
+          return (
+            <TouchableOpacity
+              key={name}
+              style={[styles.sbItem, on && styles.sbItemOn]}
+              onPress={() => navigation.navigate(name)}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={(ICONS[name] || "ellipse") + (on ? "" : "-outline")}
+                size={17}
+                color={on ? "#fff" : Colors.textSecondary}
+              />
+              <Text style={[styles.sbLabel, on && styles.sbLabelOn]}>{name}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </DrawerContentScrollView>
+  );
+}
+
+// ── Main app — left sidebar navigation ────────────────────────────────────────
+function MainDrawer({ industry }) {
+  const ind = (industry || DEFAULT_INDUSTRY).toLowerCase();
+  const cfg = INDUSTRY_CONFIG[ind] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
+  const { width } = useWindowDimensions();
+  const permanent = width >= 1024;
+
   const MoreStackWithIndustry = React.useCallback(
     () => <MoreStack industry={ind} />,
     [ind]
   );
 
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => {
-          const icons = {
-            AI        : "🤖",
-            [cfg.catalog.name]  : cfg.catalog.icon,
-            [cfg.customers.name]: cfg.customers.icon,
-            Settings  : "⚙️",
-            More      : "☰",
-          };
-          return (
-            <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.45 }}>
-              {icons[route.name] || "•"}
-            </Text>
-          );
-        },
-        tabBarActiveTintColor  : Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        tabBarStyle: {
+    <Drawer.Navigator
+      drawerContent={props => <SidebarContent {...props} />}
+      screenOptions={{
+        drawerType : permanent ? "permanent" : "front",
+        drawerStyle: {
           backgroundColor: Colors.bgCard,
-          borderTopColor : Colors.border,
-          borderTopWidth : 1,
-          paddingBottom  : 6,
-          paddingTop     : 6,
-          height         : 62,
+          borderRightColor: Colors.border,
+          borderRightWidth: 1,
+          width: 226,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: "700", marginTop: 2 },
         headerStyle: {
           backgroundColor: Colors.bg,
           elevation: 0, shadowOpacity: 0,
           borderBottomWidth: 1, borderBottomColor: Colors.border,
         },
-        headerTintColor  : Colors.textPrimary,
-        headerTitleStyle : { fontWeight: "900", fontSize: 18, color: Colors.textPrimary },
-        headerRight: () => (
-          <View style={{ marginRight: 16 }}>
-            <Text style={{ color: Colors.primary, fontWeight: "900", fontSize: 16, letterSpacing: 1 }}>
-              selly
-            </Text>
-          </View>
-        ),
-      })}
+        headerTintColor : Colors.textPrimary,
+        headerTitleStyle: { fontWeight: "700", fontSize: 17, color: Colors.textPrimary },
+        sceneContainerStyle: { backgroundColor: Colors.bg },
+      }}
     >
-      {/* Tab 1 — AI Studio */}
-      <Tab.Screen
-        name="AI"
-        component={AIStudioScreen}
-        options={{ title: "AI Studio", tabBarLabel: "AI" }}
-      />
-
-      {/* Tab 2 — Catalog (industry label) */}
-      <Tab.Screen
-        name={cfg.catalog.name}
-        component={cfg.catalog.component}
-        options={{ title: cfg.catalog.name }}
-      />
-
-      {/* Tab 3 — Customers (industry label) */}
-      <Tab.Screen
-        name={cfg.customers.name}
-        component={cfg.customers.component}
-        options={{ title: cfg.customers.name }}
-      />
-
-      {/* Tab 4 — Settings (direct) */}
-      <Tab.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{ title: "Settings" }}
-      />
-
-      {/* Tab 5 — More (orders, dashboard, promotions, finance…) */}
-      <Tab.Screen
-        name="More"
-        component={MoreStackWithIndustry}
-        options={{ headerShown: false, tabBarLabel: "More" }}
-      />
-    </Tab.Navigator>
+      <Drawer.Screen name="Home"    component={HomeScreen}    options={{ title: "Dashboard" }} />
+      <Drawer.Screen name={cfg.orders.name}    component={cfg.orders.component}    options={{ title: cfg.orders.name }} />
+      <Drawer.Screen name={cfg.catalog.name}   component={cfg.catalog.component}   options={{ title: cfg.catalog.name }} />
+      <Drawer.Screen name={cfg.customers.name} component={cfg.customers.component} options={{ title: cfg.customers.name }} />
+      <Drawer.Screen name="Payments" component={PaymentsScreen}   options={{ title: "Payments" }} />
+      <Drawer.Screen name="Reports"  component={AccountingScreen} options={{ title: "Reports" }} />
+      <Drawer.Screen name="Settings" component={SettingsScreen}   options={{ title: "Settings" }} />
+      <Drawer.Screen name="More"     component={MoreStackWithIndustry} options={{ headerShown: false }} />
+    </Drawer.Navigator>
   );
 }
 
@@ -524,7 +489,7 @@ export default function AppNavigator() {
 
   // Memoize the tabs component so React Navigation doesn't remount on re-render
   const MainTabsComponent = React.useMemo(
-    () => function IndustryTabs() { return <MainTabs industry={industry} />; },
+    () => function IndustryTabs() { return <MainDrawer industry={industry} />; },
     [industry]
   );
 
@@ -563,6 +528,18 @@ export default function AppNavigator() {
 
 // ── Shared Styles ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  // ── Sidebar ───────────────────────────────────────────────
+  sbScroll : { paddingTop: 0 },
+  sbBrand  : { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  sbLogo   : { width: 32, height: 32, borderRadius: 9, backgroundColor: Colors.primary, alignItems: "center", justifyContent: "center" },
+  sbName   : { color: Colors.textPrimary, fontSize: 15.5, fontWeight: "800", letterSpacing: -0.2 },
+  sbTag    : { color: Colors.textMuted, fontSize: 10.5, marginTop: 1 },
+  sbNav    : { paddingHorizontal: 8, paddingTop: 10, gap: 2 },
+  sbItem   : { flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 11, paddingVertical: 10, borderRadius: 10 },
+  sbItemOn : { backgroundColor: Colors.primary },
+  sbLabel  : { color: Colors.textSecondary, fontSize: 13, fontWeight: "600" },
+  sbLabelOn: { color: "#fff", fontWeight: "700" },
+
   container : { flex: 1, backgroundColor: Colors.bg },
   content   : { padding: 16, gap: 10, paddingBottom: 40 },
   splash    : { flex: 1, backgroundColor: Colors.bg, justifyContent: "center", alignItems: "center" },

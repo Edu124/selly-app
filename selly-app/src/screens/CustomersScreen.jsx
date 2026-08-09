@@ -11,21 +11,20 @@ import * as FileSystem from "expo-file-system";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { fetchCustomers, importContacts, updateCustomerTags, updateCustomerBatch, fetchBatches, assignBatch, deleteCustomer } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 // ── Industry configuration ────────────────────────────────────────────────────
 const CUSTOMER_CONFIG = {
-  product: {
+  restaurant: {
     personLabel   : "Customer",
     personLabelPlural: "customers",
     emptyText     : "No customers yet",
     searchPlaceholder: "Search by name or @username…",
     orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
     filters: [
-      { key: "all",      label: "All"       },
-      { key: "vip",      label: "⭐ VIP"    },
-      { key: "frequent", label: "🔁 Frequent" },
-      { key: "referrer", label: "🎁 Referrer" },
-      { key: "new",      label: "🆕 New"     },
+      { key: "all",      label: "All"      },
+      { key: "frequent", label: "Frequent" },
+      { key: "new",      label: "New"      },
     ],
     // stat box labels in detail modal
     stat1Label: "Orders",
@@ -42,8 +41,9 @@ const CUSTOMER_CONFIG = {
     searchPlaceholder: "Search by name or phone…",
     orderCountLabel  : (n) => `${n} course${n !== 1 ? "s" : ""} enrolled`,
     filters: [
-      { key: "all", label: "All" },
-      // Batch filters are added dynamically from fetchBatches()
+      { key: "all",      label: "All"      },
+      { key: "frequent", label: "Frequent" },
+      { key: "new",      label: "New"      },
     ],
     stat1Label  : "Courses",
     stat2Label  : "Fees Paid",
@@ -52,89 +52,6 @@ const CUSTOMER_CONFIG = {
     showReferral: false,
     showIg      : false,
     showBatch   : true,
-  },
-  tourism: {
-    personLabel      : "Traveler",
-    personLabelPlural: "travelers",
-    emptyText        : "No travelers yet",
-    searchPlaceholder: "Search by name or phone…",
-    orderCountLabel  : (n) => `${n} trip${n !== 1 ? "s" : ""} booked`,
-    filters: [
-      { key: "all",       label: "All"              },
-      { key: "frequent",  label: "🔁 Repeat Traveler" },
-      { key: "honeymoon", label: "💑 Honeymoon"      },
-      { key: "adventure", label: "🏔️ Adventure"      },
-      { key: "family",    label: "👨‍👩‍👧 Family"         },
-      { key: "corporate", label: "💼 Corporate"      },
-      { key: "vip",       label: "⭐ VIP"            },
-    ],
-    stat1Label  : "Trips",
-    stat2Label  : "Total Spent",
-    stat3Label  : "Referrals",
-    stat3Key    : "referralCount",
-    showReferral: false,
-    showIg      : false,
-  },
-  kirana: {
-    personLabel      : "Customer",
-    personLabelPlural: "customers",
-    emptyText        : "No customers yet",
-    searchPlaceholder: "Search by name or phone…",
-    orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
-    filters: [
-      { key: "all",     label: "All"             },
-      { key: "daily",   label: "📅 Daily Regular" },
-      { key: "weekly",  label: "📆 Weekly"        },
-      { key: "new",     label: "🆕 New"           },
-      { key: "vip",     label: "⭐ VIP"           },
-    ],
-    stat1Label  : "Orders",
-    stat2Label  : "Total Spent",
-    stat3Label  : "Referrals",
-    stat3Key    : "referralCount",
-    showReferral: true,
-    showIg      : false,
-  },
-  cakes: {
-    personLabel      : "Customer",
-    personLabelPlural: "customers",
-    emptyText        : "No customers yet",
-    searchPlaceholder: "Search by name or phone…",
-    orderCountLabel  : (n) => `${n} cake order${n !== 1 ? "s" : ""}`,
-    filters: [
-      { key: "all",       label: "All"            },
-      { key: "birthday",  label: "🎂 Birthday"    },
-      { key: "wedding",   label: "💒 Wedding"     },
-      { key: "corporate", label: "💼 Corporate"   },
-      { key: "regular",   label: "🔁 Regular"     },
-      { key: "vip",       label: "⭐ VIP"         },
-    ],
-    stat1Label  : "Orders",
-    stat2Label  : "Total Spent",
-    stat3Label  : "Referrals",
-    stat3Key    : "referralCount",
-    showReferral: true,
-    showIg      : false,
-  },
-  icecream: {
-    personLabel      : "Customer",
-    personLabelPlural: "customers",
-    emptyText        : "No customers yet",
-    searchPlaceholder: "Search by name or phone…",
-    orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
-    filters: [
-      { key: "all",     label: "All"          },
-      { key: "regular", label: "🔁 Regular"   },
-      { key: "bulk",    label: "📦 Bulk Order" },
-      { key: "vip",     label: "⭐ VIP"       },
-      { key: "new",     label: "🆕 New"       },
-    ],
-    stat1Label  : "Orders",
-    stat2Label  : "Total Spent",
-    stat3Label  : "Referrals",
-    stat3Key    : "referralCount",
-    showReferral: true,
-    showIg      : false,
   },
 };
 
@@ -162,7 +79,7 @@ const TAG_COLORS = {
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function CustomersScreen() {
   const { industry } = useAuth();
-  const cfg = CUSTOMER_CONFIG[industry] || CUSTOMER_CONFIG.product;
+  const cfg = CUSTOMER_CONFIG[industry] || CUSTOMER_CONFIG.restaurant;
 
   const [customers,   setCustomers]   = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -171,6 +88,7 @@ export default function CustomersScreen() {
   const [copied,      setCopied]      = useState(false);
   const [filterTag,   setFilterTag]   = useState("all");
   const [tagSaving,   setTagSaving]   = useState(false);
+  const [loadError,   setLoadError]   = useState(null);
 
   // Education: batch grouping
   const [batches,       setBatches]       = useState([]);
@@ -201,11 +119,15 @@ export default function CustomersScreen() {
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const d = await fetchCustomers();
       setCustomers(d.customers || []);
     } catch (e) {
+      // Surface the failure — otherwise an empty list looks like "no customers"
+      // when it actually means the load failed.
       console.warn(e.message);
+      setLoadError(friendlyError(e));
     } finally {
       setLoading(false);
     }
@@ -237,7 +159,7 @@ export default function CustomersScreen() {
       const updated = { ...selected, tags: newTags };
       setSelected(updated);
       setCustomers(prev => prev.map(c => c.id === selected.id ? updated : c));
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
     finally { setTagSaving(false); }
   };
 
@@ -253,7 +175,7 @@ export default function CustomersScreen() {
       setBatchModal(false);
       // Refresh batch list so new batch appears in filters
       fetchBatches().then(d => setBatches(d.batches || [])).catch(() => {});
-    } catch (e) { Alert.alert("Error", e.message); }
+    } catch (e) { Alert.alert("Error", friendlyError(e)); }
     finally { setBatchSaving(false); }
   };
 
@@ -270,7 +192,7 @@ export default function CustomersScreen() {
               await deleteCustomer(selected.id);
               setCustomers(prev => prev.filter(c => c.id !== selected.id));
               setSelected(null);
-            } catch (e) { Alert.alert("Error", e.message); }
+            } catch (e) { Alert.alert("Error", friendlyError(e)); }
           }
         },
       ]
@@ -526,6 +448,14 @@ export default function CustomersScreen() {
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator color={Colors.primary} /></View>
+      ) : loadError ? (
+        <View style={styles.center}>
+          <Text style={styles.loadErrIcon}>⚠️</Text>
+          <Text style={styles.loadErrText}>{loadError}</Text>
+          <TouchableOpacity style={styles.loadErrBtn} onPress={load}>
+            <Text style={styles.loadErrBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={filtered}
@@ -1031,6 +961,10 @@ function StatBox({ label, value }) {
 const styles = StyleSheet.create({
   container  : { flex: 1, backgroundColor: Colors.bg },
   center     : { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadErrIcon: { fontSize: 30, marginBottom: 10 },
+  loadErrText: { color: Colors.textSecondary, fontSize: 13.5, textAlign: "center", paddingHorizontal: 34, lineHeight: 19 },
+  loadErrBtn : { marginTop: 16, backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 22, paddingVertical: 9 },
+  loadErrBtnText: { color: "#fff", fontSize: 13.5, fontWeight: "700" },
 
   filterScroll : { maxHeight: 46 },
   filterContent: { paddingHorizontal: 16, gap: 8, alignItems: "center" },

@@ -11,108 +11,39 @@ import {
 import { Colors } from "../constants/colors";
 import { saveBusinessSettings } from "../lib/api";
 
-// Top-level industry options
+// Top-level industry options — Selly supports two sectors
 const INDUSTRIES = [
   {
+    id      : "restaurant",
+    icon    : "\ud83c\udf7d\ufe0f",
+    title   : "Restaurant / Cafe / Food Court",
+    subtitle: "Menu orders, table booking, takeaway & daily specials",
+    examples: ["Restaurant", "Cafe / Coffee shop", "Food court counter", "Cloud kitchen"],
+    color   : "#F59E0B",
+    bg      : "rgba(245,158,11,0.10)",
+  },
+  {
     id      : "education",
-    icon    : "📚",
-    title   : "Education",
+    icon    : "\ud83d\udcda",
+    title   : "Classes",
     subtitle: "Coaching classes, courses & institutes",
     examples: ["NEET / JEE coaching", "Language classes", "Skill & certification courses", "Tuition & hobby classes"],
     color   : "#6C47FF",
     bg      : "rgba(108,71,255,0.10)",
   },
-  {
-    id      : "product",
-    icon    : "🛍️",
-    title   : "Product Business",
-    subtitle: "Clothing, accessories, home goods & more",
-    examples: ["Fashion boutique", "Electronics & gadgets", "Handicrafts & gifts", "Reseller / dropship"],
-    color   : "#0EA5E9",
-    bg      : "rgba(14,165,233,0.10)",
-  },
-  {
-    id      : "tourism",
-    icon    : "✈️",
-    title   : "Tourism & Travel",
-    subtitle: "Tour packages, hotels & travel agency",
-    examples: ["Goa / Kashmir packages", "Pilgrimage tours", "Adventure & trekking", "Honeymoon packages"],
-    color   : "#10B981",
-    bg      : "rgba(16,185,129,0.10)",
-  },
-  {
-    id      : "food",          // parent ID — not saved directly
-    icon    : "🍽️",
-    title   : "Food & Local Shop",
-    subtitle: "Restaurant, kirana, bakery, ice cream & food businesses",
-    examples: ["Restaurant / Cafe", "Kirana / Grocery", "Cake & Bakery", "Ice Cream Shop"],
-    color   : "#F59E0B",
-    bg      : "rgba(245,158,11,0.10)",
-    subtypes: [
-      {
-        id      : "restaurant",
-        icon    : "🍽️",
-        title   : "Restaurant / Cafe",
-        desc    : "Menu orders, table booking, home delivery, daily specials",
-      },
-      {
-        id      : "kirana",
-        icon    : "🛒",
-        title   : "Kirana / Grocery",
-        desc    : "Daily grocery list orders, inventory tracking",
-      },
-      {
-        id      : "cakes",
-        icon    : "🎂",
-        title   : "Cake & Bakery",
-        desc    : "Custom cake orders with flavor, size & delivery date",
-      },
-      {
-        id      : "icecream",
-        icon    : "🍦",
-        title   : "Ice Cream & Desserts",
-        desc    : "Scoop orders, flavor catalog, party & bulk orders",
-      },
-    ],
-  },
-  {
-    id      : "salon",
-    icon    : "💅",
-    title   : "Salon & Spa",
-    subtitle: "Beauty services, appointments & wellness",
-    examples: ["Hair salon", "Beauty parlour", "Spa & massage", "Nail art studio"],
-    color   : "#EC4899",
-    bg      : "rgba(236,72,153,0.10)",
-  },
-  {
-    id      : "medical",
-    icon    : "💊",
-    title   : "Medical & Pharmacy",
-    subtitle: "Medicines, pharmacy & healthcare services",
-    examples: ["Medical store", "Pharmacy", "Ayurvedic shop", "Diagnostic centre"],
-    color   : "#06B6D4",
-    bg      : "rgba(6,182,212,0.10)",
-  },
 ];
 
 // Helper — which top-level card does a given industry ID belong to?
+// (No sub-types any more; kept so the selection highlight logic stays generic.)
 function getParentId(industryId) {
-  if (["kirana", "cakes", "icecream", "restaurant"].includes(industryId)) return "food";
   return industryId;
 }
 
 // Human-readable name for confirm button
 function getDisplayName(industryId) {
   const flat = {
-    education : "Education",
-    product   : "Product Business",
-    tourism   : "Tourism & Travel",
-    kirana    : "Kirana / Grocery",
-    cakes     : "Cake & Bakery",
-    icecream  : "Ice Cream & Desserts",
-    restaurant: "Restaurant / Cafe",
-    salon     : "Salon & Spa",
-    medical   : "Medical & Pharmacy",
+    restaurant: "Restaurant / Cafe / Food Court",
+    education : "Classes",
   };
   return flat[industryId] || industryId;
 }

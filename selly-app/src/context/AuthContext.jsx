@@ -13,10 +13,21 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { fetchSubscription, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
+import { friendlyError } from "../lib/errors";
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEY_BID = "@selly_business_id";
+
+// ── Dev preview bypass ────────────────────────────────────────────────────────
+// Skips Supabase login so the UI can be browsed locally without an account.
+// Guarded by __DEV__, so production builds ignore it. Set to false for real login.
+const DEV_PREVIEW_BYPASS = true;
+const DEV_PREVIEW_USER = {
+  id           : "dev-preview-business",
+  email        : "preview@selly.in",
+  user_metadata: { business_name: "Preview Store" },
+};
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
@@ -32,6 +43,19 @@ export function AuthProvider({ children }) {
     let subscription;
 
     async function init() {
+      if (__DEV__ && DEV_PREVIEW_BYPASS) {
+        setUser(DEV_PREVIEW_USER);
+        setProfile({
+          business_id    : DEV_PREVIEW_USER.id,
+          business_name  : "Preview Store",
+          plan           : "pro",
+          trial_days_left: 14,
+          whatsapp_number: "+91 98765 43210",
+        });
+        setIndustry(null);        // null → industry-setup screen; "restaurant" or "education" to skip it
+        setLoading(false);
+        return;
+      }
       try {
         // Get current session (persisted in AsyncStorage)
         const { data: { session } } = await supabase.auth.getSession();
@@ -163,13 +187,13 @@ export function AuthProvider({ children }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setAuthError(error.message);
-        return { ok: false, error: error.message };
+        setAuthError(friendlyError(error));
+        return { ok: false, error: friendlyError(error) };
       }
       return { ok: true };
     } catch (err) {
-      setAuthError(err.message);
-      return { ok: false, error: err.message };
+      setAuthError(friendlyError(err));
+      return { ok: false, error: friendlyError(err) };
     }
   }
 
@@ -188,8 +212,8 @@ export function AuthProvider({ children }) {
         },
       });
       if (error) {
-        setAuthError(error.message);
-        return { ok: false, error: error.message };
+        setAuthError(friendlyError(error));
+        return { ok: false, error: friendlyError(error) };
       }
       // If email confirmation is disabled, user is immediately logged in
       return {
@@ -197,8 +221,8 @@ export function AuthProvider({ children }) {
         needsConfirmation: !data.session, // true if email confirmation required
       };
     } catch (err) {
-      setAuthError(err.message);
-      return { ok: false, error: err.message };
+      setAuthError(friendlyError(err));
+      return { ok: false, error: friendlyError(err) };
     }
   }
 
@@ -219,7 +243,7 @@ export function AuthProvider({ children }) {
       // and shows a "set new password" form.
       redirectTo: `${SELLY_WEBSITE_URL}/reset-password`,
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) return { ok: false, error: friendlyError(error) };
     return { ok: true };
   }
 
@@ -231,11 +255,11 @@ export function AuthProvider({ children }) {
         .from("profiles")
         .update({ whatsapp_number: number })
         .eq("id", user.id);
-      if (error) return { ok: false, error: error.message };
+      if (error) return { ok: false, error: friendlyError(error) };
       setProfile(prev => prev ? { ...prev, whatsapp_number: number } : prev);
       return { ok: true };
     } catch (err) {
-      return { ok: false, error: err.message };
+      return { ok: false, error: friendlyError(err) };
     }
   }
 

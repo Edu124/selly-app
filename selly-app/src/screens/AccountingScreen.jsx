@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
+import { friendlyError } from "../lib/errors";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, Modal, FlatList,
@@ -42,7 +43,7 @@ function AddExpenseModal({ visible, onClose, onAdded }) {
       onClose();
       onAdded();
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     } finally {
       setSaving(false);
     }
@@ -394,7 +395,7 @@ export default function AccountingScreen() {
       await deleteExpense(id);
       setExpenses(prev => prev.filter(e => e.id !== id));
     } catch (e) {
-      Alert.alert("Error", e.message);
+      Alert.alert("Error", friendlyError(e));
     }
   }
 
