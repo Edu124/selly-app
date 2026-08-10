@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selly Discovery - WhatsApp Food AI Demo</title>
+</head>
+<body>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #efeae4;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Top demo bar ---------- */
+  .demo-bar {
+    background: #1c1917;
+    color: #fff;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .demo-bar h1 { font-size: 16px; font-weight: 600; }
+  .demo-bar .sub { font-size: 12px; color: #a8a29e; }
+  .demo-bar .spacer { flex: 1; }
+  .bar-btn {
+    color: #fff; border: none; border-radius: 6px;
+    padding: 8px 15px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; transition: filter .15s; font-family: inherit;
+  }
+  .bar-btn:hover { filter: brightness(1.15); }
+  .btn-user  { background: #b45309; }
+  .btn-verify{ background: #0f766e; }
+
+  .main { flex: 1; display: flex; gap: 16px; padding: 16px; min-height: 0; }
+
+  /* ---------- WhatsApp phone ---------- */
+  .phone {
+    width: 400px; flex-shrink: 0; background: #111;
+    border-radius: 28px; padding: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    display: flex; flex-direction: column;
+  }
+  .phone-screen {
+    flex: 1; border-radius: 20px; overflow: hidden;
+    display: flex; flex-direction: column; background: #ECE5DD; min-height: 0;
+  }
+  .wa-header {
+    background: #075E54; color: #fff; padding: 10px 14px;
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .wa-avatar {
+    width: 38px; height: 38px; border-radius: 50%; background: #25D366;
+    display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  .wa-title { font-size: 15px; font-weight: 600; line-height: 1.2; display: flex; align-items: center; gap: 5px; }
+  .verified { color: #34b7f1; font-size: 12px; }
+  .wa-status { font-size: 11.5px; color: #c8e6c9; }
+  .wa-header-icons { margin-left: auto; display: flex; gap: 18px; font-size: 16px; opacity: .9; }
+
+  .wa-chat {
+    flex: 1; overflow-y: auto; padding: 14px 12px;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.25) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.2) 0 2px, transparent 3px),
+      #ECE5DD;
+    background-size: 90px 90px, 130px 130px, auto;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .day-chip {
+    align-self: center; background: #dcf0fa; color: #506575;
+    font-size: 11px; padding: 4px 10px; border-radius: 8px; margin: 6px 0;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .msg {
+    max-width: 86%; padding: 7px 9px 6px 9px; border-radius: 8px;
+    font-size: 13.5px; line-height: 1.5; position: relative;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10);
+    white-space: pre-wrap; word-wrap: break-word;
+    animation: pop .18s ease-out; color: #111b21;
+  }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .msg.in  { align-self: flex-start; background: #fff; border-top-left-radius: 2px; }
+  .msg.out { align-self: flex-end; background: #DCF8C6; border-top-right-radius: 2px; }
+  .msg .meta {
+    float: right; margin: 6px -2px -2px 8px; font-size: 10.5px; color: #8696a0;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .ticks { color: #8696a0; font-size: 12px; letter-spacing: -3px; }
+  .ticks.read { color: #53bdeb; }
+  .msg b { font-weight: 600; }
+  .msg i { color: #556; }
+  .msg .src { color: #8696a0; font-size: 10.5px; font-style: italic; }
+  .linktext { color: #027eb5; text-decoration: underline; cursor: pointer; font-weight: 600; }
+  .locpill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #d9f0d5; border-radius: 8px; padding: 5px 9px; font-size: 12.5px;
+  }
+
+  .typing {
+    align-self: flex-start; background: #fff; border-radius: 8px;
+    border-top-left-radius: 2px; padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(0,0,0,.10); display: flex; gap: 4px;
+  }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: #9ca3af; animation: blink 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: .2s; }
+  .typing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink { 0%,80%,100% { opacity: .25; } 40% { opacity: 1; } }
+
+  .chips {
+    display: flex; gap: 6px; padding: 8px 10px 0 10px; flex-wrap: wrap;
+    background: #f0f2f5; flex-shrink: 0; min-height: 38px;
+  }
+  .chip {
+    border: 1px solid #25D366; color: #075E54; background: #fff;
+    border-radius: 16px; font-size: 12px; padding: 5px 12px;
+    cursor: pointer; transition: background .15s; font-family: inherit;
+  }
+  .chip:hover { background: #e7f8ee; }
+  .chip:focus-visible, .wa-send:focus-visible, .bar-btn:focus-visible { outline: 2px solid #b45309; outline-offset: 2px; }
+
+  .wa-input { display: flex; gap: 8px; padding: 8px 10px; background: #f0f2f5; align-items: center; flex-shrink: 0; }
+  .wa-input input {
+    flex: 1; border: none; border-radius: 20px; padding: 10px 16px;
+    font-size: 13.5px; outline: none; background: #fff; color: #111b21;
+    font-family: inherit; min-width: 0;
+  }
+  .wa-send {
+    width: 40px; height: 40px; border-radius: 50%; border: none;
+    background: #25D366; color: #fff; font-size: 16px; cursor: pointer; flex-shrink: 0;
+  }
+
+  /* ---------- Ops console ---------- */
+  .ops {
+    flex: 1; background: #14100e; border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.28);
+    display: flex; flex-direction: column; overflow: hidden;
+    min-width: 0; color: #f5f0eb;
+  }
+  .op-head {
+    background: #241d18; padding: 12px 18px; display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #3a2f27; flex-shrink: 0; flex-wrap: wrap;
+  }
+  .op-logo {
+    width: 34px; height: 34px; border-radius: 10px; background: #d97706;
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+  }
+  .op-title { font-size: 14.5px; font-weight: 700; }
+  .op-sub   { font-size: 11px; color: #a8a29e; }
+  .op-brand { margin-left: auto; font-size: 13px; font-weight: 800; }
+  .op-brand span { color: #22c55e; }
+
+  .op-stats { display: flex; gap: 9px; padding: 12px 18px 0 18px; flex-wrap: wrap; flex-shrink: 0; }
+  .stat { background: #1e1814; border: 1px solid #3a2f27; border-radius: 10px; padding: 8px 13px; min-width: 100px; }
+  .stat .v { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 9.5px; color: #a8a29e; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .v.amber { color: #fbbf24; } .v.green { color: #4ade80; } .v.teal { color: #5eead4; }
+
+  .op-body { flex: 1; overflow-y: auto; padding: 14px 18px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .sec-t {
+    font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+    color: #a8a29e; margin-bottom: 8px;
+  }
+
+  .rest {
+    display: flex; align-items: center; gap: 11px;
+    background: #1e1814; border: 1px solid #3a2f27; border-radius: 11px;
+    padding: 10px 12px; margin-bottom: 7px; transition: border-color .3s, background .3s;
+  }
+  .rest.partner { border-color: #22c55e; background: #16241a; }
+  .rest.hot { border-color: #fbbf24; }
+  .rest-emoji { font-size: 19px; }
+  .rest-meta { flex: 1; min-width: 0; }
+  .rest-name { font-size: 13px; font-weight: 700; }
+  .rest-line { font-size: 10.5px; color: #a8a29e; margin-top: 2px; }
+  .tag {
+    font-size: 8.5px; font-weight: 800; letter-spacing: .06em;
+    border-radius: 7px; padding: 2px 7px; white-space: nowrap;
+  }
+  .tag.p { background: #16a34a; color: #fff; }
+  .tag.l { background: #3a2f27; color: #d6d3d1; }
+  .pitch-btn {
+    border: 1px solid #d97706; background: #2a1f14; color: #fbbf24;
+    border-radius: 8px; font-size: 10px; font-weight: 700;
+    padding: 5px 9px; cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .pitch-btn:hover { background: #3a2a18; }
+
+  .feed { display: flex; flex-direction: column; gap: 6px; }
+  .fi {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: #1a1512; border: 1px solid #2f2721; border-radius: 9px;
+    padding: 7px 11px; font-size: 11.5px; color: #d6d3d1; animation: pop .2s ease-out;
+  }
+  .fi b { color: #fff; }
+  .fi .tg { margin-left: auto; font-size: 9px; font-weight: 800; border-radius: 7px; padding: 2px 6px; white-space: nowrap; }
+  .tg.q { background: #2f2721; color: #d6d3d1; }
+  .tg.h { background: #14532d; color: #86efac; }
+  .tg.b { background: #164e63; color: #67e8f9; }
+  .tg.w { background: #422006; color: #fcd34d; }
+
+  .wl { display: flex; align-items: center; gap: 9px; background: #241a0c; border: 1px solid #4a3411; border-radius: 9px; padding: 7px 11px; font-size: 11.5px; color: #fcd34d; margin-bottom: 6px; }
+  .wl b { color: #fff; }
+  .wl .n { margin-left: auto; font-weight: 800; }
+
+  .op-hint {
+    background: #241a0c; border-top: 1px solid #4a3411; color: #fcd34d;
+    font-size: 11.5px; padding: 8px 18px; flex-shrink: 0;
+  }
+
+  /* ---------- Toast ---------- */
+  #toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 8px; z-index: 120; }
+  .toast {
+    background: #1c1917; color: #fff; font-size: 13px; padding: 11px 16px;
+    border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    animation: toast-in .25s ease-out; max-width: 390px;
+  }
+  .toast.green { border-left: 4px solid #22c55e; }
+  .toast.amber { border-left: 4px solid #d97706; }
+  .toast.teal  { border-left: 4px solid #14b8a6; }
+  @keyframes toast-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) { .msg, .toast, .fi { animation: none; } .typing span { animation-duration: 2.4s; } }
+  @media (max-width: 960px) {
+    body { height: auto; overflow: auto; }
+    .main { flex-direction: column; }
+    .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
+    .ops { min-height: 560px; }
+  }
+</style>
+
+<div class="demo-bar">
+  <div>
+    <h1>🍽️ Selly Discovery — your food AI on WhatsApp</h1>
+    <div class="sub">Consumer demo · Every restaurant is listed (Google-sourced). <b>Partners</b> get the offer, the booking button and order-in-chat — that gap is the sales pitch.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="bar-btn btn-user" onclick="anotherUser()">📍 Another user asks</button>
+  <button class="bar-btn btn-verify" onclick="verifyCoupon()">🎟️ Staff verifies coupon</button>
+</div>
+
+<div class="main">
+
+  <!-- Consumer WhatsApp -->
+  <div class="phone">
+    <div class="phone-screen">
+      <div class="wa-header">
+        <div class="wa-avatar">🍽️</div>
+        <div>
+          <div class="wa-title">Selly <span class="verified">✔</span></div>
+          <div class="wa-status">Food AI · typically replies instantly</div>
+        </div>
+        <div class="wa-header-icons"><span>📹</span><span>📞</span><span>⋮</span></div>
+      </div>
+      <div class="wa-chat" id="chat">
+        <div class="day-chip">Today · came from @punefoodie reel</div>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="wa-input">
+        <input id="waText" placeholder="Type a message" onkeydown="if(event.key==='Enter')sendUser()">
+        <button class="wa-send" onclick="sendUser()" aria-label="Send">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ops console -->
+  <div class="ops">
+    <div class="op-head">
+      <div class="op-logo">📊</div>
+      <div>
+        <div class="op-title">Selly Discovery — Area Console</div>
+        <div class="op-sub">Koregaon Park, Pune · launch area · 8 restaurants listed</div>
+      </div>
+      <div class="op-brand">selly<span>.</span></div>
+    </div>
+
+    <div class="op-stats">
+      <div class="stat"><div class="v" id="sQueries">0</div><div class="l">Queries today</div></div>
+      <div class="stat"><div class="v green" id="sPartners">3</div><div class="l">Partners</div></div>
+      <div class="stat"><div class="v amber" id="sListed">5</div><div class="l">Listed only</div></div>
+      <div class="stat"><div class="v teal" id="sLeads">0</div><div class="l">Leads sent</div></div>
+      <div class="stat"><div class="v green" id="sBookings">0</div><div class="l">Bookings</div></div>
+    </div>
+
+    <div class="op-body">
+      <div>
+        <div class="sec-t">Restaurants in area — tap a listed one to pitch it</div>
+        <div id="restList"></div>
+      </div>
+
+      <div>
+        <div class="sec-t">🕒 Out-of-area demand (waitlist)</div>
+        <div id="waitList"></div>
+      </div>
+
+      <div>
+        <div class="sec-t">Live activity</div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+
+    <div class="op-hint">💡 Non-partners still get listed — so when you walk in, they can see the competitor next door has an offer badge and a booking button, and they don't.</div>
+  </div>
+
+</div>
+
+<div id="toasts"></div>
+
+<script>
+/* ------------------------------------------------------------------ */
+/*  Area data — curated for one launch neighbourhood                  */
+/*  partner:true  → Selly offer + booking + order in chat             */
+/*  partner:false → Google-sourced listing only                       */
+/* ------------------------------------------------------------------ */
+const AREA = "Koregaon Park";
+
+let RESTAURANTS = [
+  { id:1, name:"Sharma Udupi", emoji:"🥘", partner:true,
+    cuisine:"South Indian", dist:0.4, rating:4.6, reviews:1240,
+    dishes:["dosa","idli","vada","filter coffee"],
+    signature:"Ghee Roast Dosa", price:"₹120",
+    why:"Their #1 dish — around 200 dosas a day",
+    offer:"Free filter coffee with any dosa", offerWindow:"3–6 PM",
+    delivery:true, leads:0 },
+
+  { id:2, name:"Bhukkad Cafe", emoji:"🍛", partner:true,
+    cuisine:"North Indian", dist:0.7, rating:4.4, reviews:860,
+    dishes:["thali","paneer","dal","roti"],
+    signature:"Unlimited Punjabi Thali", price:"₹260",
+    why:"Regulars come back for the thali",
+    offer:"20% off", offerWindow:"3–6 PM",
+    delivery:true, leads:0 },
+
+  { id:3, name:"Wok & Roll", emoji:"🍜", partner:true,
+    cuisine:"Chinese", dist:1.1, rating:4.3, reviews:540,
+    dishes:["noodles","momos","fried rice","manchurian"],
+    signature:"Burnt Garlic Hakka Noodles", price:"₹210",
+    why:"Best noodles nearby by review count",
+    offer:"Free momos on ₹300+", offerWindow:"all day",
+    delivery:true, leads:0 },
+
+  { id:4, name:"Anand Bhavan", emoji:"🥞", partner:false,
+    cuisine:"South Indian", dist:0.85, rating:4.5, reviews:2100,
+    dishes:["dosa","idli","uttapam"],
+    signature:"Mysore Masala Dosa", price:"₹140",
+    why:"Reviewers keep mentioning the Mysore masala dosa",
+    delivery:false, leads:0 },
+
+  { id:5, name:"Biryani House", emoji:"🍚", partner:false,
+    cuisine:"Hyderabadi", dist:1.3, rating:4.4, reviews:3400,
+    dishes:["biryani","kebab"],
+    signature:"Hyderabadi Dum Biryani", price:"₹320",
+    why:"Highest-rated biryani in the area",
+    delivery:true, leads:0 },
+
+  { id:6, name:"Punjabi Rasoi", emoji:"🍲", partner:false,
+    cuisine:"North Indian", dist:0.95, rating:4.2, reviews:610,
+    dishes:["thali","paneer","roti"],
+    signature:"Veg Thali", price:"₹220",
+    why:"Solid everyday thali", delivery:true, leads:0 },
+
+  { id:7, name:"Pizza Junction", emoji:"🍕", partner:false,
+    cuisine:"Italian", dist:1.2, rating:4.1, reviews:430,
+    dishes:["pizza","garlic bread"],
+    signature:"Farmhouse Pizza", price:"₹300",
+    why:"Late-night favourite", delivery:true, leads:0 },
+
+  { id:8, name:"The Coffee Nook", emoji:"☕", partner:false,
+    cuisine:"Cafe", dist:0.6, rating:4.3, reviews:720,
+    dishes:["coffee","sandwich","cake"],
+    signature:"Pour-over Coffee", price:"₹180",
+    why:"Quiet place to sit and work", delivery:false, leads:0 },
+];
+
+/* canonical dish dictionary — spellings/variants → canonical */
+const DISH_ALIASES = {
+  dosa:["dosa","dosai","dose","masala dosa","ghee roast","सादा डोसा","डोसा"],
+  thali:["thali","thaali","unlimited","full meal","meals"],
+  biryani:["biryani","biriyani","dum biryani","biryani rice"],
+  noodles:["noodles","hakka","chowmein","chow mein","chinese"],
+  momos:["momo","momos","dumpling"],
+  pizza:["pizza","margherita","farmhouse"],
+  paneer:["paneer","paneer tikka","shahi paneer"],
+  coffee:["coffee","filter coffee","cold coffee","cappuccino","latte"],
+  idli:["idli","idly"],
+};
+
+const IN_AREA = ["koregaon","kp","north main","lane 5","lane 7","insignia","phoenix"];
+let waitlist = { "Baner":14, "Kothrud":9 };
+
+let queries = 0, leadsSent = 0, bookings = 0, myCoupon = null, pendingBooking = null;
+let lastResults = [];
+
+/* ------------------------------------------------------------------ */
+/*  Console rendering                                                 */
+/* ------------------------------------------------------------------ */
+function renderConsole(hotId) {
+  document.getElementById("restList").innerHTML = RESTAURANTS
+    .slice().sort((a,b) => (b.partner - a.partner) || (b.leads - a.leads))
+    .map(r => `
+      <div class="rest ${r.partner ? "partner" : ""} ${r.id === hotId ? "hot" : ""}">
+        <span class="rest-emoji">${r.emoji}</span>
+        <div class="rest-meta">
+          <div class="rest-name">${r.name}</div>
+          <div class="rest-line">${r.cuisine} · ${r.rating}★ · ${r.dist} km${r.leads ? ` · <b style="color:#5eead4">${r.leads} leads sent</b>` : ""}</div>
+        </div>
+        <span class="tag ${r.partner ? "p" : "l"}">${r.partner ? "PARTNER" : "LISTED"}</span>
+        ${r.partner ? "" : `<button class="pitch-btn" onclick="pitch(${r.id})">Pitch</button>`}
+      </div>`).join("");
+
+  document.getElementById("waitList").innerHTML = Object.entries(waitlist).length
+    ? Object.entries(waitlist).sort((a,b)=>b[1]-a[1])
+        .map(([area,n]) => `<div class="wl">📍 <b>${area}</b> — people asked, we're not there yet<span class="n">${n}</span></div>`).join("")
+    : `<div class="fi">No out-of-area requests yet</div>`;
+
+  document.getElementById("sQueries").textContent  = queries;
+  document.getElementById("sPartners").textContent = RESTAURANTS.filter(r=>r.partner).length;
+  document.getElementById("sListed").textContent   = RESTAURANTS.filter(r=>!r.partner).length;
+  document.getElementById("sLeads").textContent    = leadsSent;
+  document.getElementById("sBookings").textContent = bookings;
+  if (hotId) setTimeout(() => renderConsole(null), 2600);
+}
+
+function logFeed(icon, html, tag, cls) {
+  const feed = document.getElementById("feed");
+  const el = document.createElement("div");
+  el.className = "fi";
+  el.innerHTML = `<span>${icon}</span><span>${html}</span><span class="tg ${cls}">${tag}</span>`;
+  feed.prepend(el);
+  while (feed.children.length > 7) feed.removeChild(feed.lastChild);
+}
+
+function pitch(id) {
+  const r = RESTAURANTS.find(x => x.id === id);
+  toast(`📣 Pitch opened for <b>${r.name}</b> — "${r.leads} customers asked for your food this week. Your neighbour ${RESTAURANTS.find(p=>p.partner&&p.cuisine===r.cuisine)?.name || "next door"} has an offer badge and a booking button. You don't."`, "amber");
+  logFeed("📣", `Partner pitch queued for <b>${r.name}</b> (${r.leads} leads sent, not a partner)`, "SALES", "w");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Matching                                                          */
+/* ------------------------------------------------------------------ */
+function canonicalDish(text) {
+  const t = text.toLowerCase();
+  for (const [canon, list] of Object.entries(DISH_ALIASES)) {
+    if (list.some(a => t.includes(a))) return canon;
+  }
+  return null;
+}
+
+function rank(dish, homeOnly) {
+  let pool = RESTAURANTS.slice();
+  if (dish) pool = pool.filter(r => r.dishes.includes(dish));
+  if (homeOnly) pool = pool.filter(r => r.delivery);
+  if (!pool.length) pool = RESTAURANTS.slice();
+  // partners first, then rating, then distance
+  return pool.sort((a,b) =>
+    (b.partner - a.partner) || (b.rating - a.rating) || (a.dist - b.dist)
+  ).slice(0, 3);
+}
+
+function resultBlock(list, dish) {
+  const medals = ["🥇","🥈","🥉"];
+  return list.map((r,i) => {
+    const head = `${medals[i]} *${r.name}* · ${r.dist} km · ${r.rating}★`;
+    const line = `   ${r.signature} ${r.price} — _${r.why}_`;
+    const off  = r.partner
+      ? `\n   🎁 *${r.offer}* (${r.offerWindow})`
+      : `\n   _listed only — no Selly offer here_`;
+    return head + "\n" + line + off;
+  }).join("\n\n");
+}
+
+/* ------------------------------------------------------------------ */
+/*  WhatsApp chat                                                     */
+/* ------------------------------------------------------------------ */
+const chat = document.getElementById("chat");
+const nowTime = () => new Date().toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
+
+function fmt(t) {
+  return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/\*([^*\n]+)\*/g,"<b>$1</b>")
+    .replace(/_([^_\n]+)_/g,"<i>$1</i>")
+    .replace(/\{\{LOC\}\}/g,`<span class="locpill">📍 Current location · ${AREA}</span>`)
+    .replace(/\{\{SRC\}\}/g,`<span class="src">ratings &amp; reviews via Google</span>`);
+}
+
+function addMsg(text, dir) {
+  const d = document.createElement("div");
+  d.className = "msg " + dir;
+  d.innerHTML = fmt(text) + `<span class="meta">${nowTime()} ${dir==="out"?'<span class="ticks">✓✓</span>':""}</span>`;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  if (dir === "out") setTimeout(() => { const t=d.querySelector(".ticks"); if(t) t.classList.add("read"); }, 1100);
+}
+
+function botPush(text) {
+  const typing = document.createElement("div");
+  typing.className = "typing";
+  typing.innerHTML = "<span></span><span></span><span></span>";
+  chat.appendChild(typing);
+  chat.scrollTop = chat.scrollHeight;
+  setTimeout(() => { typing.remove(); addMsg(text, "in"); }, 1000 + Math.random()*400);
+}
+
+function setChips(list) {
+  document.getElementById("chips").innerHTML =
+    list.map(c => `<button class="chip" onclick="quickSend('${c.replace(/'/g,"\\'")}')">${c}</button>`).join("");
+}
+
+function sendUser() {
+  const i = document.getElementById("waText");
+  const t = i.value.trim(); if (!t) return;
+  i.value = ""; addMsg(t, "out");
+  setTimeout(() => botReply(t), 450);
+}
+function quickSend(t) { addMsg(t, "out"); setTimeout(() => botReply(t), 450); }
+
+/* ------------------------------------------------------------------ */
+/*  Bot brain                                                         */
+/* ------------------------------------------------------------------ */
+let haveLocation = false;
+
+function botReply(text) {
+  const t = text.toLowerCase().trim();
+
+  /* --- booking follow-ups --- */
+  if (pendingBooking) {
+    const n = (t.match(/\b(\d{1,2})\b/) || [])[1];
+    if (n && !pendingBooking.people) {
+      pendingBooking.people = n;
+      botPush(`👌 Table for *${n}*. What time?`);
+      setChips(["7:30 PM","8:00 PM","Right now"]);
+      return;
+    }
+    // time given → confirm
+    const r = pendingBooking.rest;
+    const code = "SELLY" + (10 + Math.floor(Math.random()*89));
+    myCoupon = { code, rest: r.name, offer: r.offer };
+    bookings++; r.leads++; leadsSent++;
+    renderConsole(r.id);
+    logFeed("🍽️", `Booking confirmed at <b>${r.name}</b> — ${pendingBooking.people} people, ${text}`, "BOOKING", "b");
+    botPush(
+      `✅ *Table booked!*\n\n` +
+      `📍 ${r.name} · ${r.dist} km\n` +
+      `👥 ${pendingBooking.people} people · ⏰ ${text}\n\n` +
+      `🎁 Your offer: *${r.offer}*\n` +
+      `Show this code at the table:\n*${code}*\n` +
+      `_One-time use, valid today._\n\n` +
+      `The restaurant has been notified. Enjoy! 😋`
+    );
+    setChips(["Something else to eat","🎟️ My coupon"]);
+    pendingBooking = null;
+    toast(`🍽️ Booking sent to ${r.name} — a warm customer delivered, not just a listing view`, "green");
+    return;
+  }
+
+  /* --- out-of-area --- */
+  const mentionsFar = /baner|kothrud|hinjewadi|wakad|viman|hadapsar|kalyani/.test(t);
+  if (mentionsFar) {
+    const area = (t.match(/baner|kothrud|hinjewadi|wakad|viman nagar|hadapsar/) || ["that area"])[0];
+    const nice = area.charAt(0).toUpperCase() + area.slice(1);
+    waitlist[nice] = (waitlist[nice] || 0) + 1;
+    renderConsole(null);
+    logFeed("📍", `Out-of-area request — <b>${nice}</b> added to waitlist`, "WAITLIST", "w");
+    botPush(
+      `😔 I'm not in *${nice}* yet — I'd rather say so than send you somewhere I can't vouch for.\n\n` +
+      `Right now I cover *${AREA}* properly.\n\n` +
+      `Want me to message you the day I launch in ${nice}? Reply *YES*.`
+    );
+    setChips(["YES","Show me Koregaon Park"]);
+    toast(`📍 ${nice} waitlist +1 — dead-end turned into a demand signal`, "amber");
+    return;
+  }
+
+  // bare "yes" = waitlist opt-in. Guard against "yes, book the partner"
+  // which must fall through to the booking branch below.
+  if (/^yes\b/.test(t) && !/book|table|partner/.test(t)) {
+    botPush(`🙌 Done — you're on the list. I'll message you the moment I launch there.\n\n_Meanwhile, if you're ever around ${AREA}, just say the word._`);
+    setChips(["Show me Koregaon Park"]);
+    return;
+  }
+
+  /* --- location --- */
+  if (/location|koregaon|kp|near me|around me|show me/.test(t) || /^📍/.test(text)) {
+    haveLocation = true;
+    botPush(
+      `{{LOC}}\n\nGot it — you're in *${AREA}*. I know *8 restaurants* here well.\n\n` +
+      `What are you in the mood for?`
+    );
+    setChips(["🥘 Dosa","🍛 Thali","🍚 Biryani","Surprise me","I'll eat at home"]);
+    return;
+  }
+
+  /* --- coupon --- */
+  if (/coupon|code|my offer/.test(t)) {
+    botPush(myCoupon
+      ? `🎟️ Your code: *${myCoupon.code}*\n${myCoupon.offer} at *${myCoupon.rest}*\n\n_Show it at the table — one-time use._`
+      : `🎟️ No coupon yet! Book a table through me and the restaurant's offer comes with it.`);
+    return;
+  }
+
+  /* --- book --- */
+  if (/^book|table at|reserve/.test(t)) {
+    const r = lastResults.find(x => t.includes(x.name.toLowerCase().split(" ")[0])) ||
+              lastResults.find(x => x.partner);
+    if (!r) { botPush(`Tell me where — e.g. *Book Sharma Udupi*.`); return; }
+    if (!r.partner) {
+      botPush(`ℹ️ *${r.name}* isn't a Selly partner yet, so I can't book or offer a deal there — only show you the way.\n\nWant me to book *${RESTAURANTS.find(p=>p.partner&&p.cuisine===r.cuisine)?.name || "a partner nearby"}* instead? They have an offer running.`);
+      setChips(["Yes, book the partner","Just directions"]);
+      return;
+    }
+    pendingBooking = { rest: r, people: null };
+    botPush(`🍽️ Booking at *${r.name}*.\n\nHow many people?`);
+    setChips(["2","4","6"]);
+    return;
+  }
+  if (/book the partner|yes, book/.test(t)) {
+    const r = RESTAURANTS.find(x => x.partner);
+    pendingBooking = { rest: r, people: null };
+    botPush(`🍽️ Booking at *${r.name}*.\n\nHow many people?`);
+    setChips(["2","4","6"]);
+    return;
+  }
+
+  /* --- eat at home --- */
+  if (/home|delivery|deliver|parcel|takeaway/.test(t)) {
+    const list = rank(null, true); lastResults = list;
+    queries++; list.forEach(r => { r.leads++; leadsSent++; });
+    renderConsole(list[0].id);
+    logFeed("🏠", `Query: <b>eat at home</b> → ${list.map(r=>r.name).join(", ")}`, "QUERY", "q");
+    botPush(
+      `🏠 *Eating in? These deliver themselves — no aggregator commission, so the kitchen keeps more and you often pay less:*\n\n` +
+      resultBlock(list) + `\n\n{{SRC}}\n\nReply *Book <name>* to reserve, or I can share a number to order direct.`
+    );
+    setChips(["Book Sharma Udupi","Something else to eat"]);
+    return;
+  }
+
+  /* --- dish / craving --- */
+  const dish = canonicalDish(t);
+  if (dish || /surprise|anything|hungry|eat|food|suggest|restaurant/.test(t)) {
+    if (!haveLocation) {
+      botPush(`📍 Happy to help! Share your location first (tap 📎 → Location) so I only suggest places you can actually walk to.`);
+      setChips(["📍 Share location","I'm in Koregaon Park"]);
+      return;
+    }
+    const list = rank(dish, false); lastResults = list;
+    queries++; list.forEach(r => { r.leads++; leadsSent++; });
+    renderConsole(list[0].id);
+    logFeed("🔎", `Query: <b>${dish || "surprise me"}</b> → ${list.map(r=>r.name).join(", ")}`, "QUERY", "q");
+
+    const head = dish
+      ? `🥘 *Best ${dish} near you:*`
+      : `😋 *You didn't pick — so here's what I'd actually eat tonight:*`;
+    const tail = list.some(r => r.partner)
+      ? `\n\nReply *Book <name>* — partners hold your table and the offer comes with it.`
+      : `\n\n_None of these are Selly partners yet, so no offer or booking here — just honest directions._`;
+
+    botPush(head + `\n\n` + resultBlock(list, dish) + `\n\n{{SRC}}` + tail);
+    setChips([`Book ${list.find(r=>r.partner)?.name.split(" ")[0] || list[0].name.split(" ")[0]}`, "Something else to eat", "I'll eat at home"]);
+    return;
+  }
+
+  /* --- greeting --- */
+  if (/\b(hi|hello|hey|namaste|start)\b/.test(t)) {
+    botPush(
+      `👋 Hi! I'm *Selly* — your food AI on WhatsApp. No app, no signup.\n\n` +
+      `Tell me what you're craving and where you are, and I'll tell you *where it's actually good* nearby — plus any offer I can get you.\n\n` +
+      `📍 Start by sharing your location.`
+    );
+    setChips(["📍 Share location","I'm in Koregaon Park","I'm in Baner"]);
+    return;
+  }
+
+  if (/thank|thanks|nice|great/.test(t)) {
+    botPush(`Anytime 😊 Just message me whenever you're hungry — I'm always here.`);
+    setChips(["Something else to eat"]);
+    return;
+  }
+
+  botPush(
+    `🤖 Tell me what you feel like eating — *dosa*, *thali*, *biryani*, *pizza* — or say *surprise me*.\n\n` +
+    `You can also say *I'll eat at home* and I'll find places that deliver direct.`
+  );
+  setChips(["🥘 Dosa","🍚 Biryani","Surprise me"]);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Top-bar simulations                                               */
+/* ------------------------------------------------------------------ */
+const OTHER = [
+  { dish:"biryani", src:"@punefoodie" },
+  { dish:"thali",   src:"QR at Bhukkad" },
+  { dish:"noodles", src:"@kpeats" },
+];
+let otherIdx = 0;
+
+function anotherUser() {
+  const o = OTHER[otherIdx++ % OTHER.length];
+  const list = rank(o.dish, false);
+  queries++; list.forEach(r => { r.leads++; leadsSent++; });
+  renderConsole(list[0].id);
+  logFeed("👤", `New user via <b>${o.src}</b> asked for <b>${o.dish}</b> → ${list[0].name}`, "QUERY", "q");
+  toast(`👤 Another user (source: ${o.src}) asked for ${o.dish} — attribution comes from their prefilled link`, "teal");
+}
+
+function verifyCoupon() {
+  if (!myCoupon) { toast(`🎟️ No coupon issued yet — book a table in the chat first.`, "amber"); return; }
+  toast(`✅ Staff entered <b>${myCoupon.code}</b> in the Selly merchant app — valid, now marked used. It can't be forwarded or reused.`, "green");
+  logFeed("🎟️", `Coupon <b>${myCoupon.code}</b> redeemed at <b>${myCoupon.rest}</b>`, "REDEEMED", "h");
+  myCoupon = null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toast                                                             */
+/* ------------------------------------------------------------------ */
+function toast(html, color) {
+  const box = document.getElementById("toasts");
+  const el = document.createElement("div");
+  el.className = "toast " + (color || "");
+  el.innerHTML = html;
+  box.appendChild(el);
+  setTimeout(() => { el.style.transition="opacity .4s"; el.style.opacity="0"; setTimeout(()=>el.remove(),400); }, 5600);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Boot                                                             */
+/* ------------------------------------------------------------------ */
+renderConsole(null);
+setChips(["📍 Share location","I'm in Koregaon Park","I'm in Baner"]);
+setTimeout(() => botPush(
+  `👋 Hi! I'm *Selly* — a food AI you just message on WhatsApp. No app to install.\n\n` +
+  `Tell me where you are and what you're craving, and I'll tell you where it's *actually* good — and get you a deal where I can.\n\n` +
+  `📍 Share your location to start.`
+), 700);
+</script>
+
+</body>
+</html>
