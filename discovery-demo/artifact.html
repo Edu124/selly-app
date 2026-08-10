@@ -4,22 +4,13 @@
   body {
     font-family: 'Segoe UI', system-ui, sans-serif;
     background: #efeae4;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    height: 100vh; display: flex; flex-direction: column; overflow: hidden;
   }
 
   /* ---------- Top demo bar ---------- */
   .demo-bar {
-    background: #1c1917;
-    color: #fff;
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    background: #1c1917; color: #fff; padding: 10px 20px;
+    display: flex; align-items: center; gap: 16px; flex-shrink: 0; flex-wrap: wrap;
   }
   .demo-bar h1 { font-size: 16px; font-weight: 600; }
   .demo-bar .sub { font-size: 12px; color: #a8a29e; }
@@ -30,8 +21,8 @@
     cursor: pointer; transition: filter .15s; font-family: inherit;
   }
   .bar-btn:hover { filter: brightness(1.15); }
-  .btn-user  { background: #b45309; }
-  .btn-verify{ background: #0f766e; }
+  .btn-user { background: #b45309; }
+  .btn-hin  { background: #0f766e; }
 
   .main { flex: 1; display: flex; gap: 16px; padding: 16px; min-height: 0; }
 
@@ -131,7 +122,7 @@
     background: #25D366; color: #fff; font-size: 16px; cursor: pointer; flex-shrink: 0;
   }
 
-  /* ---------- Ops console ---------- */
+  /* ---------- Demand console ---------- */
   .ops {
     flex: 1; background: #14100e; border-radius: 14px;
     box-shadow: 0 6px 24px rgba(0,0,0,.28);
@@ -152,7 +143,7 @@
   .op-brand span { color: #22c55e; }
 
   .op-stats { display: flex; gap: 9px; padding: 12px 18px 0 18px; flex-wrap: wrap; flex-shrink: 0; }
-  .stat { background: #1e1814; border: 1px solid #3a2f27; border-radius: 10px; padding: 8px 13px; min-width: 100px; }
+  .stat { background: #1e1814; border: 1px solid #3a2f27; border-radius: 10px; padding: 8px 13px; min-width: 104px; }
   .stat .v { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .stat .l { font-size: 9.5px; color: #a8a29e; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
   .v.amber { color: #fbbf24; } .v.green { color: #4ade80; } .v.teal { color: #5eead4; }
@@ -163,29 +154,24 @@
     color: #a8a29e; margin-bottom: 8px;
   }
 
+  /* craving bars */
+  .crav { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .crav-name { width: 78px; font-size: 11.5px; color: #e7e5e4; text-transform: capitalize; }
+  .crav-bar { flex: 1; height: 8px; background: #241d18; border-radius: 5px; overflow: hidden; }
+  .crav-fill { height: 100%; background: #d97706; border-radius: 5px; transition: width .4s; }
+  .crav-n { width: 26px; text-align: right; font-size: 11px; color: #fbbf24; font-weight: 700; font-variant-numeric: tabular-nums; }
+
   .rest {
     display: flex; align-items: center; gap: 11px;
     background: #1e1814; border: 1px solid #3a2f27; border-radius: 11px;
-    padding: 10px 12px; margin-bottom: 7px; transition: border-color .3s, background .3s;
+    padding: 10px 12px; margin-bottom: 7px; transition: border-color .3s;
   }
-  .rest.partner { border-color: #22c55e; background: #16241a; }
   .rest.hot { border-color: #fbbf24; }
   .rest-emoji { font-size: 19px; }
   .rest-meta { flex: 1; min-width: 0; }
   .rest-name { font-size: 13px; font-weight: 700; }
   .rest-line { font-size: 10.5px; color: #a8a29e; margin-top: 2px; }
-  .tag {
-    font-size: 8.5px; font-weight: 800; letter-spacing: .06em;
-    border-radius: 7px; padding: 2px 7px; white-space: nowrap;
-  }
-  .tag.p { background: #16a34a; color: #fff; }
-  .tag.l { background: #3a2f27; color: #d6d3d1; }
-  .pitch-btn {
-    border: 1px solid #d97706; background: #2a1f14; color: #fbbf24;
-    border-radius: 8px; font-size: 10px; font-weight: 700;
-    padding: 5px 9px; cursor: pointer; font-family: inherit; white-space: nowrap;
-  }
-  .pitch-btn:hover { background: #3a2a18; }
+  .shown { font-size: 10.5px; color: #5eead4; font-weight: 700; white-space: nowrap; }
 
   .feed { display: flex; flex-direction: column; gap: 6px; }
   .fi {
@@ -196,9 +182,8 @@
   .fi b { color: #fff; }
   .fi .tg { margin-left: auto; font-size: 9px; font-weight: 800; border-radius: 7px; padding: 2px 6px; white-space: nowrap; }
   .tg.q { background: #2f2721; color: #d6d3d1; }
-  .tg.h { background: #14532d; color: #86efac; }
-  .tg.b { background: #164e63; color: #67e8f9; }
   .tg.w { background: #422006; color: #fcd34d; }
+  .tg.h { background: #164e63; color: #67e8f9; }
 
   .wl { display: flex; align-items: center; gap: 9px; background: #241a0c; border: 1px solid #4a3411; border-radius: 9px; padding: 7px 11px; font-size: 11.5px; color: #fcd34d; margin-bottom: 6px; }
   .wl b { color: #fff; }
@@ -226,18 +211,18 @@
     body { height: auto; overflow: auto; }
     .main { flex-direction: column; }
     .phone { width: 100%; max-width: 440px; margin: 0 auto; height: 640px; }
-    .ops { min-height: 560px; }
+    .ops { min-height: 540px; }
   }
 </style>
 
 <div class="demo-bar">
   <div>
     <h1>🍽️ Selly Discovery — your food AI on WhatsApp</h1>
-    <div class="sub">Consumer demo · Every restaurant is listed (Google-sourced). <b>Partners</b> get the offer, the booking button and order-in-chat — that gap is the sales pitch.</div>
+    <div class="sub">Consumer demo · Ask what to eat and where — no app, no signup, works in Hindi too. Every query builds a demand map of your area.</div>
   </div>
   <div class="spacer"></div>
   <button class="bar-btn btn-user" onclick="anotherUser()">📍 Another user asks</button>
-  <button class="bar-btn btn-verify" onclick="verifyCoupon()">🎟️ Staff verifies coupon</button>
+  <button class="bar-btn btn-hin" onclick="quickSend('मुझे डोसा खाना है')">🇮🇳 Ask in Hindi</button>
 </div>
 
 <div class="main">
@@ -264,28 +249,32 @@
     </div>
   </div>
 
-  <!-- Ops console -->
+  <!-- Demand console -->
   <div class="ops">
     <div class="op-head">
       <div class="op-logo">📊</div>
       <div>
-        <div class="op-title">Selly Discovery — Area Console</div>
-        <div class="op-sub">Koregaon Park, Pune · launch area · 8 restaurants listed</div>
+        <div class="op-title">Selly — Demand Console</div>
+        <div class="op-sub">Koregaon Park, Pune · launch area · 8 restaurants curated</div>
       </div>
       <div class="op-brand">selly<span>.</span></div>
     </div>
 
     <div class="op-stats">
       <div class="stat"><div class="v" id="sQueries">0</div><div class="l">Queries today</div></div>
-      <div class="stat"><div class="v green" id="sPartners">3</div><div class="l">Partners</div></div>
-      <div class="stat"><div class="v amber" id="sListed">5</div><div class="l">Listed only</div></div>
-      <div class="stat"><div class="v teal" id="sLeads">0</div><div class="l">Leads sent</div></div>
-      <div class="stat"><div class="v green" id="sBookings">0</div><div class="l">Bookings</div></div>
+      <div class="stat"><div class="v amber" id="sTop">—</div><div class="l">Top craving</div></div>
+      <div class="stat"><div class="v teal" id="sRecs">0</div><div class="l">Recommendations</div></div>
+      <div class="stat"><div class="v green" id="sAreas">2</div><div class="l">Areas requested</div></div>
     </div>
 
     <div class="op-body">
       <div>
-        <div class="sec-t">Restaurants in area — tap a listed one to pitch it</div>
+        <div class="sec-t">🔥 What people are craving</div>
+        <div id="cravList"></div>
+      </div>
+
+      <div>
+        <div class="sec-t">Restaurants in area — how often each gets recommended</div>
         <div id="restList"></div>
       </div>
 
@@ -300,7 +289,7 @@
       </div>
     </div>
 
-    <div class="op-hint">💡 Non-partners still get listed — so when you walk in, they can see the competitor next door has an offer badge and a booking button, and they don't.</div>
+    <div class="op-hint">💡 Every query is demand data. "47 people asked for biryani near you this month" is the number you'll walk in with when you start signing restaurants.</div>
   </div>
 
 </div>
@@ -309,116 +298,125 @@
 
 <script>
 /* ------------------------------------------------------------------ */
-/*  Area data — curated for one launch neighbourhood                  */
-/*  partner:true  → Selly offer + booking + order in chat             */
-/*  partner:false → Google-sourced listing only                       */
+/*  Curated area — one neighbourhood, hand-built                      */
+/*  Ratings/reviews seeded from Google Places; dish notes written     */
+/*  from what reviewers actually mention.                             */
 /* ------------------------------------------------------------------ */
 const AREA = "Koregaon Park";
 
 let RESTAURANTS = [
-  { id:1, name:"Sharma Udupi", emoji:"🥘", partner:true,
-    cuisine:"South Indian", dist:0.4, rating:4.6, reviews:1240,
-    dishes:["dosa","idli","vada","filter coffee"],
+  { id:1, name:"Sharma Udupi", emoji:"🥘", cuisine:"South Indian",
+    dist:0.4, rating:4.6, reviews:1240, phone:"+91 98220 11223",
+    dishes:["dosa","idli","vada","coffee"],
     signature:"Ghee Roast Dosa", price:"₹120",
-    why:"Their #1 dish — around 200 dosas a day",
-    offer:"Free filter coffee with any dosa", offerWindow:"3–6 PM",
-    delivery:true, leads:0 },
+    why:"Reviewers keep coming back for the ghee roast — crisp, not oily",
+    delivery:true, shown:0 },
 
-  { id:2, name:"Bhukkad Cafe", emoji:"🍛", partner:true,
-    cuisine:"North Indian", dist:0.7, rating:4.4, reviews:860,
-    dishes:["thali","paneer","dal","roti"],
-    signature:"Unlimited Punjabi Thali", price:"₹260",
-    why:"Regulars come back for the thali",
-    offer:"20% off", offerWindow:"3–6 PM",
-    delivery:true, leads:0 },
-
-  { id:3, name:"Wok & Roll", emoji:"🍜", partner:true,
-    cuisine:"Chinese", dist:1.1, rating:4.3, reviews:540,
-    dishes:["noodles","momos","fried rice","manchurian"],
-    signature:"Burnt Garlic Hakka Noodles", price:"₹210",
-    why:"Best noodles nearby by review count",
-    offer:"Free momos on ₹300+", offerWindow:"all day",
-    delivery:true, leads:0 },
-
-  { id:4, name:"Anand Bhavan", emoji:"🥞", partner:false,
-    cuisine:"South Indian", dist:0.85, rating:4.5, reviews:2100,
+  { id:2, name:"Anand Bhavan", emoji:"🥞", cuisine:"South Indian",
+    dist:0.85, rating:4.5, reviews:2100, phone:"+91 98220 44556",
     dishes:["dosa","idli","uttapam"],
     signature:"Mysore Masala Dosa", price:"₹140",
-    why:"Reviewers keep mentioning the Mysore masala dosa",
-    delivery:false, leads:0 },
+    why:"Most-mentioned dish in reviews; go early, it gets full",
+    delivery:false, shown:0 },
 
-  { id:5, name:"Biryani House", emoji:"🍚", partner:false,
-    cuisine:"Hyderabadi", dist:1.3, rating:4.4, reviews:3400,
-    dishes:["biryani","kebab"],
-    signature:"Hyderabadi Dum Biryani", price:"₹320",
-    why:"Highest-rated biryani in the area",
-    delivery:true, leads:0 },
+  { id:3, name:"Bhukkad Cafe", emoji:"🍛", cuisine:"North Indian",
+    dist:0.7, rating:4.4, reviews:860, phone:"+91 98220 77889",
+    dishes:["thali","paneer","dal","roti"],
+    signature:"Unlimited Punjabi Thali", price:"₹260",
+    why:"Best value thali nearby — regulars eat here weekly",
+    delivery:true, shown:0 },
 
-  { id:6, name:"Punjabi Rasoi", emoji:"🍲", partner:false,
-    cuisine:"North Indian", dist:0.95, rating:4.2, reviews:610,
+  { id:4, name:"Punjabi Rasoi", emoji:"🍲", cuisine:"North Indian",
+    dist:0.95, rating:4.2, reviews:610, phone:"+91 98220 22110",
     dishes:["thali","paneer","roti"],
     signature:"Veg Thali", price:"₹220",
-    why:"Solid everyday thali", delivery:true, leads:0 },
+    why:"Simple, quick, consistent — good weekday lunch",
+    delivery:true, shown:0 },
 
-  { id:7, name:"Pizza Junction", emoji:"🍕", partner:false,
-    cuisine:"Italian", dist:1.2, rating:4.1, reviews:430,
+  { id:5, name:"Biryani House", emoji:"🍚", cuisine:"Hyderabadi",
+    dist:1.3, rating:4.4, reviews:3400, phone:"+91 98220 33447",
+    dishes:["biryani","kebab"],
+    signature:"Hyderabadi Dum Biryani", price:"₹320",
+    why:"Highest-rated biryani in the area by a clear margin",
+    delivery:true, shown:0 },
+
+  { id:6, name:"Wok & Roll", emoji:"🍜", cuisine:"Chinese",
+    dist:1.1, rating:4.3, reviews:540, phone:"+91 98220 55661",
+    dishes:["noodles","momos","fried rice","manchurian"],
+    signature:"Burnt Garlic Hakka Noodles", price:"₹210",
+    why:"Reviewers single out the burnt garlic noodles",
+    delivery:true, shown:0 },
+
+  { id:7, name:"Pizza Junction", emoji:"🍕", cuisine:"Italian",
+    dist:1.2, rating:4.1, reviews:430, phone:"+91 98220 66772",
     dishes:["pizza","garlic bread"],
     signature:"Farmhouse Pizza", price:"₹300",
-    why:"Late-night favourite", delivery:true, leads:0 },
+    why:"Open late — the 11 PM option around here",
+    delivery:true, shown:0 },
 
-  { id:8, name:"The Coffee Nook", emoji:"☕", partner:false,
-    cuisine:"Cafe", dist:0.6, rating:4.3, reviews:720,
+  { id:8, name:"The Coffee Nook", emoji:"☕", cuisine:"Cafe",
+    dist:0.6, rating:4.3, reviews:720, phone:"+91 98220 88993",
     dishes:["coffee","sandwich","cake"],
     signature:"Pour-over Coffee", price:"₹180",
-    why:"Quiet place to sit and work", delivery:false, leads:0 },
+    why:"Quiet, good wifi — reviewers work here for hours",
+    delivery:false, shown:0 },
 ];
 
-/* canonical dish dictionary — spellings/variants → canonical */
+/* canonical dish dictionary — spellings, variants, Hindi */
 const DISH_ALIASES = {
-  dosa:["dosa","dosai","dose","masala dosa","ghee roast","सादा डोसा","डोसा"],
-  thali:["thali","thaali","unlimited","full meal","meals"],
-  biryani:["biryani","biriyani","dum biryani","biryani rice"],
-  noodles:["noodles","hakka","chowmein","chow mein","chinese"],
-  momos:["momo","momos","dumpling"],
-  pizza:["pizza","margherita","farmhouse"],
-  paneer:["paneer","paneer tikka","shahi paneer"],
-  coffee:["coffee","filter coffee","cold coffee","cappuccino","latte"],
-  idli:["idli","idly"],
+  dosa   : ["dosa","dosai","dose","masala dosa","ghee roast","डोसा","दोसा"],
+  thali  : ["thali","thaali","unlimited","full meal","meals","थाली"],
+  biryani: ["biryani","biriyani","dum biryani","बिरयानी"],
+  noodles: ["noodles","hakka","chowmein","chow mein","chinese","नूडल"],
+  momos  : ["momo","momos","dumpling","मोमो"],
+  pizza  : ["pizza","margherita","farmhouse","पिज़ा"],
+  paneer : ["paneer","paneer tikka","shahi paneer","पनीर"],
+  coffee : ["coffee","filter coffee","cold coffee","cappuccino","कॉफी"],
+  idli   : ["idli","idly","इडली"],
 };
 
-const IN_AREA = ["koregaon","kp","north main","lane 5","lane 7","insignia","phoenix"];
-let waitlist = { "Baner":14, "Kothrud":9 };
-
-let queries = 0, leadsSent = 0, bookings = 0, myCoupon = null, pendingBooking = null;
-let lastResults = [];
+let waitlist = { "Baner": 14, "Kothrud": 9 };
+let cravings = {};
+let queries = 0, recs = 0, haveLocation = false, lastResults = [];
 
 /* ------------------------------------------------------------------ */
-/*  Console rendering                                                 */
+/*  Console                                                           */
 /* ------------------------------------------------------------------ */
 function renderConsole(hotId) {
+  // cravings
+  const entries = Object.entries(cravings).sort((a,b) => b[1]-a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+  document.getElementById("cravList").innerHTML = entries.length
+    ? entries.slice(0,6).map(([d,n]) => `
+        <div class="crav">
+          <span class="crav-name">${d}</span>
+          <div class="crav-bar"><div class="crav-fill" style="width:${(n/max)*100}%"></div></div>
+          <span class="crav-n">${n}</span>
+        </div>`).join("")
+    : `<div class="fi">No queries yet — ask something in the chat</div>`;
+
+  // restaurants by how often recommended
   document.getElementById("restList").innerHTML = RESTAURANTS
-    .slice().sort((a,b) => (b.partner - a.partner) || (b.leads - a.leads))
+    .slice().sort((a,b) => b.shown - a.shown || b.rating - a.rating)
     .map(r => `
-      <div class="rest ${r.partner ? "partner" : ""} ${r.id === hotId ? "hot" : ""}">
+      <div class="rest ${r.id === hotId ? "hot" : ""}">
         <span class="rest-emoji">${r.emoji}</span>
         <div class="rest-meta">
           <div class="rest-name">${r.name}</div>
-          <div class="rest-line">${r.cuisine} · ${r.rating}★ · ${r.dist} km${r.leads ? ` · <b style="color:#5eead4">${r.leads} leads sent</b>` : ""}</div>
+          <div class="rest-line">${r.cuisine} · ${r.rating}★ (${r.reviews.toLocaleString("en-IN")}) · ${r.dist} km</div>
         </div>
-        <span class="tag ${r.partner ? "p" : "l"}">${r.partner ? "PARTNER" : "LISTED"}</span>
-        ${r.partner ? "" : `<button class="pitch-btn" onclick="pitch(${r.id})">Pitch</button>`}
+        <span class="shown">${r.shown ? `shown ${r.shown}×` : "—"}</span>
       </div>`).join("");
 
   document.getElementById("waitList").innerHTML = Object.entries(waitlist).length
     ? Object.entries(waitlist).sort((a,b)=>b[1]-a[1])
-        .map(([area,n]) => `<div class="wl">📍 <b>${area}</b> — people asked, we're not there yet<span class="n">${n}</span></div>`).join("")
+        .map(([a,n]) => `<div class="wl">📍 <b>${a}</b> — asked for, not covered yet<span class="n">${n}</span></div>`).join("")
     : `<div class="fi">No out-of-area requests yet</div>`;
 
-  document.getElementById("sQueries").textContent  = queries;
-  document.getElementById("sPartners").textContent = RESTAURANTS.filter(r=>r.partner).length;
-  document.getElementById("sListed").textContent   = RESTAURANTS.filter(r=>!r.partner).length;
-  document.getElementById("sLeads").textContent    = leadsSent;
-  document.getElementById("sBookings").textContent = bookings;
+  document.getElementById("sQueries").textContent = queries;
+  document.getElementById("sRecs").textContent    = recs;
+  document.getElementById("sAreas").textContent   = Object.keys(waitlist).length;
+  document.getElementById("sTop").textContent     = entries.length ? entries[0][0] : "—";
   if (hotId) setTimeout(() => renderConsole(null), 2600);
 }
 
@@ -429,12 +427,6 @@ function logFeed(icon, html, tag, cls) {
   el.innerHTML = `<span>${icon}</span><span>${html}</span><span class="tg ${cls}">${tag}</span>`;
   feed.prepend(el);
   while (feed.children.length > 7) feed.removeChild(feed.lastChild);
-}
-
-function pitch(id) {
-  const r = RESTAURANTS.find(x => x.id === id);
-  toast(`📣 Pitch opened for <b>${r.name}</b> — "${r.leads} customers asked for your food this week. Your neighbour ${RESTAURANTS.find(p=>p.partner&&p.cuisine===r.cuisine)?.name || "next door"} has an offer badge and a booking button. You don't."`, "amber");
-  logFeed("📣", `Partner pitch queued for <b>${r.name}</b> (${r.leads} leads sent, not a partner)`, "SALES", "w");
 }
 
 /* ------------------------------------------------------------------ */
@@ -450,29 +442,33 @@ function canonicalDish(text) {
 
 function rank(dish, homeOnly) {
   let pool = RESTAURANTS.slice();
-  if (dish) pool = pool.filter(r => r.dishes.includes(dish));
+  if (dish)     pool = pool.filter(r => r.dishes.includes(dish));
   if (homeOnly) pool = pool.filter(r => r.delivery);
   if (!pool.length) pool = RESTAURANTS.slice();
-  // partners first, then rating, then distance
-  return pool.sort((a,b) =>
-    (b.partner - a.partner) || (b.rating - a.rating) || (a.dist - b.dist)
-  ).slice(0, 3);
+  return pool.sort((a,b) => (b.rating - a.rating) || (a.dist - b.dist)).slice(0, 3);
 }
 
-function resultBlock(list, dish) {
+function resultBlock(list) {
   const medals = ["🥇","🥈","🥉"];
-  return list.map((r,i) => {
-    const head = `${medals[i]} *${r.name}* · ${r.dist} km · ${r.rating}★`;
-    const line = `   ${r.signature} ${r.price} — _${r.why}_`;
-    const off  = r.partner
-      ? `\n   🎁 *${r.offer}* (${r.offerWindow})`
-      : `\n   _listed only — no Selly offer here_`;
-    return head + "\n" + line + off;
-  }).join("\n\n");
+  return list.map((r,i) =>
+    `${medals[i]} *${r.name}* · ${r.dist} km · ${r.rating}★\n` +
+    `   ${r.signature} ${r.price}\n` +
+    `   _${r.why}_`
+  ).join("\n\n");
+}
+
+function trackQuery(dish, list, hindi) {
+  queries++;
+  if (dish) cravings[dish] = (cravings[dish] || 0) + 1;
+  list.forEach(r => { r.shown++; recs++; });
+  renderConsole(list[0].id);
+  logFeed(hindi ? "🇮🇳" : "🔎",
+    `${hindi ? "Hindi query" : "Query"}: <b>${dish || "surprise me"}</b> → ${list.map(r=>r.name).join(", ")}`,
+    hindi ? "HINDI" : "QUERY", hindi ? "h" : "q");
 }
 
 /* ------------------------------------------------------------------ */
-/*  WhatsApp chat                                                     */
+/*  Chat plumbing                                                     */
 /* ------------------------------------------------------------------ */
 const chat = document.getElementById("chat");
 const nowTime = () => new Date().toLocaleTimeString("en-IN", { hour:"2-digit", minute:"2-digit" });
@@ -482,7 +478,8 @@ function fmt(t) {
     .replace(/\*([^*\n]+)\*/g,"<b>$1</b>")
     .replace(/_([^_\n]+)_/g,"<i>$1</i>")
     .replace(/\{\{LOC\}\}/g,`<span class="locpill">📍 Current location · ${AREA}</span>`)
-    .replace(/\{\{SRC\}\}/g,`<span class="src">ratings &amp; reviews via Google</span>`);
+    .replace(/\{\{SRC\}\}/g,`<span class="src">ratings &amp; reviews via Google</span>`)
+    .replace(/\{\{MAP:([^}]+)\}\}/g,(m,n)=>`<span class="linktext">📍 Directions to ${n}</span>`);
 }
 
 function addMsg(text, dir) {
@@ -519,201 +516,154 @@ function quickSend(t) { addMsg(t, "out"); setTimeout(() => botReply(t), 450); }
 /* ------------------------------------------------------------------ */
 /*  Bot brain                                                         */
 /* ------------------------------------------------------------------ */
-let haveLocation = false;
+const FAR = /baner|kothrud|hinjewadi|wakad|viman|hadapsar|kalyani|aundh/;
 
 function botReply(text) {
   const t = text.toLowerCase().trim();
+  const hindi = /[\u0900-\u097F]/.test(text);
 
-  /* --- booking follow-ups --- */
-  if (pendingBooking) {
-    const n = (t.match(/\b(\d{1,2})\b/) || [])[1];
-    if (n && !pendingBooking.people) {
-      pendingBooking.people = n;
-      botPush(`👌 Table for *${n}*. What time?`);
-      setChips(["7:30 PM","8:00 PM","Right now"]);
-      return;
-    }
-    // time given → confirm
-    const r = pendingBooking.rest;
-    const code = "SELLY" + (10 + Math.floor(Math.random()*89));
-    myCoupon = { code, rest: r.name, offer: r.offer };
-    bookings++; r.leads++; leadsSent++;
-    renderConsole(r.id);
-    logFeed("🍽️", `Booking confirmed at <b>${r.name}</b> — ${pendingBooking.people} people, ${text}`, "BOOKING", "b");
-    botPush(
-      `✅ *Table booked!*\n\n` +
-      `📍 ${r.name} · ${r.dist} km\n` +
-      `👥 ${pendingBooking.people} people · ⏰ ${text}\n\n` +
-      `🎁 Your offer: *${r.offer}*\n` +
-      `Show this code at the table:\n*${code}*\n` +
-      `_One-time use, valid today._\n\n` +
-      `The restaurant has been notified. Enjoy! 😋`
-    );
-    setChips(["Something else to eat","🎟️ My coupon"]);
-    pendingBooking = null;
-    toast(`🍽️ Booking sent to ${r.name} — a warm customer delivered, not just a listing view`, "green");
-    return;
-  }
-
-  /* --- out-of-area --- */
-  const mentionsFar = /baner|kothrud|hinjewadi|wakad|viman|hadapsar|kalyani/.test(t);
-  if (mentionsFar) {
-    const area = (t.match(/baner|kothrud|hinjewadi|wakad|viman nagar|hadapsar/) || ["that area"])[0];
-    const nice = area.charAt(0).toUpperCase() + area.slice(1);
+  /* out of area */
+  if (FAR.test(t)) {
+    const raw = (t.match(FAR) || ["that area"])[0];
+    const nice = raw.charAt(0).toUpperCase() + raw.slice(1);
     waitlist[nice] = (waitlist[nice] || 0) + 1;
     renderConsole(null);
     logFeed("📍", `Out-of-area request — <b>${nice}</b> added to waitlist`, "WAITLIST", "w");
     botPush(
-      `😔 I'm not in *${nice}* yet — I'd rather say so than send you somewhere I can't vouch for.\n\n` +
-      `Right now I cover *${AREA}* properly.\n\n` +
-      `Want me to message you the day I launch in ${nice}? Reply *YES*.`
+      `😔 I don't know *${nice}* well enough yet — and I'd rather say so than send you somewhere I can't vouch for.\n\n` +
+      `Right now I cover *${AREA}* properly: 8 places I actually know dish by dish.\n\n` +
+      `Want a message the day I cover ${nice}? Reply *YES*.`
     );
-    setChips(["YES","Show me Koregaon Park"]);
-    toast(`📍 ${nice} waitlist +1 — dead-end turned into a demand signal`, "amber");
+    setChips(["YES", "Show me Koregaon Park"]);
+    toast(`📍 ${nice} waitlist +1 — a dead end turned into a demand signal`, "amber");
     return;
   }
 
-  // bare "yes" = waitlist opt-in. Guard against "yes, book the partner"
-  // which must fall through to the booking branch below.
-  if (/^yes\b/.test(t) && !/book|table|partner/.test(t)) {
-    botPush(`🙌 Done — you're on the list. I'll message you the moment I launch there.\n\n_Meanwhile, if you're ever around ${AREA}, just say the word._`);
+  if (/^yes\b/.test(t)) {
+    botPush(`🙌 You're on the list — I'll message you the day I cover it.\n\n_Meanwhile if you're ever near ${AREA}, just say the word._`);
     setChips(["Show me Koregaon Park"]);
     return;
   }
 
-  /* --- location --- */
+  /* location */
   if (/location|koregaon|kp|near me|around me|show me/.test(t) || /^📍/.test(text)) {
     haveLocation = true;
-    botPush(
-      `{{LOC}}\n\nGot it — you're in *${AREA}*. I know *8 restaurants* here well.\n\n` +
-      `What are you in the mood for?`
-    );
+    botPush(`{{LOC}}\n\nGot it — *${AREA}*. I know *8 places* here properly, dish by dish.\n\nWhat are you in the mood for?`);
     setChips(["🥘 Dosa","🍛 Thali","🍚 Biryani","Surprise me","I'll eat at home"]);
     return;
   }
 
-  /* --- coupon --- */
-  if (/coupon|code|my offer/.test(t)) {
-    botPush(myCoupon
-      ? `🎟️ Your code: *${myCoupon.code}*\n${myCoupon.offer} at *${myCoupon.rest}*\n\n_Show it at the table — one-time use._`
-      : `🎟️ No coupon yet! Book a table through me and the restaurant's offer comes with it.`);
+  /* directions / call */
+  if (/direction|map|how to reach|address/.test(t)) {
+    const r = lastResults[0];
+    if (!r) { botPush(`Tell me what you feel like eating first and I'll point you to a place.`); return; }
+    botPush(`{{MAP:${r.name}}}\n\n📞 ${r.name} — ${r.phone}\n_Tap to call and check if they're busy._`);
+    setChips(["Something else to eat"]);
     return;
   }
 
-  /* --- book --- */
-  if (/^book|table at|reserve/.test(t)) {
-    const r = lastResults.find(x => t.includes(x.name.toLowerCase().split(" ")[0])) ||
-              lastResults.find(x => x.partner);
-    if (!r) { botPush(`Tell me where — e.g. *Book Sharma Udupi*.`); return; }
-    if (!r.partner) {
-      botPush(`ℹ️ *${r.name}* isn't a Selly partner yet, so I can't book or offer a deal there — only show you the way.\n\nWant me to book *${RESTAURANTS.find(p=>p.partner&&p.cuisine===r.cuisine)?.name || "a partner nearby"}* instead? They have an offer running.`);
-      setChips(["Yes, book the partner","Just directions"]);
-      return;
-    }
-    pendingBooking = { rest: r, people: null };
-    botPush(`🍽️ Booking at *${r.name}*.\n\nHow many people?`);
-    setChips(["2","4","6"]);
-    return;
-  }
-  if (/book the partner|yes, book/.test(t)) {
-    const r = RESTAURANTS.find(x => x.partner);
-    pendingBooking = { rest: r, people: null };
-    botPush(`🍽️ Booking at *${r.name}*.\n\nHow many people?`);
-    setChips(["2","4","6"]);
-    return;
-  }
-
-  /* --- eat at home --- */
+  /* eat at home */
   if (/home|delivery|deliver|parcel|takeaway/.test(t)) {
     const list = rank(null, true); lastResults = list;
-    queries++; list.forEach(r => { r.leads++; leadsSent++; });
-    renderConsole(list[0].id);
-    logFeed("🏠", `Query: <b>eat at home</b> → ${list.map(r=>r.name).join(", ")}`, "QUERY", "q");
+    trackQuery(null, list, hindi);
     botPush(
-      `🏠 *Eating in? These deliver themselves — no aggregator commission, so the kitchen keeps more and you often pay less:*\n\n` +
-      resultBlock(list) + `\n\n{{SRC}}\n\nReply *Book <name>* to reserve, or I can share a number to order direct.`
+      `🏠 *Eating in? These deliver direct — call them and skip the aggregator commission:*\n\n` +
+      resultBlock(list) + `\n\n{{SRC}}\n\nReply *directions* or I can share a number to call.`
     );
-    setChips(["Book Sharma Udupi","Something else to eat"]);
+    setChips(["📞 Get number","Something else to eat"]);
     return;
   }
 
-  /* --- dish / craving --- */
-  const dish = canonicalDish(t);
-  if (dish || /surprise|anything|hungry|eat|food|suggest|restaurant/.test(t)) {
+  if (/get number|call/.test(t)) {
+    const r = lastResults[0];
+    if (!r) { botPush(`Which place? Tell me what you're craving first.`); return; }
+    botPush(`📞 *${r.name}*\n${r.phone}\n\n_Order direct — the kitchen keeps the full amount._`);
+    setChips(["Something else to eat"]);
+    return;
+  }
+
+  /* dish / craving */
+  const dish = canonicalDish(text);
+  if (dish || /surprise|anything|hungry|eat|food|suggest|restaurant|खाना|भूख/.test(t)) {
     if (!haveLocation) {
       botPush(`📍 Happy to help! Share your location first (tap 📎 → Location) so I only suggest places you can actually walk to.`);
       setChips(["📍 Share location","I'm in Koregaon Park"]);
       return;
     }
     const list = rank(dish, false); lastResults = list;
-    queries++; list.forEach(r => { r.leads++; leadsSent++; });
-    renderConsole(list[0].id);
-    logFeed("🔎", `Query: <b>${dish || "surprise me"}</b> → ${list.map(r=>r.name).join(", ")}`, "QUERY", "q");
+    trackQuery(dish, list, hindi);
 
-    const head = dish
-      ? `🥘 *Best ${dish} near you:*`
-      : `😋 *You didn't pick — so here's what I'd actually eat tonight:*`;
-    const tail = list.some(r => r.partner)
-      ? `\n\nReply *Book <name>* — partners hold your table and the offer comes with it.`
-      : `\n\n_None of these are Selly partners yet, so no offer or booking here — just honest directions._`;
+    if (hindi) {
+      botPush(
+        `🥘 *${AREA} में सबसे अच्छा ${dish === "dosa" ? "डोसा" : dish}:*\n\n` +
+        list.map((r,i) => `${["🥇","🥈","🥉"][i]} *${r.name}* · ${r.dist} किमी · ${r.rating}★\n   ${r.signature} ${r.price}\n   _${r.why}_`).join("\n\n") +
+        `\n\n{{SRC}}\n\n_जिस भाषा में पूछोगे, उसी में जवाब मिलेगा._ 😊`
+      );
+      setChips(["Directions","English please","Something else to eat"]);
+      return;
+    }
 
-    botPush(head + `\n\n` + resultBlock(list, dish) + `\n\n{{SRC}}` + tail);
-    setChips([`Book ${list.find(r=>r.partner)?.name.split(" ")[0] || list[0].name.split(" ")[0]}`, "Something else to eat", "I'll eat at home"]);
+    botPush(
+      (dish ? `🥘 *Best ${dish} near you:*` : `😋 *You didn't pick — so here's what I'd actually eat tonight:*`) +
+      `\n\n` + resultBlock(list) + `\n\n{{SRC}}\n\nReply *directions* for the map and number.`
+    );
+    setChips(["Directions","Something else to eat","I'll eat at home"]);
     return;
   }
 
-  /* --- greeting --- */
+  if (/english/.test(t)) {
+    const list = lastResults.length ? lastResults : rank(null, false);
+    botPush(`Sure — here they are again:\n\n${resultBlock(list)}\n\n{{SRC}}`);
+    setChips(["Directions","Something else to eat"]);
+    return;
+  }
+
+  /* greeting */
   if (/\b(hi|hello|hey|namaste|start)\b/.test(t)) {
     botPush(
-      `👋 Hi! I'm *Selly* — your food AI on WhatsApp. No app, no signup.\n\n` +
-      `Tell me what you're craving and where you are, and I'll tell you *where it's actually good* nearby — plus any offer I can get you.\n\n` +
-      `📍 Start by sharing your location.`
+      `👋 Hi! I'm *Selly* — a food AI you just message on WhatsApp. No app, no signup.\n\n` +
+      `Tell me where you are and what you're craving, and I'll tell you *where it's actually good* — dish by dish, not a list to scroll.\n\n` +
+      `📍 Share your location to start.`
     );
     setChips(["📍 Share location","I'm in Koregaon Park","I'm in Baner"]);
     return;
   }
 
   if (/thank|thanks|nice|great/.test(t)) {
-    botPush(`Anytime 😊 Just message me whenever you're hungry — I'm always here.`);
+    botPush(`Anytime 😊 Message me whenever you're hungry — I'm always here.`);
     setChips(["Something else to eat"]);
     return;
   }
 
   botPush(
-    `🤖 Tell me what you feel like eating — *dosa*, *thali*, *biryani*, *pizza* — or say *surprise me*.\n\n` +
-    `You can also say *I'll eat at home* and I'll find places that deliver direct.`
+    `🤖 Tell me what you feel like — *dosa*, *thali*, *biryani*, *noodles*, *pizza* — or say *surprise me*.\n\n` +
+    `You can also say *I'll eat at home* for places that deliver direct. Hindi works too.`
   );
   setChips(["🥘 Dosa","🍚 Biryani","Surprise me"]);
 }
 
 /* ------------------------------------------------------------------ */
-/*  Top-bar simulations                                               */
+/*  Simulated traffic                                                 */
 /* ------------------------------------------------------------------ */
 const OTHER = [
   { dish:"biryani", src:"@punefoodie" },
-  { dish:"thali",   src:"QR at Bhukkad" },
+  { dish:"thali",   src:"QR at Bhukkad Cafe" },
   { dish:"noodles", src:"@kpeats" },
+  { dish:"dosa",    src:"@punefoodie" },
+  { dish:"pizza",   src:"Instagram ad" },
 ];
 let otherIdx = 0;
 
 function anotherUser() {
   const o = OTHER[otherIdx++ % OTHER.length];
   const list = rank(o.dish, false);
-  queries++; list.forEach(r => { r.leads++; leadsSent++; });
+  queries++; cravings[o.dish] = (cravings[o.dish] || 0) + 1;
+  list.forEach(r => { r.shown++; recs++; });
   renderConsole(list[0].id);
   logFeed("👤", `New user via <b>${o.src}</b> asked for <b>${o.dish}</b> → ${list[0].name}`, "QUERY", "q");
-  toast(`👤 Another user (source: ${o.src}) asked for ${o.dish} — attribution comes from their prefilled link`, "teal");
+  toast(`👤 Query from ${o.src} — source comes from their prefilled wa.me link, so you can pay influencers on results`, "teal");
 }
 
-function verifyCoupon() {
-  if (!myCoupon) { toast(`🎟️ No coupon issued yet — book a table in the chat first.`, "amber"); return; }
-  toast(`✅ Staff entered <b>${myCoupon.code}</b> in the Selly merchant app — valid, now marked used. It can't be forwarded or reused.`, "green");
-  logFeed("🎟️", `Coupon <b>${myCoupon.code}</b> redeemed at <b>${myCoupon.rest}</b>`, "REDEEMED", "h");
-  myCoupon = null;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Toast                                                             */
 /* ------------------------------------------------------------------ */
 function toast(html, color) {
   const box = document.getElementById("toasts");
@@ -724,14 +674,12 @@ function toast(html, color) {
   setTimeout(() => { el.style.transition="opacity .4s"; el.style.opacity="0"; setTimeout(()=>el.remove(),400); }, 5600);
 }
 
-/* ------------------------------------------------------------------ */
-/*  Boot                                                             */
-/* ------------------------------------------------------------------ */
+/* Boot */
 renderConsole(null);
 setChips(["📍 Share location","I'm in Koregaon Park","I'm in Baner"]);
 setTimeout(() => botPush(
   `👋 Hi! I'm *Selly* — a food AI you just message on WhatsApp. No app to install.\n\n` +
-  `Tell me where you are and what you're craving, and I'll tell you where it's *actually* good — and get you a deal where I can.\n\n` +
+  `Tell me where you are and what you're craving, and I'll tell you where it's *actually* good near you.\n\n` +
   `📍 Share your location to start.`
 ), 700);
 </script>
