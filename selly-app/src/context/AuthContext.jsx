@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
 import { fetchSubscription, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { friendlyError } from "../lib/errors";
+import { normalizeBusinessType } from "../lib/businessTypes";
 
 const AuthContext = createContext(null);
 
@@ -52,7 +53,9 @@ export function AuthProvider({ children }) {
           trial_days_left: 14,
           whatsapp_number: "+91 98765 43210",
         });
-        setIndustry(null);        // null → industry-setup screen; "restaurant" or "education" to skip it
+        // null → business-type setup screen. Set "cafe", "bakery" or
+        // "cloudkitchen" here to skip straight into that layout while working.
+        setIndustry(null);
         setLoading(false);
         return;
       }
@@ -129,7 +132,12 @@ export function AuthProvider({ children }) {
     setIndustryLoading(true);
     try {
       const { settings } = await fetchBusinessSettings();
-      setIndustry(settings?.industry || null);
+      // Accounts created before Selly went food-only may hold a removed sector
+      // (education, tourism, kirana…). normalizeBusinessType maps the food ones
+      // forward and returns null for the rest, which sends the owner back
+      // through setup rather than silently dropping them into a layout they
+      // never chose.
+      setIndustry(normalizeBusinessType(settings?.industry));
 
       // Sync business name to business_settings so the WhatsApp bot can use it
       const savedName = settings?.business_name;
@@ -147,14 +155,15 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ── Update industry (called from IndustrySetupScreen / Settings) ──────────
+  // ── Update business type (from BusinessTypeSetupScreen / Settings) ────────
   async function updateIndustry(industryId) {
-    setIndustry(industryId); // Optimistic update — tabs switch immediately
+    const next = normalizeBusinessType(industryId);
+    setIndustry(next); // Optimistic — the sidebar switches immediately
     try {
-      await saveBusinessSettings({ industry: industryId });
+      await saveBusinessSettings({ industry: next });
       return { ok: true };
     } catch (e) {
-      return { ok: false, error: e.message };
+      return { ok: false, error: friendlyError(e) };
     }
   }
 

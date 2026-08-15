@@ -1,7 +1,8 @@
 // ── Home / Dashboard Screen ───────────────────────────────────────────────────
-// The landing screen behind the "Home" sidebar item. Restaurant layout:
+// The landing screen behind the "Home" sidebar item. Café layout:
 // KPI row → open orders by table → running dishes → sales chart →
-// most/least ordered dishes → payments by table.
+// most/least ordered dishes → payments by table. Bakery and cloud kitchen use
+// the same panels with their own wording (see LABELS).
 //
 // Data: real values come from fetchDashboard() (orders + customers via Railway).
 // Sections the backend does not expose yet — table occupancy, live kitchen
@@ -18,14 +19,15 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 import { fetchDashboard } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 
 const inr = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
-/* ── Sector-specific labels ─────────────────────────────────────────────── */
+/* ── Labels per business type ───────────────────────────────────────────── */
 const LABELS = {
-  restaurant: {
+  cafe: {
     kpi1: "Daily Sales",  kpi2: "Open Orders", kpi3: "Total Orders",
     kpi4: "Payment Received",
     openTitle: "Open Orders by Table",  unitCol: "Table",
@@ -33,13 +35,21 @@ const LABELS = {
     leastTitle: "Least Ordered Dishes", payTitle: "Payment Received by Table",
     itemWord: "dish", itemWordPlural: "dishes",
   },
-  education: {
-    kpi1: "Fees Collected", kpi2: "Open Enrollments", kpi3: "Total Enrollments",
+  bakery: {
+    kpi1: "Daily Sales",  kpi2: "Open Orders", kpi3: "Total Orders",
     kpi4: "Payment Received",
-    openTitle: "Open Enrollments by Batch", unitCol: "Batch",
-    runningTitle: "Ongoing Classes",        mostTitle: "Most Enrolled Courses",
-    leastTitle: "Least Enrolled Courses",   payTitle: "Fees Received by Batch",
-    itemWord: "course", itemWordPlural: "courses",
+    openTitle: "Orders by Pickup Slot", unitCol: "Slot",
+    runningTitle: "In the Oven",        mostTitle: "Most Ordered Flavours",
+    leastTitle: "Least Ordered Flavours", payTitle: "Payment Received",
+    itemWord: "cake", itemWordPlural: "cakes",
+  },
+  cloudkitchen: {
+    kpi1: "Daily Sales",  kpi2: "Open Orders", kpi3: "Total Orders",
+    kpi4: "Payment Received",
+    openTitle: "Open Orders",           unitCol: "Order",
+    runningTitle: "In the Kitchen",     mostTitle: "Most Ordered Dishes",
+    leastTitle: "Least Ordered Dishes", payTitle: "Payment Received",
+    itemWord: "dish", itemWordPlural: "dishes",
   },
 };
 
@@ -148,7 +158,8 @@ function SalesChart({ points }) {
 /* ── Screen ─────────────────────────────────────────────────────────────── */
 export default function HomeScreen({ navigation }) {
   const { industry, profile } = useAuth();
-  const L = LABELS[industry] || LABELS.restaurant;
+  const type = typeConfig(industry);
+  const L    = LABELS[type.id] || LABELS.cafe;
   const { width } = useWindowDimensions();
   const twoCol = width >= 820;
 
@@ -183,8 +194,10 @@ export default function HomeScreen({ navigation }) {
 
   const s        = data?.stats || {};
   const recent   = data?.recent || [];
-  const openOrd  = recent.filter(o => ["pending_payment", "confirmed", "packed"].includes(o.status));
-  const paidOrd  = recent.filter(o => ["delivered", "shipped"].includes(o.status));
+  // Open vs settled is a property of this business type's status flow — a café
+  // order is settled at "paid", a bakery order at "delivered".
+  const openOrd  = recent.filter(o => type.unpaid.includes(o.status));
+  const paidOrd  = recent.filter(o => type.settled.includes(o.status));
   const today    = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
   // Revenue trend — derived from real orders if timestamps exist, else flat.
@@ -237,11 +250,11 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       <View style={twoCol ? styles.gridTwo : styles.gridOne}>
-        {/* Open orders by table/batch */}
+        {/* Open orders by table / pickup slot */}
         <Panel
           title={L.openTitle}
           onMore={() => navigation.navigate("Orders")}
-          moreLabel={`View all open ${industry === "education" ? "enrollments" : "orders"}`}
+          moreLabel="View all open orders"
         >
           <View style={styles.thead}>
             <Text style={[styles.th, { flex: 1 }]}>{L.unitCol}</Text>
@@ -255,7 +268,7 @@ export default function HomeScreen({ navigation }) {
           ) : openOrd.map(o => (
             <View key={o.id} style={styles.tr}>
               <Text style={[styles.td, styles.tdStrong, { flex: 1 }]}>
-                {o.table_no || o.batch || `#${String(o.id).slice(-4)}`}
+                {o.table_no || `#${String(o.id).slice(-4)}`}
               </Text>
               <Text style={[styles.td, { flex: 1 }]}>{(o.items?.length ?? 1)} item{(o.items?.length ?? 1) > 1 ? "s" : ""}</Text>
               <Text style={[styles.td, { flex: 1.2 }]}>
@@ -294,7 +307,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* Most ordered — needsBackend: per-item aggregation */}
         <Panel title={L.mostTitle} right={<Text style={styles.panelPeriod}>Today</Text>}
-               onMore={() => navigation.navigate(industry === "education" ? "Courses" : "Menu")}
+               onMore={() => navigation.navigate("Catalog")}
                moreLabel="View full menu report">
           <EmptyRow text="Not enough order data yet"
                     hint={`Per-${L.itemWord} counts need item-level order aggregation.`} />
@@ -320,7 +333,7 @@ export default function HomeScreen({ navigation }) {
           ) : paidOrd.map(o => (
             <View key={o.id} style={styles.tr}>
               <Text style={[styles.td, styles.tdStrong, { flex: 1 }]}>
-                {o.table_no || o.batch || `#${String(o.id).slice(-4)}`}
+                {o.table_no || `#${String(o.id).slice(-4)}`}
               </Text>
               <Text style={[styles.td, { flex: 0.8 }]}>{o.items?.length ?? 1}</Text>
               <Text style={[styles.td, { flex: 1.2 }]}>{inr(o.total || o.amount)}</Text>

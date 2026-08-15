@@ -1,8 +1,15 @@
 // ── App Navigator ─────────────────────────────────────────────────────────────
 // Auth-gated:
-//   • No user  → LoginScreen
-//   • User, no industry set → IndustrySetupScreen (first-time onboarding)
-//   • User + industry set  → 4-tab MainTabs (AI / Catalog / Customers / Settings / More)
+//   • No user                    → LoginScreen
+//   • User, no business type set → BusinessTypeSetupScreen (first-time onboarding)
+//   • User + business type set   → MainDrawer (left sidebar)
+//
+// Selly is food-only: cafe / bakery / cloudkitchen. See src/lib/businessTypes.js.
+//
+// Drawer route names are STATIC (Orders / Catalog / Customers) and only their
+// visible labels change per business type. Route names used to be the labels
+// themselves, which meant navigate("Menu") worked in one sector and threw in
+// another — that whole class of bug is gone.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState } from "react";
@@ -19,6 +26,7 @@ import { Ionicons }                       from "@expo/vector-icons";
 
 import { Colors }  from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 
 import LoginScreen           from "../screens/LoginScreen";
 import DashboardScreen       from "../screens/DashboardScreen";
@@ -26,20 +34,18 @@ import HomeScreen            from "../screens/HomeScreen";
 import PaymentsScreen        from "../screens/PaymentsScreen";
 import OrdersScreen          from "../screens/OrdersScreen";
 import CatalogScreen         from "../screens/CatalogScreen";
+import CakeOrdersScreen      from "../screens/CakeOrdersScreen";
+import CakeMenuScreen        from "../screens/CakeMenuScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
 import SettingsScreen        from "../screens/SettingsScreen";
 import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
 import QueryInboxScreen      from "../screens/QueryInboxScreen";
-import ClassScheduleScreen   from "../screens/ClassScheduleScreen";
 import ReviewsScreen         from "../screens/ReviewsScreen";
 import ReturnsScreen         from "../screens/ReturnsScreen";
 import AdminScreen           from "../screens/AdminScreen";
-import IndustrySetupScreen   from "../screens/IndustrySetupScreen";
-// Classes-specific screens
-import EnrollmentsScreen     from "../screens/EnrollmentsScreen";
-import CoursesScreen         from "../screens/CoursesScreen";
+import BusinessTypeSetupScreen from "../screens/BusinessTypeSetupScreen";
 // Finance screens
 import AccountingScreen      from "../screens/AccountingScreen";
 import PayrollScreen         from "../screens/PayrollScreen";
@@ -50,44 +56,19 @@ const Drawer     = createDrawerNavigator();
 const RootStack  = createStackNavigator();
 const MoreStack_ = createStackNavigator();
 
-// ── Industry-aware screen config ──────────────────────────────────────────────
-// Selly supports two sectors: Restaurant/Cafe/Food Court and Classes.
-const INDUSTRY_CONFIG = {
-  restaurant: {
-    catalog  : { name: "Menu",        icon: "🍽️", component: CatalogScreen      },
-    customers: { name: "Customers",   icon: "👥", component: CustomersScreen    },
-    orders   : { name: "Orders",      icon: "🧾", component: OrdersScreen       },
-  },
-  education: {
-    catalog  : { name: "Courses",     icon: "📚", component: CoursesScreen      },
-    customers: { name: "Students",    icon: "👨‍🎓", component: CustomersScreen    },
-    orders   : { name: "Enrollments", icon: "🎓", component: EnrollmentsScreen  },
-  },
+// ── Screen components per business type ───────────────────────────────────────
+// businessTypes.js holds the labels, icons and flags but deliberately imports no
+// screens (it gets pulled into screens themselves, and an import cycle through
+// the navigator would be the result). The component wiring lives here.
+const TYPE_SCREENS = {
+  cafe        : { orders: OrdersScreen,     catalog: CatalogScreen  },
+  bakery      : { orders: CakeOrdersScreen, catalog: CakeMenuScreen },
+  cloudkitchen: { orders: OrdersScreen,     catalog: CatalogScreen  },
 };
-
-// Any legacy/unknown industry value falls back to the restaurant layout.
-const DEFAULT_INDUSTRY = "restaurant";
-
-// ── Placeholder screen for features under construction ────────────────────────
-function ComingSoonScreen({ route }) {
-  const title = route?.params?.title || "Feature";
-  const desc  = route?.params?.desc  || "This feature is coming soon.";
-  const icon  = route?.params?.icon  || "🚀";
-  return (
-    <ScrollView style={{ flex: 1, backgroundColor: Colors.bg }} contentContainerStyle={{ padding: 24, alignItems: "center", justifyContent: "center", minHeight: 400 }}>
-      <Text style={{ fontSize: 64, marginBottom: 20 }}>{icon}</Text>
-      <Text style={{ color: Colors.textPrimary, fontSize: 22, fontWeight: "900", textAlign: "center", marginBottom: 10 }}>{title}</Text>
-      <Text style={{ color: Colors.textSecondary, fontSize: 14, textAlign: "center", lineHeight: 22, maxWidth: 280 }}>{desc}</Text>
-      <View style={{ marginTop: 24, backgroundColor: Colors.primary + "22", borderRadius: 12, paddingHorizontal: 18, paddingVertical: 8, borderWidth: 1, borderColor: Colors.primary + "44" }}>
-        <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: "700" }}>Coming Soon</Text>
-      </View>
-    </ScrollView>
-  );
-}
 
 // ── More Stack ────────────────────────────────────────────────────────────────
 function MoreStack({ industry }) {
-  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
+  const cfg = typeConfig(industry);
   return (
     <MoreStack_.Navigator
       screenOptions={{
@@ -99,11 +80,11 @@ function MoreStack({ industry }) {
     >
       <MoreStack_.Screen name="MoreHub"        component={MoreHubScreen}             options={{ title: "More" }} />
 
-      {/* Orders / Enrollments / Bookings — industry-routed */}
+      {/* Orders / Cake Orders — routed by business type */}
       <MoreStack_.Screen
         name="OrdersHub"
-        component={cfg.orders.component}
-        options={{ title: cfg.orders.name }}
+        component={(TYPE_SCREENS[cfg.id] || TYPE_SCREENS.cafe).orders}
+        options={{ title: cfg.orders.label }}
       />
 
       {/* Dashboard summary */}
@@ -115,7 +96,6 @@ function MoreStack({ industry }) {
       <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen}      options={{ title: "Photo Inquiries" }} />
       <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}             options={{ title: "Customer Reviews" }} />
       <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Returns & Refunds" }} />
-      <MoreStack_.Screen name="ClassSchedule"  component={ClassScheduleScreen}       options={{ title: "Class Schedule" }} />
 
       {/* Finance */}
       <MoreStack_.Screen name="Accounting"   component={AccountingScreen}   options={{ title: "Accounting & Reports" }} />
@@ -134,14 +114,13 @@ function MoreHubScreen() {
   const nav = useNavigation();
   const { user, profile, industry } = useAuth();
   const isAdminUser = user?.email === ADMIN_EMAIL;
-  const cfg         = INDUSTRY_CONFIG[(industry || "").toLowerCase()] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
-  const isEducation = (industry || "").toLowerCase() === "education";
+  const cfg         = typeConfig(industry);
 
   const sections = [
     {
       title: "Transactions",
       items: [
-        { icon: cfg.orders.icon, label: cfg.orders.name, desc: `Manage all ${cfg.orders.name.toLowerCase()} and update status`, screen: "OrdersHub" },
+        { icon: cfg.icon, label: cfg.orders.label, desc: `Manage all ${cfg.orders.label.toLowerCase()} and update status`, screen: "OrdersHub" },
         { icon: "🏠", label: "Dashboard",      desc: "Sales summary, revenue charts, quick stats",          screen: "Dashboard"      },
       ],
     },
@@ -153,7 +132,6 @@ function MoreHubScreen() {
         { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",                     screen: "PhotoInquiries" },
         { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",               screen: "Reviews"        },
         { icon: "↩",  label: "Returns",         desc: "Return, refund & complaint requests",                screen: "Returns"        },
-        ...(isEducation ? [{ icon: "📅", label: "Class Schedule", desc: "Schedule classes & auto-send reminders", screen: "ClassSchedule" }] : []),
       ],
     },
     {
@@ -386,17 +364,9 @@ function ProfileScreen() {
 // Permanent sidebar on wide screens (tablet / desktop web), slide-out drawer on
 // phones — the hamburger in the header opens it.
 function SidebarContent(props) {
-  const { state, navigation } = props;
+  const { state, navigation, navMeta } = props;
   const { profile } = useAuth();
   const active = state.routeNames[state.index];
-
-  const ICONS = {
-    Home: "home", Orders: "receipt", Enrollments: "ribbon",
-    Menu: "restaurant", Courses: "book",
-    Customers: "people", Students: "school",
-    Payments: "card", Reports: "bar-chart",
-    Settings: "settings", More: "grid",
-  };
 
   return (
     <DrawerContentScrollView {...props} contentContainerStyle={styles.sbScroll}>
@@ -416,7 +386,8 @@ function SidebarContent(props) {
       {/* Nav items */}
       <View style={styles.sbNav}>
         {state.routeNames.map(name => {
-          const on = name === active;
+          const on   = name === active;
+          const meta = navMeta[name] || { label: name, icon: "ellipse" };
           return (
             <TouchableOpacity
               key={name}
@@ -425,11 +396,11 @@ function SidebarContent(props) {
               activeOpacity={0.75}
             >
               <Ionicons
-                name={(ICONS[name] || "ellipse") + (on ? "" : "-outline")}
+                name={meta.icon + (on ? "" : "-outline")}
                 size={17}
                 color={on ? "#fff" : Colors.textSecondary}
               />
-              <Text style={[styles.sbLabel, on && styles.sbLabelOn]}>{name}</Text>
+              <Text style={[styles.sbLabel, on && styles.sbLabelOn]}>{meta.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -440,19 +411,34 @@ function SidebarContent(props) {
 
 // ── Main app — left sidebar navigation ────────────────────────────────────────
 function MainDrawer({ industry }) {
-  const ind = (industry || DEFAULT_INDUSTRY).toLowerCase();
-  const cfg = INDUSTRY_CONFIG[ind] || INDUSTRY_CONFIG[DEFAULT_INDUSTRY];
+  const cfg = typeConfig(industry);
+  const ind = cfg.id;
   const { width } = useWindowDimensions();
   const permanent = width >= 1024;
+
+  const screens = TYPE_SCREENS[ind] || TYPE_SCREENS.cafe;
 
   const MoreStackWithIndustry = React.useCallback(
     () => <MoreStack industry={ind} />,
     [ind]
   );
 
+  // Route name → sidebar label + icon. Route names stay constant across business
+  // types; only what the owner reads changes.
+  const navMeta = React.useMemo(() => ({
+    Home     : { label: "Home",              icon: "home"       },
+    Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
+    Catalog  : { label: cfg.catalog.label,   icon: cfg.catalog.icon   },
+    Customers: { label: cfg.customers.label, icon: cfg.customers.icon },
+    Payments : { label: "Payments",          icon: "card"       },
+    Reports  : { label: "Reports",           icon: "bar-chart"  },
+    Settings : { label: "Settings",          icon: "settings"   },
+    More     : { label: "More",              icon: "grid"       },
+  }), [cfg]);
+
   return (
     <Drawer.Navigator
-      drawerContent={props => <SidebarContent {...props} />}
+      drawerContent={props => <SidebarContent {...props} navMeta={navMeta} />}
       screenOptions={{
         drawerType : permanent ? "permanent" : "front",
         drawerStyle: {
@@ -471,10 +457,10 @@ function MainDrawer({ industry }) {
         sceneContainerStyle: { backgroundColor: Colors.bg },
       }}
     >
-      <Drawer.Screen name="Home"    component={HomeScreen}    options={{ title: "Dashboard" }} />
-      <Drawer.Screen name={cfg.orders.name}    component={cfg.orders.component}    options={{ title: cfg.orders.name }} />
-      <Drawer.Screen name={cfg.catalog.name}   component={cfg.catalog.component}   options={{ title: cfg.catalog.name }} />
-      <Drawer.Screen name={cfg.customers.name} component={cfg.customers.component} options={{ title: cfg.customers.name }} />
+      <Drawer.Screen name="Home"      component={HomeScreen}      options={{ title: "Dashboard" }} />
+      <Drawer.Screen name="Orders"    component={screens.orders}  options={{ title: cfg.orders.label }} />
+      <Drawer.Screen name="Catalog"   component={screens.catalog} options={{ title: cfg.catalog.label }} />
+      <Drawer.Screen name="Customers" component={CustomersScreen} options={{ title: cfg.customers.label }} />
       <Drawer.Screen name="Payments" component={PaymentsScreen}   options={{ title: "Payments" }} />
       <Drawer.Screen name="Reports"  component={AccountingScreen} options={{ title: "Reports" }} />
       <Drawer.Screen name="Settings" component={SettingsScreen}   options={{ title: "Settings" }} />
@@ -503,11 +489,11 @@ export default function AppNavigator() {
     );
   }
 
-  // ── Industry onboarding (logged in but no industry chosen yet) ───────────
+  // ── Business-type onboarding (logged in, nothing valid stored yet) ────────
   if (user && !industryLoading && !industry) {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.bg }}>
-        <IndustrySetupScreen onIndustrySet={(ind) => updateIndustry(ind)} />
+        <BusinessTypeSetupScreen onIndustrySet={(ind) => updateIndustry(ind)} />
       </View>
     );
   }

@@ -69,6 +69,12 @@ function _toOrder(row) {
     trackingNumber : row.tracking_number || null,
     trackingUrl    : row.tracking_url   || null,
     source         : row.source         || "whatsapp",
+    // Added for the food build. Snake_case is kept here deliberately: these
+    // names match the DB columns and the demo data, and the bot writes them.
+    table_no       : row.table_no       ?? null,
+    order_kind     : row.order_kind     || "standard",   // standard | cake
+    channel        : row.channel        || "whatsapp",   // whatsapp | instagram | qr | walkin
+    extra          : row.extra          || {},           // cake specs live here
     createdAt      : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     updatedAt      : row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
   };
@@ -91,7 +97,10 @@ function _toCustomer(row) {
     lastActiveAt     : row.last_active_at,
     orderIds         : row.order_ids        || [],
     tags             : row.tags             || [],
-    batch            : row.batch            || "",
+    // Denormalised occasion for the customer-list birthday badge; `occasions`
+    // remains the source of truth.
+    occasionMonth    : row.occasion_month   ?? null,
+    occasionDay      : row.occasion_day     ?? null,
   };
 }
 
@@ -238,6 +247,35 @@ export async function uploadProductImage(localUri, productId, index = 0) {
 // ORDERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Status buckets ────────────────────────────────────────────────────────────
+// The three food business types advance orders along different status paths, so
+// the dashboard counts by stage rather than by literal status. Money reaching
+// the till is what counts as complete.
+const IN_PROGRESS = ["preparing", "baking", "ready", "served", "packed", "shipped", "out_for_delivery"];
+const COMPLETED   = ["paid", "delivered"];
+
+// Builds the dashboard stats object. `shape` picks which casing the rows use:
+// raw Supabase rows are snake_case, already-mapped orders are camelCase.
+function _statsFrom(rows, count, shape) {
+  const created = r => (shape === "snake" ? r.created_at : r.createdAt);
+  const today   = new Date().toDateString();
+  const earning = r => r.status !== "pending_payment" && r.status !== "cancelled";
+
+  return {
+    total     : count || 0,
+    pending   : rows.filter(r => r.status === "pending_payment").length,
+    confirmed : rows.filter(r => r.status === "confirmed").length,
+    inProgress: rows.filter(r => IN_PROGRESS.includes(r.status)).length,
+    completed : rows.filter(r => COMPLETED.includes(r.status)).length,
+    todayRevenue: rows
+      .filter(r => new Date(created(r)).toDateString() === today && r.status !== "pending_payment")
+      .reduce((s, r) => s + (r.bill?.total || 0), 0),
+    totalRevenue: rows
+      .filter(earning)
+      .reduce((s, r) => s + (r.bill?.total || 0), 0),
+  };
+}
+
 export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
   const bid = await _bid();
 
@@ -264,40 +302,10 @@ export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
       .from("orders")
       .select("status, bill, created_at")
       .eq("business_id", bid);
-
-    const all   = allData || [];
-    const today = new Date().toDateString();
-    stats = {
-      total    : count || 0,
-      pending  : all.filter(o => o.status === "pending_payment").length,
-      confirmed: all.filter(o => o.status === "confirmed").length,
-      // shipped covers "shipped" + education "in_progress" + tourism equivalents
-      shipped  : all.filter(o => o.status === "shipped" || o.status === "in_progress").length,
-      // delivered covers "delivered" + education "completed"
-      delivered: all.filter(o => o.status === "delivered" || o.status === "completed").length,
-      todayRevenue: all
-        .filter(o => new Date(o.created_at).toDateString() === today && o.status !== "pending_payment")
-        .reduce((s, o) => s + (o.bill?.total || 0), 0),
-      totalRevenue: all
-        .filter(o => o.status !== "pending_payment" && o.status !== "cancelled")
-        .reduce((s, o) => s + (o.bill?.total || 0), 0),
-    };
+    stats = _statsFrom(allData || [], count, "snake");
   } else {
     // When filtering by status, stats are approximate from the current page
-    const today = new Date().toDateString();
-    stats = {
-      total    : count || 0,
-      pending  : orders.filter(o => o.status === "pending_payment").length,
-      confirmed: orders.filter(o => o.status === "confirmed").length,
-      shipped  : orders.filter(o => o.status === "shipped" || o.status === "in_progress").length,
-      delivered: orders.filter(o => o.status === "delivered" || o.status === "completed").length,
-      todayRevenue: orders
-        .filter(o => new Date(o.createdAt).toDateString() === today && o.status !== "pending_payment")
-        .reduce((s, o) => s + (o.bill?.total || 0), 0),
-      totalRevenue: orders
-        .filter(o => o.status !== "pending_payment" && o.status !== "cancelled")
-        .reduce((s, o) => s + (o.bill?.total || 0), 0),
-    };
+    stats = _statsFrom(orders, count, "camel");
   }
 
   return { orders, total: count || 0, page, stats };
@@ -354,7 +362,7 @@ export async function fetchCustomer(id) {
 // ─────────────────────────────────────────────────────────────────────────────
 // DASHBOARD — intentionally NOT exported from here.
 // api.js exports fetchDashboard that routes through Railway (supabaseAdmin)
-// so dashboard stats match what the Enrollments/Orders screens show.
+// so dashboard stats match what the Orders screen shows.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Internal helper used by api.js's fetchDashboard
@@ -383,10 +391,16 @@ export async function updateCustomerTags(customerId, tags) {
   return { ok: true };
 }
 
-export async function updateCustomerBatch(customerId, batch) {
+/**
+ * Store a recurring occasion (birthday / anniversary) against a customer.
+ * Month + day only — the year is never known and the date recurs.
+ * `occasions` holds the full record; this is the denormalised copy the customer
+ * list reads so it can show a badge without a join.
+ */
+export async function updateCustomerOccasion(customerId, month, day) {
   const { error } = await supabase
     .from("bot_customers")
-    .update({ batch: batch || "" })
+    .update({ occasion_month: month ?? null, occasion_day: day ?? null })
     .eq("id", customerId);
   if (error) throw new Error(error.message);
   return { ok: true };

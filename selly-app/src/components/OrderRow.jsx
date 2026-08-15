@@ -2,37 +2,32 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Colors } from "../constants/colors";
 import StatusPill from "./StatusPill";
+import { orderTotal } from "../lib/whatsapp";
 
-// Middle subtitle text per industry
-// For education: show first course name
-// For tourism: show first package name + duration if available
-// For product: show item count
-function getSubtitle(order, industry) {
+// Subtitle: the table for a dine-in order, the cake spec for a bakery order,
+// otherwise an item count. Driven off the order itself rather than a business
+// type, so one row component serves all three.
+function getSubtitle(order) {
   const cart = order.cart || [];
-  if (industry === "education") {
-    const firstName = cart[0]?.name;
-    return firstName
-      ? firstName.length > 28 ? firstName.slice(0, 28) + "…" : firstName
-      : `${cart.length} course${cart.length !== 1 ? "s" : ""}`;
+
+  if (order.order_kind === "cake") {
+    const { flavour, kg, eggless } = order.extra || {};
+    const spec = [flavour, kg ? `${kg} kg` : null, eggless ? "eggless" : null]
+      .filter(Boolean).join(" · ");
+    if (spec) return spec;
   }
-  if (industry === "tourism") {
-    const firstName = cart[0]?.name;
-    return firstName
-      ? firstName.length > 28 ? firstName.slice(0, 28) + "…" : firstName
-      : `${cart.length} package${cart.length !== 1 ? "s" : ""}`;
-  }
-  // product (default)
-  return `${cart.length} item${cart.length !== 1 ? "s" : ""}`;
+
+  const count = `${cart.length} item${cart.length !== 1 ? "s" : ""}`;
+  return order.table_no ? `Table ${order.table_no} · ${count}` : count;
 }
 
-export default function OrderRow({ order, industry, onPress }) {
-  const total    = order.bill?.total || 0;
-  const subtitle = getSubtitle(order, industry);
+export default function OrderRow({ order, onPress }) {
+  const total = orderTotal(order);
 
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.idCol}>
-        <Text style={styles.orderId}>#{order.id}</Text>
+        <Text style={styles.orderId}>#{String(order.id).slice(-5)}</Text>
         <Text style={styles.date}>
           {order.createdAt
             ? new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
@@ -41,13 +36,13 @@ export default function OrderRow({ order, industry, onPress }) {
       </View>
 
       <View style={styles.midCol}>
-        <Text style={styles.customerName} numberOfLines={1}>{order.name || "Unknown"}</Text>
-        <Text style={styles.itemCount} numberOfLines={1}>{subtitle}</Text>
+        <Text style={styles.customerName} numberOfLines={1}>{order.name || "Guest"}</Text>
+        <Text style={styles.itemCount} numberOfLines={1}>{getSubtitle(order)}</Text>
       </View>
 
       <View style={styles.rightCol}>
-        <Text style={styles.amount}>₹{total.toLocaleString("en-IN")}</Text>
-        <StatusPill status={order.status} industry={industry} small />
+        <Text style={styles.amount}>₹{Number(total).toLocaleString("en-IN")}</Text>
+        <StatusPill status={order.status} small />
       </View>
     </TouchableOpacity>
   );
@@ -55,7 +50,7 @@ export default function OrderRow({ order, industry, onPress }) {
 
 const styles = StyleSheet.create({
   row         : { flexDirection: "row", alignItems: "center", backgroundColor: Colors.bgCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border },
-  idCol       : { width: 52 },
+  idCol       : { width: 56 },
   orderId     : { color: Colors.textPrimary, fontWeight: "700", fontSize: 13 },
   date        : { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
   midCol      : { flex: 1, paddingHorizontal: 10 },

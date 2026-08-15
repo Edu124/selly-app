@@ -9,36 +9,39 @@ import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking } from ".
 import { useAuth } from "../context/AuthContext";
 import OrderRow from "../components/OrderRow";
 import StatusPill from "../components/StatusPill";
+import { typeConfig, STATUS_LABELS, ADVANCE_LABELS, nextStatus } from "../lib/businessTypes";
 
-// ── Industry configuration ────────────────────────────────────────────────────
-const ORDER_CONFIG = {
-  restaurant: {
-    itemLabel    : "order",
-    itemLabelCap : "Order",
-    personLabel  : "Customer",
-    cartLabel    : "Cart Items",
-    filters      : ["all", "pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"],
-    filterLabels : { all: "All", pending_payment: "Pending", confirmed: "Confirmed", packed: "Packed", shipped: "Shipped", out_for_delivery: "Out for Delivery", delivered: "Delivered" },
-    statusFlow   : ["pending_payment", "confirmed", "packed", "shipped", "out_for_delivery", "delivered"],
-    showTracking : true,
-    showAddress  : true,
+// ── Per-type screen config ────────────────────────────────────────────────────
+// The status flow itself comes from businessTypes.js so the filter chips, the
+// advance button and the dashboard buckets can never disagree.
+const SCREEN_CONFIG = {
+  cafe: {
+    itemLabel: "order", itemLabelCap: "Order",
+    personLabel: "Customer", cartLabel: "Items",
+    showTracking: false, showAddress: false, showTable: true,
   },
-  education: {
-    itemLabel    : "enrollment",
-    itemLabelCap : "Enrollment",
-    personLabel  : "Student",
-    cartLabel    : "Courses",
-    filters      : ["all", "pending_payment", "confirmed", "in_progress", "completed"],
-    filterLabels : { all: "All", pending_payment: "Pending Fees", confirmed: "Enrolled", in_progress: "In Progress", completed: "Completed" },
-    statusFlow   : ["pending_payment", "confirmed", "in_progress", "completed"],
-    showTracking : false,
-    showAddress  : false,
+  bakery: {
+    itemLabel: "cake order", itemLabelCap: "Cake order",
+    personLabel: "Customer", cartLabel: "Cake",
+    showTracking: false, showAddress: true, showTable: false,
+  },
+  cloudkitchen: {
+    itemLabel: "order", itemLabelCap: "Order",
+    personLabel: "Customer", cartLabel: "Items",
+    showTracking: true, showAddress: true, showTable: false,
   },
 };
 
 export default function OrdersScreen({ navigation, route }) {
   const { industry } = useAuth();
-  const cfg = ORDER_CONFIG[industry] || ORDER_CONFIG.restaurant;
+  const type = typeConfig(industry);
+  const cfg  = {
+    ...(SCREEN_CONFIG[type.id] || SCREEN_CONFIG.cafe),
+    statusFlow  : type.statusFlow,
+    // "all" plus pending (the state the bot creates orders in) plus the flow.
+    filters     : ["all", "pending_payment", ...type.statusFlow],
+    filterLabels: { all: "All", ...STATUS_LABELS },
+  };
   const [orders, setOrders]       = useState([]);
   const [total, setTotal]         = useState(0);
   const [page, setPage]           = useState(1);
@@ -124,8 +127,9 @@ export default function OrdersScreen({ navigation, route }) {
 
   const advanceStatus = async () => {
     if (!selected) return;
-    const idx  = cfg.statusFlow.indexOf(selected.status);
-    const next = cfg.statusFlow[idx + 1];
+    // nextStatus() also handles the pending_payment orders the bot creates,
+    // which sit before the flow starts.
+    const next = nextStatus(industry, selected.status);
     if (!next) return;
     setUpdating(true);
     try {
@@ -194,7 +198,7 @@ export default function OrdersScreen({ navigation, route }) {
           data={filtered}
           keyExtractor={o => String(o.id)}
           renderItem={({ item }) => (
-            <OrderRow order={item} industry={industry} onPress={() => openDetail(item)} />
+            <OrderRow order={item} onPress={() => openDetail(item)} />
           )}
           contentContainerStyle={styles.list}
           onEndReached={loadMore}
@@ -218,20 +222,22 @@ export default function OrdersScreen({ navigation, route }) {
               <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header */}
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{cfg.itemLabelCap} #{selected.id}</Text>
+                  <Text style={styles.modalTitle}>
+                    {cfg.itemLabelCap} #{String(selected.id).slice(-5)}
+                  </Text>
                   <TouchableOpacity onPress={() => setSelected(null)}>
                     <Text style={styles.closeBtn}>✕</Text>
                   </TouchableOpacity>
                 </View>
 
-                <StatusPill status={selected.status} industry={industry} />
+                <StatusPill status={selected.status} />
 
-                {/* Customer / Student / Traveler */}
                 <InfoRow label={cfg.personLabel} value={selected.name} />
                 <InfoRow label="Phone"           value={selected.mobile} />
+                {cfg.showTable && <InfoRow label="Table" value={selected.table_no ? `Table ${selected.table_no}` : null} />}
                 {cfg.showAddress && <InfoRow label="Address" value={selected.address} />}
 
-                {/* Cart / Courses / Packages */}
+                {/* Items */}
                 <Text style={styles.subTitle}>{cfg.cartLabel}</Text>
                 {(selected.cart || []).map((item, i) => (
                   <View key={i} style={styles.cartItem}>
@@ -252,7 +258,7 @@ export default function OrdersScreen({ navigation, route }) {
                 <View style={styles.billBox}>
                   <BillRow label="Subtotal"  value={selected.bill?.subtotal} />
                   {selected.bill?.discount > 0 && <BillRow label="Discount" value={`-₹${selected.bill.discount}`} color={Colors.green} />}
-                  {cfg.showAddress && <BillRow label="Shipping" value={selected.bill?.delivery === 0 ? "FREE" : `₹${selected.bill?.delivery || 0}`} />}
+                  {cfg.showAddress && <BillRow label="Delivery" value={selected.bill?.delivery === 0 ? "FREE" : `₹${selected.bill?.delivery || 0}`} />}
                   <View style={styles.divider} />
                   <BillRow label="Total"     value={`₹${(selected.bill?.total || 0).toLocaleString("en-IN")}`} bold />
                 </View>
@@ -272,7 +278,7 @@ export default function OrdersScreen({ navigation, route }) {
                     <Text style={styles.subTitle}>🔐 Order OTPs</Text>
                     <View style={styles.otpRow}>
                       <View style={styles.otpItem}>
-                        <Text style={styles.otpLabel}>{cfg.showAddress ? "Delivery OTP" : "Enrollment OTP"}</Text>
+                        <Text style={styles.otpLabel}>{cfg.showAddress ? "Delivery OTP" : "Collection OTP"}</Text>
                         <Text style={styles.otpCode}>{orderOTPs.cod_otp || "—"}</Text>
                         <Text style={[styles.otpStatus, { color: orderOTPs.cod_otp_verified ? Colors.green : Colors.yellow }]}>
                           {orderOTPs.cod_otp_verified ? "✅ Verified" : "⏳ Pending"}
@@ -291,7 +297,7 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 )}
 
-                {/* Tracking (product only — not relevant for education/tourism) */}
+                {/* Tracking — delivery business types only */}
                 {cfg.showTracking && (selected.status === "confirmed" || selected.status === "packed") ? (
                   <View style={styles.trackingBox}>
                     <Text style={styles.subTitle}>Tracking Info (for shipping)</Text>
@@ -346,23 +352,26 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
-                {/* Advance status button — uses industry-specific label */}
-                {cfg.statusFlow.indexOf(selected.status) < cfg.statusFlow.length - 1 && (
-                  <TouchableOpacity
-                    style={[styles.advanceBtn, updating && styles.advanceBtnDisabled]}
-                    onPress={advanceStatus}
-                    disabled={updating}
-                  >
-                    {updating
-                      ? <ActivityIndicator color="#fff" />
-                      : (() => {
-                          const nextRaw = cfg.statusFlow[cfg.statusFlow.indexOf(selected.status) + 1];
-                          const nextLabel = cfg.filterLabels[nextRaw] || nextRaw.replace(/_/g, " ");
-                          return <Text style={styles.advanceBtnText}>Mark as {nextLabel} →</Text>;
-                        })()
-                    }
-                  </TouchableOpacity>
-                )}
+                {/* Advance to the next status in this business type's flow */}
+                {(() => {
+                  const next = nextStatus(industry, selected.status);
+                  if (!next) return null;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.advanceBtn, updating && styles.advanceBtnDisabled]}
+                      onPress={advanceStatus}
+                      disabled={updating}
+                    >
+                      {updating
+                        ? <ActivityIndicator color="#fff" />
+                        : (
+                          <Text style={styles.advanceBtnText}>
+                            {ADVANCE_LABELS[next] || `Mark as ${STATUS_LABELS[next] || next}`} →
+                          </Text>
+                        )}
+                    </TouchableOpacity>
+                  );
+                })()}
 
                 <View style={{ height: 24 }} />
               </ScrollView>

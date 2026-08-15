@@ -48,7 +48,7 @@ async function client() {
   });
 }
 
-// ── Dashboard — via Railway server (same data source as Enrollments/Orders) ──
+// ── Dashboard — via Railway server (same data source as the Orders screen) ────
 // Using the server ensures dashboard stats are computed from the same
 // supabaseAdmin query, so stats always match what appears in the list screens.
 export async function fetchDashboard() {
@@ -104,20 +104,7 @@ export async function fetchInstaPost(url) {
 }
 
 // ── Customers — Supabase direct ───────────────────────────────────────────────
-export { fetchCustomers, fetchCustomer, updateCustomerTags, updateCustomerBatch, deleteCustomer } from "./supabase_data";
-
-// ── Batches (education class/batch grouping) ─────────────────────────────────
-export async function fetchBatches() {
-  const c = await client();
-  const r = await c.get("/api/batches");
-  return r.data; // { batches: ["Class 9", "Class 10", ...] }
-}
-
-export async function assignBatch(customerId, batch) {
-  const c = await client();
-  const r = await c.patch(`/api/customers/${customerId}/batch`, { batch });
-  return r.data;
-}
+export { fetchCustomers, fetchCustomer, updateCustomerTags, deleteCustomer } from "./supabase_data";
 
 // ── Promotions ────────────────────────────────────────────────────────────────
 export async function sendFlashSale(payload) {
@@ -267,14 +254,14 @@ export async function uploadMedia(payload) {
   return r.data;
 }
 
-// ── Import existing contacts (students / customers) ───────────────────────────
+// ── Import existing contacts ──────────────────────────────────────────────────
 export async function importContacts(contacts) {
   const c = await client();
   const r = await c.post("/api/customers/import", { contacts });
   return r.data;
 }
 
-// ── Send custom WhatsApp message to a customer/student ────────────────────────
+// ── Send a custom WhatsApp message to one customer ────────────────────────────
 export async function sendMessageToCustomer(customerId, message) {
   const c = await client();
   const r = await c.post(`/api/customers/${customerId}/message`, { message });
@@ -310,24 +297,6 @@ export async function replyToQuery(queryId, reply) {
   return r.data;
 }
 
-// ── Class Schedules ───────────────────────────────────────────────────────────
-export async function fetchSchedules() {
-  const c = await client();
-  const r = await c.get("/api/schedule");
-  return r.data;
-}
-
-export async function createSchedule(payload) {
-  const c = await client();
-  const r = await c.post("/api/schedule", payload);
-  return r.data;
-}
-
-export async function deleteSchedule(id) {
-  const c = await client();
-  const r = await c.delete(`/api/schedule/${id}`);
-  return r.data;
-}
 
 // ── Returns / Refunds ─────────────────────────────────────────────────────────
 export async function fetchReturns(status = null) {

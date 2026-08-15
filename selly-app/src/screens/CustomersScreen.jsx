@@ -10,76 +10,47 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
-import { fetchCustomers, importContacts, updateCustomerTags, updateCustomerBatch, fetchBatches, assignBatch, deleteCustomer } from "../lib/api";
+import { fetchCustomers, importContacts, updateCustomerTags, deleteCustomer } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 
-// ── Industry configuration ────────────────────────────────────────────────────
-const CUSTOMER_CONFIG = {
-  restaurant: {
-    personLabel   : "Customer",
-    personLabelPlural: "customers",
-    emptyText     : "No customers yet",
-    searchPlaceholder: "Search by name or @username…",
-    orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
-    filters: [
-      { key: "all",      label: "All"      },
-      { key: "frequent", label: "Frequent" },
-      { key: "new",      label: "New"      },
-    ],
-    // stat box labels in detail modal
-    stat1Label: "Orders",
-    stat2Label: "Spent",
-    stat3Label: "Referrals",
-    stat3Key  : "referralCount",
-    showReferral: true,
-    showIg      : true,
-  },
-  education: {
-    personLabel      : "Student",
-    personLabelPlural: "students",
-    emptyText        : "No students yet",
-    searchPlaceholder: "Search by name or phone…",
-    orderCountLabel  : (n) => `${n} course${n !== 1 ? "s" : ""} enrolled`,
-    filters: [
-      { key: "all",      label: "All"      },
-      { key: "frequent", label: "Frequent" },
-      { key: "new",      label: "New"      },
-    ],
-    stat1Label  : "Courses",
-    stat2Label  : "Fees Paid",
-    stat3Label  : "Completed",
-    stat3Key    : "completedCount",
-    showReferral: false,
-    showIg      : false,
-    showBatch   : true,
-  },
+// All three food business types share one customer model — a diner is a diner
+// whether they ate in, ordered a cake or had it delivered. Only the stat wording
+// differs, and not enough to justify a per-type config.
+const CONFIG = {
+  personLabel      : "Customer",
+  personLabelPlural: "customers",
+  emptyText        : "No customers yet",
+  searchPlaceholder: "Search by name or phone…",
+  orderCountLabel  : (n) => `${n} order${n !== 1 ? "s" : ""}`,
+  filters: [
+    { key: "all",      label: "All"      },
+    { key: "frequent", label: "Frequent" },
+    { key: "new",      label: "New"      },
+  ],
+  stat1Label  : "Orders",
+  stat2Label  : "Spent",
+  stat3Label  : "Referrals",
+  stat3Key    : "referralCount",
+  showReferral: true,
+  showIg      : true,
 };
 
-// Batch badge color (education)
-const BATCH_COLOR = { bg: "#0f2218", text: "#34d399" };
-
-// Tag badge colors — shared + industry-specific
+// Tag badge colours
 const TAG_COLORS = {
-  vip      : { bg: "#2d1535", text: "#ff6b9d"  },
-  frequent : { bg: "#0f1f2d", text: "#3b82f6"  },
-  referrer : { bg: "#0f2d1a", text: "#22c55e"  },
-  new      : { bg: "#13131a", text: "#8888aa"  },
-  // Education
-  online   : { bg: "#0d1f2d", text: "#38bdf8"  },
-  offline  : { bg: "#1a1508", text: "#f59e0b"  },
-  active   : { bg: "#0f2d1a", text: "#22c55e"  },
-  completed: { bg: "#1a0d2d", text: "#a78bfa"  },
-  // Tourism
-  honeymoon: { bg: "#2d0f1f", text: "#f472b6"  },
-  adventure: { bg: "#1a1508", text: "#fb923c"  },
-  family   : { bg: "#0f1f2d", text: "#60a5fa"  },
-  corporate: { bg: "#13131a", text: "#94a3b8"  },
+  vip      : { bg: "#2d1535", text: "#ff6b9d" },
+  frequent : { bg: "#0f1f2d", text: "#3b82f6" },
+  referrer : { bg: "#0f2d1a", text: "#22c55e" },
+  new      : { bg: "#13131a", text: "#8888aa" },
 };
+
+// Birthday / anniversary badge
+const OCCASION_COLOR = { bg: "#2a1020", text: "#ff8fb8" };
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function CustomersScreen() {
-  const { industry } = useAuth();
-  const cfg = CUSTOMER_CONFIG[industry] || CUSTOMER_CONFIG.restaurant;
+  const cfg = CONFIG;
 
   const [customers,   setCustomers]   = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -89,13 +60,6 @@ export default function CustomersScreen() {
   const [filterTag,   setFilterTag]   = useState("all");
   const [tagSaving,   setTagSaving]   = useState(false);
   const [loadError,   setLoadError]   = useState(null);
-
-  // Education: batch grouping
-  const [batches,       setBatches]       = useState([]);
-  const [batchFilter,   setBatchFilter]   = useState("all"); // "all" or a batch name
-  const [batchInput,    setBatchInput]    = useState("");    // edit input in detail modal
-  const [batchSaving,   setBatchSaving]   = useState(false);
-  const [batchModal,    setBatchModal]    = useState(false); // batch edit modal
 
   // ── Import contacts state ────────────────────────────────────────────────────
   const [importModal,   setImportModal]   = useState(false);
@@ -135,12 +99,8 @@ export default function CustomersScreen() {
 
   useFocusEffect(useCallback(() => {
     setFilterTag("all");
-    setBatchFilter("all");
     load();
-    if (industry === "education") {
-      fetchBatches().then(d => setBatches(d.batches || [])).catch(() => {});
-    }
-  }, [industry]));
+  }, []));
 
   const copyReferral = async (code) => {
     await Clipboard.setStringAsync(code);
@@ -163,28 +123,12 @@ export default function CustomersScreen() {
     finally { setTagSaving(false); }
   };
 
-  // ── Assign batch to a student (education) ────────────────────────────────────
-  const saveBatch = async () => {
-    if (!selected || batchSaving) return;
-    setBatchSaving(true);
-    try {
-      await assignBatch(selected.id, batchInput.trim());
-      const updated = { ...selected, batch: batchInput.trim() };
-      setSelected(updated);
-      setCustomers(prev => prev.map(c => c.id === selected.id ? updated : c));
-      setBatchModal(false);
-      // Refresh batch list so new batch appears in filters
-      fetchBatches().then(d => setBatches(d.batches || [])).catch(() => {});
-    } catch (e) { Alert.alert("Error", friendlyError(e)); }
-    finally { setBatchSaving(false); }
-  };
-
-  // ── Remove student (education) ───────────────────────────────────────────────
-  const removeStudentConfirm = () => {
+  // ── Remove a customer ────────────────────────────────────────────────────────
+  const removeCustomerConfirm = () => {
     if (!selected) return;
     Alert.alert(
-      "Remove Student",
-      `Remove "${selected.name}" from your student list? This cannot be undone.`,
+      "Remove customer",
+      `Remove "${selected.name}" from your customer list? This cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Remove", style: "destructive", onPress: async () => {
@@ -364,8 +308,7 @@ export default function CustomersScreen() {
       (c.igUsername || "").toLowerCase().includes(search.toLowerCase()) ||
       (c.mobile   || "").includes(search);
     const matchTag   = filterTag === "all" || (c.tags || []).includes(filterTag);
-    const matchBatch = batchFilter === "all" || (c.batch || "") === batchFilter;
-    return matchSearch && matchTag && matchBatch;
+    return matchSearch && matchTag;
   });
 
   return (
@@ -412,36 +355,6 @@ export default function CustomersScreen() {
         ))}
       </ScrollView>
 
-      {/* Education batch filter — shown only if there are batches */}
-      {cfg.showBatch && batches.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
-        >
-          <TouchableOpacity
-            style={[styles.batchChip, batchFilter === "all" && styles.batchChipActive]}
-            onPress={() => setBatchFilter("all")}
-          >
-            <Text style={[styles.batchChipText, batchFilter === "all" && styles.batchChipTextActive]}>
-              📚 All Batches
-            </Text>
-          </TouchableOpacity>
-          {batches.map(b => (
-            <TouchableOpacity
-              key={b}
-              style={[styles.batchChip, batchFilter === b && styles.batchChipActive]}
-              onPress={() => setBatchFilter(b)}
-            >
-              <Text style={[styles.batchChipText, batchFilter === b && styles.batchChipTextActive]}>
-                🎓 {b}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-
       <Text style={styles.countLabel}>
         {filtered.length} {cfg.personLabelPlural}
       </Text>
@@ -472,16 +385,18 @@ export default function CustomersScreen() {
                   <Text style={styles.customerName} numberOfLines={1}>{item.name || "Unknown"}</Text>
                   <Text style={styles.orderCount}>{cfg.orderCountLabel(item.orderCount || 0)}</Text>
                 </View>
-                {/* Show Instagram handle for product, phone for education/tourism */}
+                {/* Instagram handle when we have one, otherwise the phone number */}
                 {cfg.showIg && item.igUsername ? (
                   <Text style={styles.igHandle}>@{item.igUsername}</Text>
                 ) : item.mobile ? (
                   <Text style={styles.igHandle}>{item.mobile}</Text>
                 ) : null}
                 <View style={styles.tagsWrap}>
-                  {item.batch ? (
-                    <View style={[styles.tagBadge, { backgroundColor: BATCH_COLOR.bg }]}>
-                      <Text style={[styles.tagText, { color: BATCH_COLOR.text }]}>🎓 {item.batch}</Text>
+                  {item.occasionMonth && item.occasionDay ? (
+                    <View style={[styles.tagBadge, { backgroundColor: OCCASION_COLOR.bg }]}>
+                      <Text style={[styles.tagText, { color: OCCASION_COLOR.text }]}>
+                        🎂 {item.occasionDay} {MONTHS[item.occasionMonth - 1]}
+                      </Text>
                     </View>
                   ) : null}
                   {(item.tags || []).map(tag => (
@@ -499,9 +414,7 @@ export default function CustomersScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>
-                {industry === "education" ? "👨‍🎓" : industry === "tourism" ? "🧳" : "👥"}
-              </Text>
+              <Text style={styles.emptyIcon}>👥</Text>
               <Text style={styles.emptyText}>{cfg.emptyText}</Text>
               {filterTag !== "all" && (
                 <Text style={styles.emptyHint}>Try switching the filter to "All"</Text>
@@ -563,25 +476,12 @@ export default function CustomersScreen() {
                 <InfoRow label="Phone"        value={selected.mobile} />
                 <InfoRow label="Member since" value={selected.createdAt ? new Date(selected.createdAt).toLocaleDateString("en-IN") : null} />
 
-                {/* Batch assignment — education only */}
-                {cfg.showBatch && (
-                  <View style={styles.batchSection}>
-                    <View style={styles.batchSectionRow}>
-                      <View>
-                        <Text style={styles.batchSectionLabel}>Class / Batch</Text>
-                        <Text style={styles.batchSectionValue}>
-                          {selected.batch ? `🎓 ${selected.batch}` : "Not assigned"}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.batchEditBtn}
-                        onPress={() => { setBatchInput(selected.batch || ""); setBatchModal(true); }}
-                      >
-                        <Text style={styles.batchEditBtnText}>✏️ {selected.batch ? "Change" : "Assign"}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
+                {selected.occasionMonth && selected.occasionDay ? (
+                  <InfoRow
+                    label="Occasion saved"
+                    value={`🎂 ${selected.occasionDay} ${MONTHS[selected.occasionMonth - 1]}`}
+                  />
+                ) : null}
 
                 {/* Stats */}
                 <View style={styles.statsRow}>
@@ -590,7 +490,7 @@ export default function CustomersScreen() {
                   <StatBox label={cfg.stat3Label} value={selected[cfg.stat3Key] || 0} />
                 </View>
 
-                {/* Referral section — product industry only */}
+                {/* Referral section */}
                 {cfg.showReferral && selected.referralCode && (
                   <View style={styles.referralBox}>
                     <Text style={styles.referralLabel}>Referral Code</Text>
@@ -607,85 +507,13 @@ export default function CustomersScreen() {
                   </View>
                 )}
 
-                {/* Remove student — education only */}
-                {industry === "education" && (
-                  <TouchableOpacity style={styles.removeBtn} onPress={removeStudentConfirm}>
-                    <Text style={styles.removeBtnText}>🗑 Remove Student</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={styles.removeBtn} onPress={removeCustomerConfirm}>
+                  <Text style={styles.removeBtnText}>🗑 Remove customer</Text>
+                </TouchableOpacity>
 
                 <View style={{ height: 24 }} />
               </ScrollView>
             )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Batch Assignment Modal (education) ────────────────────────────── */}
-      <Modal visible={batchModal} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalSheet, { maxHeight: "60%" }]}>
-            <View style={styles.modalHandle} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Assign Class / Batch</Text>
-              <TouchableOpacity onPress={() => setBatchModal(false)}>
-                <Text style={styles.closeBtn}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.batchInputLabel}>
-              Enter the class or batch name for {selected?.name || "this student"}
-            </Text>
-            <TextInput
-              style={styles.batchInputField}
-              placeholder="e.g. Class 9A, Class 10 Science, Morning Batch"
-              placeholderTextColor={Colors.textMuted}
-              value={batchInput}
-              onChangeText={setBatchInput}
-              autoCapitalize="words"
-              autoFocus
-            />
-            {/* Quick suggestions from existing batches */}
-            {batches.length > 0 && (
-              <>
-                <Text style={styles.batchSuggestLabel}>Or pick existing:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                  <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 4 }}>
-                    {batches.map(b => (
-                      <TouchableOpacity
-                        key={b}
-                        style={[styles.batchSuggestChip, batchInput === b && styles.batchSuggestChipActive]}
-                        onPress={() => setBatchInput(b)}
-                      >
-                        <Text style={[styles.batchSuggestText, batchInput === b && { color: BATCH_COLOR.text }]}>
-                          🎓 {b}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </>
-            )}
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {selected?.batch ? (
-                <TouchableOpacity
-                  style={[styles.batchSaveBtn, { flex: 0.45, backgroundColor: Colors.red + "22", borderWidth: 1, borderColor: Colors.red + "44" }]}
-                  onPress={() => { setBatchInput(""); }}
-                >
-                  <Text style={[styles.batchSaveBtnText, { color: Colors.red }]}>Remove</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.batchSaveBtn, { flex: 1 }, batchSaving && { opacity: 0.6 }]}
-                onPress={saveBatch}
-                disabled={batchSaving}
-              >
-                {batchSaving
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.batchSaveBtnText}>Save Batch ✓</Text>
-                }
-              </TouchableOpacity>
-            </View>
-            <View style={{ height: 24 }} />
           </View>
         </View>
       </Modal>
@@ -1022,30 +850,6 @@ const styles = StyleSheet.create({
   referralCodeText : { color: Colors.primary, fontWeight: "800", fontSize: 16, letterSpacing: 2 },
   copyIcon         : { fontSize: 18 },
   referralEarnings : { color: Colors.green, fontSize: 12, marginTop: 8, fontWeight: "600" },
-
-  // Batch filter chips
-  batchChip         : { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: BATCH_COLOR.bg + "66", borderWidth: 1, borderColor: BATCH_COLOR.text + "33" },
-  batchChipActive   : { backgroundColor: BATCH_COLOR.bg, borderColor: BATCH_COLOR.text },
-  batchChipText     : { color: BATCH_COLOR.text + "99", fontSize: 12, fontWeight: "600" },
-  batchChipTextActive: { color: BATCH_COLOR.text },
-
-  // Batch section in detail modal
-  batchSection      : { marginTop: 14, marginBottom: 4 },
-  batchSectionRow   : { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  batchSectionLabel : { color: Colors.textSecondary, fontSize: 13 },
-  batchSectionValue : { color: BATCH_COLOR.text, fontSize: 14, fontWeight: "700", marginTop: 2 },
-  batchEditBtn      : { backgroundColor: BATCH_COLOR.bg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
-  batchEditBtnText  : { color: BATCH_COLOR.text, fontWeight: "700", fontSize: 12 },
-
-  // Batch edit modal
-  batchInputLabel   : { color: Colors.textSecondary, fontSize: 13, marginBottom: 10 },
-  batchInputField   : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, color: Colors.textPrimary, fontSize: 15, borderWidth: 1.5, borderColor: BATCH_COLOR.text + "55", marginBottom: 14 },
-  batchSuggestLabel : { color: Colors.textMuted, fontSize: 12, marginBottom: 8 },
-  batchSuggestChip  : { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border },
-  batchSuggestChipActive: { backgroundColor: BATCH_COLOR.bg, borderColor: BATCH_COLOR.text },
-  batchSuggestText  : { color: Colors.textMuted, fontSize: 12, fontWeight: "600" },
-  batchSaveBtn      : { backgroundColor: Colors.primary, borderRadius: 12, padding: 14, alignItems: "center" },
-  batchSaveBtnText  : { color: "#fff", fontWeight: "800", fontSize: 14 },
 
   // Search + Add button row
   topRow        : { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 16 },

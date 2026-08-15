@@ -23,16 +23,16 @@ import {
   fetchOrders, fetchCustomers, sendMessageToCustomer, fetchBusinessSettings,
 } from "../lib/api";
 import { friendlyError } from "../lib/errors";
-
-const inr = n => "₹" + Number(n || 0).toLocaleString("en-IN");
-
-// Statuses that still owe money
-const UNPAID = ["pending_payment", "confirmed", "packed", "shipped", "out_for_delivery"];
+import { typeConfig } from "../lib/businessTypes";
+import { inr, orderTotal, resolveCustomer, tplBill } from "../lib/whatsapp";
 
 export default function PaymentsScreen() {
   const { industry, profile } = useAuth();
-  const isEdu = industry === "education";
-  const unitWord = isEdu ? "Batch" : "Table";
+  const type     = typeConfig(industry);
+  const unitWord = type.unitWord;          // Table / Slot / Order
+  // Which statuses still owe money is a property of the business type's flow.
+  const UNPAID   = type.unpaid;
+  const SETTLED  = type.settled;
 
   const [orders,     setOrders]     = useState([]);
   const [customers,  setCustomers]  = useState([]);
@@ -68,39 +68,21 @@ export default function PaymentsScreen() {
   useFocusEffect(useCallback(() => { load(); }, []));
 
   /* ── helpers ──────────────────────────────────────────────────────────── */
-  const unitOf = o => o.table || o.table_no || o.batch || null;
+  const unitOf  = o => o.table_no ?? null;
   const itemsOf = o => Array.isArray(o.cart) ? o.cart : [];
-  const totalOf = o => Number(o.bill || 0) ||
-    itemsOf(o).reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+  // `bill` is a jsonb object ({subtotal, discount, delivery, total}). Reading it
+  // as a number always yielded NaN, so this silently fell through to summing the
+  // cart and ignored any discount or delivery fee on the order.
+  const totalOf = orderTotal;
 
-  // Match the order's mobile to a customer record so we have an id to message
-  const customerFor = (o) => {
-    const digits = String(o.mobile || "").replace(/\D/g, "").slice(-10);
-    if (!digits) return null;
-    return customers.find(c => String(c.phone || c.mobile || "").replace(/\D/g, "").endsWith(digits)) || null;
-  };
+  const customerFor = (o) => resolveCustomer(o, customers);
 
-  const buildBillText = (o) => {
-    const items = itemsOf(o);
-    const lines = items.length
-      ? items.map(i => `• ${i.name}${i.size ? ` (${i.size})` : ""} ×${i.qty || 1} — ${inr(Number(i.price || 0) * Number(i.qty || 1))}`).join("\n")
-      : "• Order total";
-    const total = totalOf(o);
-    const unit  = unitOf(o);
-    const upi   = settings.upi_id;
-    const biz   = settings.business_name || profile?.business_name || "our store";
-
-    return (
-      `🧾 *Your bill from ${biz}*\n\n` +
-      (unit ? `${unitWord} ${unit}\n` : "") +
-      `${lines}\n` +
-      `──────────────\n` +
-      `*Total: ${inr(total)}*\n\n` +
-      (upi ? `💳 Pay by UPI: *${upi}*\n` : "") +
-      `Or pay at the counter — just show this message.\n\n` +
-      `Thank you! 🙏`
-    );
-  };
+  const buildBillText = (o) => tplBill({
+    order       : o,
+    tableNo     : unitOf(o),
+    businessName: settings.business_name || profile?.business_name,
+    upiId       : settings.upi_id,
+  });
 
   const sendBill = async () => {
     const o = sheet;
@@ -128,7 +110,7 @@ export default function PaymentsScreen() {
 
   /* ── derived ──────────────────────────────────────────────────────────── */
   const open      = orders.filter(o => UNPAID.includes(o.status));
-  const settled   = orders.filter(o => o.status === "delivered");
+  const settled   = orders.filter(o => SETTLED.includes(o.status));
   const pendingRs = open.reduce((s, o) => s + totalOf(o), 0);
   const gotRs     = settled.reduce((s, o) => s + totalOf(o), 0);
 

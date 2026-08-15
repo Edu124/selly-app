@@ -47,14 +47,34 @@ export const Colors = {
   },
 
   // Status pill colors
+  // The bot only ever writes pending_payment / confirmed / cancelled; the rest
+  // are advanced by the app, so café and bakery flows live alongside the older
+  // shipping vocabulary rather than replacing it.
   status: {
     pending_payment : { bg: "#2d1f08", text: "#f5a524" },
     confirmed       : { bg: "#0f2d1a", text: "#22c55e" },
+    // café: confirmed → preparing → served → paid
+    preparing       : { bg: "#0e1f3a", text: "#3b82f6" },
+    served          : { bg: "#0d2d1a", text: "#22c55e" },
+    paid            : { bg: "#082d29", text: "#2dd4bf" },
+    // bakery: confirmed → baking → ready → delivered
+    baking          : { bg: "#2a1020", text: "#ff6b9d" },
+    ready           : { bg: "#0f2d1a", text: "#4ade80" },
+    // cloud kitchen / legacy shipping
     packed          : { bg: "#0e1f3a", text: "#3b82f6" },
     shipped         : { bg: "#1a0f3a", text: "#9d87ff" },
     out_for_delivery: { bg: "#2a1535", text: "#ff6b9d" },
     delivered       : { bg: "#0d2d1a", text: "#22c55e" },
     cancelled       : { bg: "#2d0f0f", text: "#ef4444" },
+  },
+
+  // Café floor-plan table states — [background, border, text]
+  tableState: {
+    free   : ["#14141f", "#242437", "#63637d"],
+    seated : ["#0e1f3a", "#2b4a7d", "#7cb0ff"],
+    ordered: ["#2d1f08", "#5c4210", "#fbbf5c"],
+    served : ["#0d2d1a", "#1d5c34", "#4ade80"],
+    bill   : ["#1f1035", "#4a2b7d", "#b79dff"],
   },
 
   // Promo source colors

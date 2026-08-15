@@ -9,6 +9,7 @@ import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSetting
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { friendlyError } from "../lib/errors";
+import { BUSINESS_TYPE_LIST } from "../lib/businessTypes";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -31,10 +32,9 @@ const DEFAULT_SETTINGS = {
   payment_modes: "both",
 };
 
-const INDUSTRY_OPTIONS = [
-  { id: "restaurant", icon: "🍽️", label: "Restaurant / Cafe / Food Court" },
-  { id: "education",  icon: "📚", label: "Classes"                        },
-];
+const INDUSTRY_OPTIONS = BUSINESS_TYPE_LIST.map(t => ({
+  id: t.id, icon: t.icon, label: t.title,
+}));
 
 export default function SettingsScreen() {
   const { industry: activeIndustry, updateIndustry, profile } = useAuth();
@@ -366,7 +366,7 @@ export default function SettingsScreen() {
         <View style={styles.sectionDivider} />
         <Text style={[styles.cardTitle, { marginBottom: 4 }]}>💳 Online Payment Details</Text>
         <Text style={styles.cardDesc}>
-          When a student / customer chooses to pay online, these details are shown to them so they can transfer the amount directly.
+          When a customer chooses to pay online, these details are shown to them so they can transfer the amount directly.
         </Text>
 
         <Text style={styles.fieldLabel}>UPI ID / Phone Pay Number</Text>
@@ -396,7 +396,7 @@ export default function SettingsScreen() {
 
         <View style={[styles.paymentNote, { marginTop: 10, marginBottom: 4 }]}>
           <Text style={styles.paymentNoteText}>
-            💡 After paying, students reply with a screenshot — you confirm the enrollment manually from the Enrollments screen.
+            💡 After paying, customers reply with a screenshot — you confirm the order manually from the Orders screen.
           </Text>
         </View>
 
@@ -410,14 +410,14 @@ export default function SettingsScreen() {
           style={[styles.input, { height: 100, textAlignVertical: "top" }]}
           value={biz.greeting_message}
           onChangeText={v => setBizField("greeting_message", v)}
-          placeholder={"Hi {name}! 👋 Welcome to DLA Commerce Classes!\n\nExpert coaching for 11th, 12th & Degree Commerce. 📚"}
+          placeholder={"Hi {name}! 👋 Welcome to Crumb & Co.!\n\nBrowse the menu and order right here — everything comes to your table. ☕"}
           placeholderTextColor={Colors.textMuted}
           multiline
           autoCorrect={false}
         />
 
         <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Location / Maps Link</Text>
-        <Text style={styles.fieldHint}>Shown when a student asks "where are you?" or "location?"</Text>
+        <Text style={styles.fieldHint}>Shown when a customer asks "where are you?" or "location?"</Text>
         <TextInput
           style={styles.input}
           value={biz.location_url}

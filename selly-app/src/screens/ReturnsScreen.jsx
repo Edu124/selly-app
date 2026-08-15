@@ -14,15 +14,13 @@ import { Colors } from "../constants/colors";
 import { fetchReturns, updateReturn } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 
-// Industry-aware labels
+// Food businesses don't take returns — they field complaints and issue refunds.
 const RETURN_LABEL = {
-  product  : "Returns & Exchanges",
-  education: "Refund Requests",
-  tourism  : "Cancellation Requests",
-  kirana   : "Return Requests",
-  cakes    : "Complaints & Concerns",
-  icecream : "Complaints & Concerns",
+  cafe        : "Complaints & Refunds",
+  bakery      : "Complaints & Refunds",
+  cloudkitchen: "Complaints & Refunds",
 };
 
 const STATUS_STYLE = {
@@ -44,7 +42,7 @@ function ago(ts) {
 
 export default function ReturnsScreen() {
   const { industry } = useAuth();
-  const screenLabel  = RETURN_LABEL[industry] || "Returns";
+  const screenLabel  = RETURN_LABEL[typeConfig(industry).id] || "Complaints & Refunds";
 
   const [returns,    setReturns]    = useState([]);
   const [loading,    setLoading]    = useState(true);

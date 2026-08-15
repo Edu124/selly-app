@@ -7,46 +7,52 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 import { fetchDashboard, fetchBusinessSettings } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import StatCard from "../components/StatCard";
 import OrderRow from "../components/OrderRow";
 
-// ── Industry configuration ────────────────────────────────────────────────────
-// All industries use the SAME backend stats keys — only labels change here.
-const INDUSTRY_CONFIG = {
-  restaurant: {
-    revenueLabel  : "Today's Revenue",
-    stat1Label    : "Total Orders",    stat1Icon: "📦",
-    stat2Label    : "Pending",         stat2Icon: "⏳",
-    stat3Label    : "Confirmed",       stat3Icon: "✅",
-    stat4Label    : "Shipped",         stat4Icon: "🚚",
-    stat5Label    : "Delivered",       stat5Icon: "🎉",
-    stat6Label    : "Customers",       stat6Icon: "👥",
-    recentTitle   : "Recent Orders",
-    emptyRecent   : "No orders yet",
-    quickActions  : [
+// ── Labels per business type ──────────────────────────────────────────────────
+// All three types read the SAME backend stats keys — only wording changes.
+const LABELS = {
+  cafe: {
+    revenueLabel: "Today's Revenue",
+    stat1: ["Total Orders", "📦"], stat2: ["Pending",   "⏳"],
+    stat3: ["Confirmed",    "✅"], stat4: ["Preparing", "👨‍🍳"],
+    stat5: ["Served",       "🎉"], stat6: ["Customers", "👥"],
+    recentTitle: "Recent Orders", emptyRecent: "No orders yet",
+    quickActions: [
       { icon: "⚡", label: "Flash Sale",    screen: "Promotions", color: Colors.yellow  },
       { icon: "✨", label: "New Arrival",   screen: "Promotions", color: Colors.blue    },
       { icon: "🛒", label: "Recover Carts", screen: "Promotions", color: Colors.accent  },
-      { icon: "➕", label: "Add Product",   screen: "Catalog",    color: Colors.primary },
+      { icon: "➕", label: "Add Dish",      screen: "Catalog",    color: Colors.primary },
     ],
   },
-  education: {
-    revenueLabel  : "Today's Fees Collected",
-    stat1Label    : "Total Enrollments", stat1Icon: "🎓",
-    stat2Label    : "Pending Fees",      stat2Icon: "⏳",
-    stat3Label    : "Active",            stat3Icon: "✅",
-    stat4Label    : "In Progress",       stat4Icon: "📖",
-    stat5Label    : "Completed",         stat5Icon: "🏆",
-    stat6Label    : "Students",          stat6Icon: "👨‍🎓",
-    recentTitle   : "Recent Enrollments",
-    emptyRecent   : "No enrollments yet",
-    quickActions  : [
-      { icon: "📢", label: "Batch Alert",   screen: "Promotions",  color: Colors.blue    },
-      { icon: "🎓", label: "Add Course",    screen: "Courses",     color: Colors.primary },
-      { icon: "💰", label: "Fee Reminder",  screen: "Promotions",  color: Colors.yellow,  params: { action: "feeReminder" } },
-      { icon: "📣", label: "Promo Blast",   screen: "Promotions",  color: Colors.accent  },
+  bakery: {
+    revenueLabel: "Today's Revenue",
+    stat1: ["Total Orders", "🎂"], stat2: ["Pending",   "⏳"],
+    stat3: ["Confirmed",    "✅"], stat4: ["Baking",    "🧑‍🍳"],
+    stat5: ["Delivered",    "🎉"], stat6: ["Customers", "👥"],
+    recentTitle: "Recent Cake Orders", emptyRecent: "No cake orders yet",
+    quickActions: [
+      { icon: "🎂", label: "Birthdays",  screen: "Promotions", color: Colors.accent, params: { action: "birthday" } },
+      { icon: "⚡", label: "Flash Sale", screen: "Promotions", color: Colors.yellow  },
+      { icon: "✨", label: "New Flavour", screen: "Catalog",   color: Colors.blue    },
+      { icon: "➕", label: "Add Cake",   screen: "Catalog",    color: Colors.primary },
+    ],
+  },
+  cloudkitchen: {
+    revenueLabel: "Today's Revenue",
+    stat1: ["Total Orders", "📦"], stat2: ["Pending",     "⏳"],
+    stat3: ["Confirmed",    "✅"], stat4: ["Out for del.", "🛵"],
+    stat5: ["Delivered",    "🎉"], stat6: ["Customers",   "👥"],
+    recentTitle: "Recent Orders", emptyRecent: "No orders yet",
+    quickActions: [
+      { icon: "⚡", label: "Flash Sale",    screen: "Promotions", color: Colors.yellow  },
+      { icon: "✨", label: "New Arrival",   screen: "Promotions", color: Colors.blue    },
+      { icon: "🛒", label: "Recover Carts", screen: "Promotions", color: Colors.accent  },
+      { icon: "➕", label: "Add Dish",      screen: "Catalog",    color: Colors.primary },
     ],
   },
 };
@@ -54,7 +60,7 @@ const INDUSTRY_CONFIG = {
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function DashboardScreen({ navigation }) {
   const { industry } = useAuth();
-  const cfg = INDUSTRY_CONFIG[industry] || INDUSTRY_CONFIG.restaurant;
+  const cfg = LABELS[typeConfig(industry).id] || LABELS.cafe;
 
   const [data,       setData]       = useState(null);
   const [loading,    setLoading]    = useState(true);
@@ -143,25 +149,19 @@ export default function DashboardScreen({ navigation }) {
 
       {/* Stats grid */}
       <View style={styles.statsGrid}>
-        <StatCard label={cfg.stat1Label} value={s.total     || 0} icon={cfg.stat1Icon} color={Colors.primary} />
-        <StatCard label={cfg.stat2Label} value={s.pending   || 0} icon={cfg.stat2Icon} color={Colors.yellow}  />
-        <StatCard label={cfg.stat3Label} value={s.confirmed || 0} icon={cfg.stat3Icon} color={Colors.green}   />
-        <StatCard label={cfg.stat4Label} value={s.shipped   || 0} icon={cfg.stat4Icon} color={Colors.blue}    />
-        <StatCard label={cfg.stat5Label} value={s.delivered || 0} icon={cfg.stat5Icon} color={Colors.green}   />
-        <StatCard label={cfg.stat6Label} value={data?.customers?.length || 0} icon={cfg.stat6Icon} color={Colors.accent} />
+        <StatCard label={cfg.stat1[0]} value={s.total       || 0} icon={cfg.stat1[1]} color={Colors.primary} />
+        <StatCard label={cfg.stat2[0]} value={s.pending     || 0} icon={cfg.stat2[1]} color={Colors.yellow}  />
+        <StatCard label={cfg.stat3[0]} value={s.confirmed   || 0} icon={cfg.stat3[1]} color={Colors.green}   />
+        <StatCard label={cfg.stat4[0]} value={s.inProgress  || 0} icon={cfg.stat4[1]} color={Colors.blue}    />
+        <StatCard label={cfg.stat5[0]} value={s.completed   || 0} icon={cfg.stat5[1]} color={Colors.green}   />
+        <StatCard label={cfg.stat6[0]} value={data?.customers?.length || 0} icon={cfg.stat6[1]} color={Colors.accent} />
       </View>
 
       {/* Recent list */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{cfg.recentTitle}</Text>
-          <TouchableOpacity onPress={() => {
-            // Navigate to the correct tab name per industry
-            const tab2 = industry === "education" ? "Enrollments"
-                       : industry === "tourism"   ? "Bookings"
-                       : "Orders";
-            navigation.navigate(tab2);
-          }}>
+          <TouchableOpacity onPress={() => navigation.navigate("Orders")}>
             <Text style={styles.seeAll}>See all →</Text>
           </TouchableOpacity>
         </View>
@@ -175,13 +175,7 @@ export default function DashboardScreen({ navigation }) {
             <OrderRow
               key={order.id}
               order={order}
-              industry={industry}
-              onPress={() => {
-                const tab2 = industry === "education" ? "Enrollments"
-                           : industry === "tourism"   ? "Bookings"
-                           : "Orders";
-                navigation.navigate(tab2, { screen: "OrderDetail", params: { orderId: order.id } });
-              }}
+              onPress={() => navigation.navigate("Orders", { orderId: order.id })}
             />
           ))
         )}

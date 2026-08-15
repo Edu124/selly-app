@@ -9,6 +9,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem     from "expo-file-system";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 import {
   sendFlashSale, sendNewArrival, sendAbandonedCart,
   sendSegmentBroadcast, sendVideoBlast,
@@ -17,135 +18,114 @@ import {
 } from "../lib/api";
 
 // ── Promo Message Templates ────────────────────────────────────────────────────
-const TEMPLATES_PRODUCT = {
+const TEMPLATES_CAFE = {
   flash: [
-    { label: "⚡ Urgent Flash Sale",    text: "⚡ FLASH SALE! 🔥 Up to 50% OFF today only! Limited stock — grab yours before it's gone! Reply YES to see what's available!" },
-    { label: "🕐 Last 24 Hours",        text: "⏳ Last 24 HOURS only! Our special sale ends tonight at midnight. Don't miss out — prices go back up tomorrow! Reply to order now." },
-    { label: "🎉 Weekend Special",      text: "🎉 Weekend Special! Extra discounts this Saturday & Sunday only. Shop now and save big before Monday! Reply to explore." },
-    { label: "🪔 Diwali Dhamaka",       text: "🪔 Diwali Dhamaka Sale is HERE! Amazing deals on all items. Celebrate the festival of lights with extra savings! 🎆 Reply to shop now!" },
-    { label: "🌟 New Year Sale",        text: "🎊 New Year, New Deals! Ring in the new year with our biggest sale ever. Up to 40% off storewide — today only! 🥳 Reply YES to start shopping." },
-    { label: "☀️ Summer Clearance",     text: "☀️ Summer Clearance! Hot deals on our bestsellers. Stock is flying — secure yours now before it's too late! Reply to see the deals." },
-    { label: "💘 Valentine's Special",  text: "💘 Valentine's Week Special! Surprise your loved one with something special. Limited edition gifts at unbeatable prices. 🌹 Reply to explore!" },
-    { label: "🎒 Back to School",       text: "🎒 Back to School SALE! Unbeatable deals on everything you need this term. Limited time only — reply to grab your picks before stock runs out!" },
+    { label: "⚡ Happy Hours",          text: "⚡ HAPPY HOURS! 🔥 Flat 30% off all beverages, 4–7 PM today only. Walk in or reply to reserve a table!" },
+    { label: "🕐 Last Orders Tonight",  text: "⏳ Kitchen closes in 2 hours! Craving something before we shut? Reply with your order and we'll have it ready." },
+    { label: "🎉 Weekend Special",      text: "🎉 Weekend Special! Free dessert with every main course, Saturday & Sunday. Reply to book your table 🍰" },
+    { label: "☕ Combo Deal",           text: "☕ Coffee + Croissant for just ₹199 — all day today. Reply to order or just walk in!" },
+    { label: "🪔 Festive Menu",         text: "🪔 Our festive menu is live! Special thalis and sweets, this week only. Reply to reserve a table 🎆" },
+    { label: "🌧️ Rainy Day Offer",      text: "🌧️ Perfect chai weather! Buy any hot beverage and get pakoras free, today only. Reply to order in." },
+    { label: "🎂 Birthday Table",       text: "🎂 Celebrating something? Book a table this week and the cake slice is on us. Reply BOOK with your date." },
   ],
   arrival: [
-    { label: "✨ New Collection Drop",  text: "✨ NEW COLLECTION IS HERE! Fresh styles, exclusive designs — just arrived. Be the first to grab your favourites! 😍 Reply to browse now." },
-    { label: "🆕 Trending New Arrivals",text: "🆕 Just In — What's trending right now! Our hottest new arrivals are flying off the shelves. Don't wait — reply to explore now!" },
-    { label: "👑 Premium Line Launch",  text: "👑 Introducing our Premium Line! Exclusive, high-quality pieces for those who love the best. Reply PREMIUM to see the collection." },
-    { label: "🌸 Festive Range",        text: "🌸 Our Festive Range is now live! Stunning outfits and gifts perfect for the season. Limited pieces — reply to book yours!" },
+    { label: "✨ New Menu Launch",      text: "✨ OUR NEW MENU IS HERE! Fresh dishes, new flavours — just launched. Reply MENU to see what's new 😍" },
+    { label: "🆕 Dish of the Week",     text: "🆕 This week's special: something we're genuinely proud of. Limited servings daily — reply to reserve yours!" },
+    { label: "👑 Chef's Signature",     text: "👑 Introducing our chef's signature dish! Made fresh, in limited numbers. Reply to try it before it's gone." },
+    { label: "🌸 Seasonal Menu",        text: "🌸 Our seasonal menu is now live! Fresh produce, new dishes. Reply to book a table and taste the season 🍽️" },
   ],
 };
 
-const TEMPLATES_EDUCATION = {
+const TEMPLATES_BAKERY = {
   flash: [
-    { label: "🎓 Early Bird Discount",  text: "🎓 Early Bird Offer! Enroll before [date] and get a special fee discount. Limited seats — reply ENROLL to secure your spot now!" },
-    { label: "⏳ Last Few Seats",       text: "⏳ HURRY! Only a few seats left in this batch. Once full, next batch starts only in [month]. Reply SEAT to enroll today!" },
-    { label: "🎉 Festival Fee Offer",   text: "🎉 Festival Special! Flat discount on all course fees this week only. Celebrate and upskill — reply to enroll before offer ends!" },
-    { label: "🌟 Scholarship Alert",    text: "🌟 Scholarship seats available! Limited spots with reduced fees for deserving students. Reply SCHOLARSHIP to apply now." },
-    { label: "🆓 Free Demo Class",      text: "🆓 FREE Demo Class this weekend! Experience our teaching style before enrolling. Reply DEMO to register your spot — limited seats!" },
-    { label: "🪔 Diwali Enrollment",    text: "🪔 Diwali Special! Enroll in any course this week and get special fee discount + free study material. Reply to grab this festive offer! 🎆" },
-    { label: "🎒 New Batch Offer",      text: "🎒 New Batch Starting! Special introductory fees for the first 10 students. Don't wait — reply NOW to lock in the best price!" },
-    { label: "📚 Combo Course Deal",    text: "📚 Combo Offer! Enroll in 2 courses and get a flat discount on the total fees. Limited time only — reply COMBO to know more!" },
+    { label: "🍰 Fresh Batch Today",    text: "🍰 Fresh out of the oven! Today's batch is ready — reply to reserve yours before it's sold out." },
+    { label: "⏳ Same-Day Slots",       text: "⏳ A few same-day cake slots left for today! Reply CAKE with your flavour and size to grab one." },
+    { label: "🎉 Weekend Offer",        text: "🎉 Weekend Special! Flat 15% off on all 1 kg cakes, Saturday & Sunday. Reply to place your order 🎂" },
+    { label: "🪔 Festive Hampers",      text: "🪔 Festive hampers are here! Assorted sweets and cookies, beautifully boxed. Reply HAMPER to order 🎁" },
+    { label: "💘 Valentine's Special",  text: "💘 Valentine's specials are live — heart cakes, cupcake boxes and more. Order early, slots fill fast 🌹" },
+    { label: "🥐 Morning Bake",         text: "🥐 Fresh croissants and breads out at 8 AM daily. Reply to reserve yours for pickup." },
   ],
   arrival: [
-    { label: "📚 New Batch Starting",   text: "📚 New Batch Starting Soon! Limited seats available — enroll now and secure your spot. Reply ENROLL to know fees, schedule & get a free demo class!" },
-    { label: "🆕 New Course Launched",  text: "🆕 Exciting New Course just launched! Designed for [subject/skill] learners. Early enrollment now open — reply COURSE for full details!" },
-    { label: "👑 Advanced Batch Open",  text: "👑 Advanced Level Batch is now open! Take your skills to the next level. Limited premium seats — reply ADVANCED to enroll." },
-    { label: "🌸 Weekend Batch",        text: "🌸 New Weekend Batch starting! Perfect for working professionals and students. Saturday & Sunday classes — reply WEEKEND to enroll!" },
+    { label: "✨ New Flavour",          text: "✨ NEW FLAVOUR ALERT! Just added to our menu, and we think you'll love it. Reply to try a slice 😍" },
+    { label: "🎂 Custom Cakes Open",    text: "🎂 Custom cake orders are open! Any flavour, any size, your exact message on top. Reply CAKE to start." },
+    { label: "🧁 New Dessert Range",    text: "🧁 Our new dessert range just launched — cupcakes, tarts and more. Reply to see the full menu!" },
+    { label: "🍞 Artisan Breads",       text: "🍞 Freshly baked artisan breads now available daily. Reply BREAD to reserve today's batch." },
   ],
 };
 
-const TEMPLATES_TOURISM = {
+const TEMPLATES_CLOUD = {
   flash: [
-    { label: "✈️ Flash Booking Deal",   text: "✈️ FLASH DEAL! Limited slots at special prices for this package. Book in the next 24 hours to avail — reply BOOK to secure your spot!" },
-    { label: "🏖️ Weekend Getaway",      text: "🏖️ Weekend Getaway Special! Short trip, big memories. Slots filling fast — reply TRIP to book now before it's full!" },
-    { label: "🌟 Early Bird Travel",    text: "🌟 Early Bird Offer! Book your tour 30 days in advance and save big. Limited early slots — reply EARLY to reserve now!" },
+    { label: "⚡ Lunch Rush Deal",      text: "⚡ LUNCH DEAL! Order before 1 PM and get free delivery + a complimentary dessert. Reply to order now!" },
+    { label: "🕐 Dinner Pre-Order",     text: "⏳ Pre-order tonight's dinner now and skip the wait. Reply with your order and we'll deliver hot at your time." },
+    { label: "🎉 Weekend Combo",        text: "🎉 Weekend Family Combo — feeds 4, flat ₹699. Order direct and skip the aggregator commission. Reply to order!" },
+    { label: "🛵 Free Delivery Today",  text: "🛵 Free delivery on all orders today! Order direct from us — same food, better price. Reply to order." },
+    { label: "🪔 Festive Thali",        text: "🪔 Festive thali available this week only. Limited portions daily — reply to reserve yours 🎆" },
   ],
   arrival: [
-    { label: "✈️ New Tour Package",     text: "✈️ Exciting New Tour Package just launched! Handpicked destinations, amazing experiences, unbeatable prices. Reply TRAVEL to see full details!" },
-    { label: "🌍 New Destination Added",text: "🌍 New Destination just added to our packages! Be among the first to explore — reply DEST to see the full itinerary and pricing." },
+    { label: "✨ New Menu Launch",      text: "✨ OUR NEW MENU IS LIVE! Fresh dishes added. Reply MENU to see everything and order direct 😍" },
+    { label: "🆕 New Dish",             text: "🆕 Just added to the menu — and it's already our team's favourite. Reply to try it today!" },
+    { label: "🍱 New Combo Meals",      text: "🍱 New combo meals — a full meal at a better price. Reply COMBO to see the options." },
   ],
 };
 
-const TEMPLATES_SEGMENT_PRODUCT = [
-  { label: "⭐ VIP Exclusive Reward",    text: "Hey! 🌟 As one of our VIP customers, you get EARLY ACCESS to our new collection + an extra 10% discount. This offer is only for you — reply to claim it!" },
-  { label: "💤 Win-Back (We Miss You)",  text: "Hey! 👋 It's been a while and we miss you! We've got exciting new products waiting for you + a special comeback offer. Reply to see what's new! 🎁" },
-  { label: "🌱 New Customer Welcome",    text: "Welcome to the family! 🎉 As a new member, here's a special offer just for you. Reply to explore our bestsellers and claim your first-time discount!" },
-  { label: "🔄 Loyal Shopper Thanks",    text: "Thank you for coming back! 💙 You're one of our most loyal customers and we truly appreciate it. Here's a special thank-you offer — reply to redeem!" },
-  { label: "🎯 Personalised Deal",       text: "Hey! 🎯 We've curated a special offer just based on your past purchases. This personalised deal is valid for 48 hours only — reply to claim!" },
-  { label: "😴 Inactive Nudge",          text: "Hey, we noticed you haven't been around for a while 😊 We'd love to have you back! Here's a special returning-customer deal — just reply and we'll sort you out!" },
+const TEMPLATES_SEGMENT = [
+  { label: "⭐ Regular's Reward",        text: "Hey! 🌟 You're one of our regulars, so here's something just for you — a free dessert on your next visit. Reply to claim it!" },
+  { label: "💤 Win-Back (We Miss You)",  text: "Hey! 👋 It's been a while and we miss you! We've added new dishes since you were last here, plus a comeback treat. Reply to see what's new 🎁" },
+  { label: "🌱 New Customer Welcome",    text: "Welcome! 🎉 Thanks for your first order. Here's 10% off your next one — reply to see the menu and order again." },
+  { label: "🔄 Loyal Customer Thanks",   text: "Thank you for coming back! 💙 You're one of our most loyal customers and we genuinely appreciate it. Here's a thank-you treat — reply to redeem!" },
+  { label: "🎯 Your Usual",              text: "Hey! 🎯 Craving your usual? We've got it ready to go. Reply and we'll start on it right away." },
+  { label: "😴 Inactive Nudge",          text: "Hey, we haven't seen you in a while 😊 We'd love to have you back — here's a returning-customer offer. Just reply and we'll sort you out!" },
 ];
 
-const TEMPLATES_SEGMENT_EDUCATION = [
-  { label: "⭐ Top Student Reward",      text: "Hey! 🌟 As one of our top-performing students, here's an exclusive offer — advanced batch access + a special fee discount. Reply to claim it!" },
-  { label: "💤 Win-Back (Miss You)",     text: "Hey! 👋 We noticed you haven't been active for a while. We'd love to have you back! Here's a special re-enroll offer + free demo session. Reply to know more 🎁" },
-  { label: "🌱 New Student Welcome",     text: "Welcome to the family! 🎉 As a new student, here's a special offer just for you. Reply to explore our courses and claim your first-time discount!" },
-  { label: "🔄 Loyal Student Thanks",    text: "Thank you for being with us! 💙 You've been one of our most dedicated students and we truly appreciate it. Here's a special thank-you offer — reply to redeem!" },
-  { label: "🎯 Personalised Offer",      text: "Hey! 🎯 Based on your learning journey, we've picked a perfect next course for you. Special price valid 48 hours only — reply to know more!" },
-  { label: "😴 Inactive Student Nudge",  text: "Hey, we noticed you haven't been around for a while 😊 Your learning journey isn't over! Come back with a special re-enrollment offer — just reply and we'll help you out!" },
+// Birthday reminders replace the old fee reminders. The occasions table is what
+// feeds these — see OccasionsScreen.
+const TEMPLATES_BIRTHDAY = [
+  { label: "🎂 Birthday This Week",     text: "🎂 A little birdie told us there's a birthday coming up! Want us to make something special? Reply CAKE and we'll take it from there 💝" },
+  { label: "🎉 Birthday Discount",      text: "🎉 Happy birthday month! Here's 15% off anything you order this week — our treat. Reply to use it 🎈" },
+  { label: "🔁 Repeat Last Year's Cake", text: "🎂 This time last year we baked you something lovely. Want the same again? Reply YES and we'll have it ready — 10% off for returning customers 💝" },
+  { label: "💍 Anniversary Reminder",   text: "💍 An anniversary is coming up! Let us make it easier — cakes, desserts or a reserved table. Reply and we'll sort it out 🥂" },
+  { label: "🎁 Celebration Booking",    text: "🎁 Planning a celebration? Book with us this month and the cake is on the house. Reply BOOK with your date 🎉" },
 ];
 
-const TEMPLATES_SEGMENT_TOURISM = [
-  { label: "⭐ Premium Traveller Reward",text: "Hey! 🌟 As one of our premium travellers, you get FIRST ACCESS to our new tour package + a special early-bird discount. Reply to claim it!" },
-  { label: "💤 Win-Back (Miss You)",     text: "Hey! 👋 It's been a while! We have exciting new destinations and packages waiting for you + a special returning traveller offer. Reply to see what's new! 🎁" },
-  { label: "🌱 New Traveller Welcome",   text: "Welcome aboard! 🎉 As a new traveller with us, here's a special first-trip offer just for you. Reply to explore our packages and claim your discount!" },
-  { label: "🔄 Repeat Traveller Thanks", text: "Thank you for travelling with us again! 💙 You're one of our most loyal travellers and we truly appreciate it. Here's a special thank-you offer — reply to redeem!" },
-  { label: "🎯 Personalised Package",    text: "Hey! 🎯 Based on your past trips, we've handpicked a perfect new destination for you. This personalised offer is valid 48 hours only — reply to claim!" },
-  { label: "😴 Inactive Traveller Nudge",text: "Hey, it's been a while since your last adventure 😊 We'd love to plan your next trip! Here's a special welcome-back deal — just reply and we'll sort you out!" },
-];
-
-const TEMPLATES_FEE_REMINDER = [
-  { label: "💰 Friendly Fee Reminder",    text: "Hi! 👋 This is a gentle reminder that your course fees are due. Please make the payment at the earliest to continue your classes without interruption. Reply if you need help 🙏" },
-  { label: "⏰ Last Date Reminder",        text: "⏰ Reminder: Your fee payment deadline is approaching! Please pay before [date] to avoid any break in your classes. Reply to confirm or for any queries." },
-  { label: "📅 Monthly Fee Due",           text: "📅 Your monthly course fees are now due. Kindly make the payment at your earliest convenience. Reply if you need any assistance 🙏" },
-  { label: "🔔 Fee Overdue Notice",        text: "🔔 We noticed your fee payment is overdue. Please clear your dues at the earliest to continue accessing classes. Contact us if you're facing any difficulty 🙏" },
-  { label: "🎓 Exam / Result Fees",        text: "🎓 Your exam/certification fees are due. Please make the payment to confirm your seat for the upcoming exam. Reply to confirm or for queries." },
-  { label: "📚 Batch Renewal Reminder",    text: "📚 Your current batch is ending soon! To continue in the next batch, please complete your fee payment and renewal. Reply RENEW to proceed 🙏" },
-  { label: "✅ Payment Confirmation Ask",  text: "Hi! Just checking if you've completed your fee payment. If yes, please share the payment screenshot. If not, let us know if you need any help 🙏" },
-];
-
-// ── Returns the right template set based on industry ─────────────────────────
-function getTemplates(industry) {
-  const ind = (industry || "").toLowerCase();
-  const isEdu  = ind === "education";
-  const isTour = ind === "tourism" || ind === "travel";
+// ── Template set for the current business type ────────────────────────────────
+function getTemplates(businessTypeId) {
+  const base = businessTypeId === "bakery"       ? TEMPLATES_BAKERY
+             : businessTypeId === "cloudkitchen" ? TEMPLATES_CLOUD
+             :                                     TEMPLATES_CAFE;
   return {
-    flash      : isEdu ? TEMPLATES_EDUCATION.flash : isTour ? TEMPLATES_TOURISM.flash : TEMPLATES_PRODUCT.flash,
-    arrival    : isEdu ? TEMPLATES_EDUCATION.arrival : isTour ? TEMPLATES_TOURISM.arrival : TEMPLATES_PRODUCT.arrival,
-    segment    : isEdu ? TEMPLATES_SEGMENT_EDUCATION : isTour ? TEMPLATES_SEGMENT_TOURISM : TEMPLATES_SEGMENT_PRODUCT,
-    feeReminder: TEMPLATES_FEE_REMINDER,
-    video      : TEMPLATES_VIDEO,
-    image      : TEMPLATES_IMAGE,
-    pdf        : TEMPLATES_PDF,
+    flash   : base.flash,
+    arrival : base.arrival,
+    segment : TEMPLATES_SEGMENT,
+    birthday: TEMPLATES_BIRTHDAY,
+    video   : TEMPLATES_VIDEO,
+    image   : TEMPLATES_IMAGE,
+    pdf     : TEMPLATES_PDF,
   };
 }
 
 const TEMPLATES_VIDEO = [
-  { label: "🎬 Product Showcase",     text: "🎬 Check out our latest collection in action! Watch the full video and let us know what you love. Reply to order or for more details! 😍" },
-  { label: "🔥 Sale Announcement",    text: "🔥 BIG SALE happening RIGHT NOW! Watch this video to see today's hottest deals. Limited stock — reply YES to grab yours before it's gone!" },
-  { label: "📖 Tutorial / How-to",    text: "Hey! Here's a quick how-to video for you 📖 Watch till the end — it's super helpful! Reply if you have any questions or want to place an order." },
-  { label: "🌟 Customer Story",       text: "🌟 See what our happy customers are saying! Real experiences, real results. Watch this and then reply to place your own order today!" },
-  { label: "✈️ Tour Package Preview", text: "✈️ Take a sneak peek at our exclusive travel package! Watch the video and picture yourself there. Reply BOOK to get full details and pricing." },
-  { label: "📚 Course Demo",          text: "📚 Watch a free demo of our course! See exactly what you'll learn and how it can transform your career. Reply DEMO to enroll or ask anything." },
-  { label: "👑 New Product Launch",   text: "👑 Big reveal! Our most exciting new product is finally here. Watch to see it in action and reply to be among the first to own it! 🚀" },
+  { label: "🎬 Dish Showcase",        text: "🎬 Watch our signature dish being made! Fresh, every single time. Reply to order or book a table 😍" },
+  { label: "🔥 Offer Announcement",   text: "🔥 Today's offer, in 20 seconds! Watch and reply to claim it before the kitchen closes." },
+  { label: "👨‍🍳 Behind the Kitchen",   text: "👨‍🍳 A peek behind our kitchen — this is how your food gets made. Reply if it made you hungry 😋" },
+  { label: "🌟 Customer Story",       text: "🌟 What our regulars say about us. Real people, real plates. Reply to book a table and see for yourself!" },
+  { label: "✨ New Menu Reveal",      text: "✨ Our new menu, revealed. Watch to see what's new and reply to try it this week 🍽️" },
 ];
 
 const TEMPLATES_IMAGE = [
-  { label: "📸 Class Notes (Whiteboard)", text: "📸 Notes from today's class! Save this image and revise before the next session. Reply if you have any doubts 🎓" },
-  { label: "📢 Important Announcement",   text: "📢 Important notice — please read carefully and note the details. Reply to confirm you've seen this!" },
-  { label: "🗓️ Schedule / Timetable",     text: "🗓️ Here's the updated schedule! Save this for reference. Reply if you have any questions." },
-  { label: "🎉 Result / Achievement",     text: "🎉 Congratulations to all! Check out this result image and keep up the great work! 🏆" },
-  { label: "📦 New Product Photo",        text: "📸 Fresh arrivals just in! Check out this photo and reply to order or know more 😍" },
-  { label: "🌟 Event Highlight",          text: "🌟 Highlights from our recent event! Great moments captured — reply if you want more info." },
+  { label: "📸 Today's Special",       text: "📸 Today's special, fresh out of the kitchen! Limited servings — reply to reserve yours 😋" },
+  { label: "📋 Full Menu",             text: "📋 Here's our full menu! Save it and reply with what you'd like — we'll have it ready." },
+  { label: "🎂 Cake Gallery",          text: "🎂 A few we baked this week. Want something like this? Reply CAKE and tell us the occasion 💝" },
+  { label: "📢 Important Notice",      text: "📢 Quick update from us — please have a look. Reply if you have any questions!" },
+  { label: "🗓️ This Week's Specials",  text: "🗓️ This week's specials, one image. Save it and reply to order any day 🍽️" },
+  { label: "🌟 Event Highlight",       text: "🌟 Highlights from the weekend! Thanks to everyone who came by ❤️" },
 ];
 
 const TEMPLATES_PDF = [
-  { label: "📄 Study Notes",           text: "📄 Study notes for this week's topics attached! Read carefully and prepare for the next class 🎓 Reply if you have doubts." },
-  { label: "📝 Assignment / Homework", text: "📝 Homework attached! Complete it before the next class. Reply to submit or ask questions 📚" },
-  { label: "📋 Syllabus / Timetable",  text: "📋 Full syllabus and timetable attached. Save it for reference and plan your studies accordingly 🗓️" },
-  { label: "📊 Result Sheet",          text: "📊 Your result sheet is attached. Review it and contact us for any queries. Keep working hard! 💪" },
-  { label: "📃 Product Brochure",      text: "📃 Our latest catalogue is attached! Browse through and reply with what catches your eye 😍" },
-  { label: "📑 Fee / Invoice",         text: "📑 Fee invoice attached for your reference. Please make the payment by the due date. Reply for any queries." },
+  { label: "📃 Full Menu Card",        text: "📃 Our full menu is attached! Browse and reply with your order — we'll get started 😍" },
+  { label: "🎂 Cake Price List",       text: "🎂 Our cake price list is attached — flavours, sizes and rates. Reply CAKE to place an order 💝" },
+  { label: "🍱 Catering Package",      text: "🍱 Our catering packages are attached. Reply with your date and headcount for a quote." },
+  { label: "🎉 Party Menu",            text: "🎉 Party and event menu attached. Reply to check availability for your date 🥂" },
+  { label: "📑 Invoice / Bill",        text: "📑 Your bill is attached for reference. Thank you for ordering with us 🙏" },
 ];
 
 const SEGMENTS = [
@@ -164,19 +144,17 @@ const SEGMENT_DESC = {
   all:      "👥 All your customers",
 };
 
-// ── Industry label helpers ─────────────────────────────────────────────────────
-const AUDIENCE_LABEL = { education: "students", tourism: "travelers", default: "customers" };
-const audienceOf = (ind) => AUDIENCE_LABEL[ind] || AUDIENCE_LABEL.default;
-
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function PromotionsScreen({ route }) {
   const { industry } = useAuth();
-  const audience     = audienceOf(industry);
-  const isEdu        = industry === "education";
-  const templates    = getTemplates(industry);
+  const type      = typeConfig(industry);
+  const audience  = "customers";
+  const itemWord  = type.itemWord;                     // dish | cake
+  const itemWordC = itemWord.charAt(0).toUpperCase() + itemWord.slice(1);
+  const templates = getTemplates(type.id);
 
-  const scrollRef        = useRef(null);
-  const feeReminderYRef  = useRef(0);   // Y offset of the fee reminder card
+  const scrollRef       = useRef(null);
+  const birthdayYRef    = useRef(0);   // Y offset of the birthday card
 
   const [products, setProducts]     = useState([]);
   const [customers, setCustomers]   = useState([]);
@@ -184,17 +162,11 @@ export default function PromotionsScreen({ route }) {
   const [result, setResult]         = useState(null);
 
   // Flash Sale
-  const [flashMsg, setFlashMsg]     = useState(
-    isEdu ? "🎓 Early Bird Offer! Enroll before seats fill up and get a special fee discount. Reply ENROLL to secure your spot!"
-          : "⚡ Flash Sale! Limited time offer on selected items."
-  );
+  const [flashMsg, setFlashMsg]     = useState("⚡ Flash offer! Limited time deal on today's specials.");
   const [flashProds,    setFlashProds]    = useState([]);
 
   // New Arrival
-  const [arrivalMsg,  setArrivalMsg]  = useState(
-    isEdu ? "📚 New Batch Starting Soon! Limited seats available — reply ENROLL to know fees, schedule & get a free demo class!"
-          : "✨ New Arrivals are here! Check out our latest collection."
-  );
+  const [arrivalMsg,  setArrivalMsg]  = useState("✨ Something new on the menu! Come and try it this week.");
   const [arrivalProds, setArrivalProds] = useState([]);
 
   // Segment Broadcast
@@ -205,46 +177,45 @@ export default function PromotionsScreen({ route }) {
   // Video Blast
   const [videoUrl, setVideoUrl]     = useState("");
   const [videoCaption, setVideoCaption] = useState(
-    isEdu ? "📹 Watch this class recording — let us know if you have any questions! 🎓"
-          : "🎬 Check out our latest collection in action! Reply to order or know more 😍"
+    "🎬 A look at what we're serving today! Reply to order or book a table 😍"
   );
   const [videoSegment, setVideoSegment] = useState("all");
 
-  // ── Image Blast (new) ────────────────────────────────────────────────────────
+  // ── Image Blast ──────────────────────────────────────────────────────────────
   const [imageUri,     setImageUri]     = useState(null);   // local preview URI
   const [imageUrl,     setImageUrl]     = useState("");      // hosted URL after upload
   const [imageCaption, setImageCaption] = useState(
-    isEdu ? "📸 Notes from today's class. Save and revise! 📚"
-          : "📸 Check out our latest photos! Reply for more info 😍"
+    "📸 Fresh out of the kitchen! Reply to order 😋"
   );
   const [imageSegment, setImageSegment] = useState("all");
   const [imageUploading, setImageUploading] = useState(false);
 
-  // ── PDF / Notes Blast (new) ──────────────────────────────────────────────────
+  // ── PDF Blast ────────────────────────────────────────────────────────────────
   const [pdfUri,      setPdfUri]      = useState(null);
   const [pdfUrl,      setPdfUrl]      = useState("");
-  const [pdfFilename, setPdfFilename] = useState("Notes.pdf");
+  const [pdfFilename, setPdfFilename] = useState("Menu.pdf");
   const [pdfCaption,  setPdfCaption]  = useState(
-    isEdu ? "📄 Study notes attached! Read carefully before the next class 🎓"
-          : "📄 Document attached — please read and let us know your questions!"
+    "📃 Our full menu is attached — reply with what you'd like!"
   );
   const [pdfSegment,  setPdfSegment]  = useState("all");
   const [pdfUploading, setPdfUploading] = useState(false);
 
-  // Fee Reminder (education only)
-  const [feeMsg,     setFeeMsg]     = useState("💰 This is a gentle reminder that your course fees are due. Please make the payment at the earliest to avoid any interruption in your classes. Reply if you need help 🙏");
-  const [feeSeg,     setFeeSeg]     = useState("all");
+  // Birthday / occasion campaign — replaces the old fee reminder.
+  const [bdayMsg, setBdayMsg] = useState(
+    "🎂 A little birdie told us there's a birthday coming up! Want us to make something special? Reply CAKE and we'll take it from there 💝"
+  );
+  const [bdaySeg, setBdaySeg] = useState("all");
 
   // Modals
   const [pickModal, setPickModal]   = useState(null);
   const [templateType, setTemplateType] = useState(null);
   const [templateSetter, setTemplateSetter] = useState(null);
 
-  // Auto-scroll to fee reminder if opened via quick action
+  // Auto-scroll to the birthday card when opened from a dashboard quick action
   useEffect(() => {
-    if (route?.params?.action === "feeReminder" && feeReminderYRef.current) {
+    if (route?.params?.action === "birthday" && birthdayYRef.current) {
       const timer = setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: feeReminderYRef.current - 16, animated: true });
+        scrollRef.current?.scrollTo({ y: birthdayYRef.current - 16, animated: true });
       }, 400);
       return () => clearTimeout(timer);
     }
@@ -347,22 +318,22 @@ export default function PromotionsScreen({ route }) {
 
   // ── Send handlers ─────────────────────────────────────────────────────────
   const sendFlash = async () => {
-    if (flashProds.length === 0) { show(`Select at least one ${isEdu ? "course" : "product"}.`, false); return; }
+    if (flashProds.length === 0) { show(`Select at least one ${itemWord}.`, false); return; }
     setLoading(true);
     try {
       const d = await sendFlashSale({ productIds: flashProds, message: flashMsg });
-      show(`✅ Flash ${isEdu ? "offer" : "sale"} sent to ${d.sent || 0} ${audience}!`);
+      show(`✅ Flash offer sent to ${d.sent || 0} ${audience}!`);
       setFlashProds([]);
     } catch (e) { show("Error: " + e.message, false); }
     finally { setLoading(false); }
   };
 
   const sendArrival = async () => {
-    if (arrivalProds.length === 0) { show(`Select at least one ${isEdu ? "course" : "product"}.`, false); return; }
+    if (arrivalProds.length === 0) { show(`Select at least one ${itemWord}.`, false); return; }
     setLoading(true);
     try {
       const d = await sendNewArrival({ productIds: arrivalProds, message: arrivalMsg });
-      show(`✅ New ${isEdu ? "batch" : "arrival"} sent to ${d.sent || 0} ${audience}!`);
+      show(`✅ Announcement sent to ${d.sent || 0} ${audience}!`);
       setArrivalProds([]);
     } catch (e) { show("Error: " + e.message, false); }
     finally { setLoading(false); }
@@ -388,12 +359,12 @@ export default function PromotionsScreen({ route }) {
     finally { setLoading(false); }
   };
 
-  const sendFeeReminder = async () => {
-    if (!feeMsg.trim()) { show("Enter a reminder message.", false); return; }
+  const sendBirthday = async () => {
+    if (!bdayMsg.trim()) { show("Enter a message to send.", false); return; }
     setLoading(true);
     try {
-      const d = await sendSegmentBroadcast({ segment: feeSeg, message: feeMsg, productIds: [] });
-      show(`✅ Fee reminder sent to ${d.sent || 0} students!`);
+      const d = await sendSegmentBroadcast({ segment: bdaySeg, message: bdayMsg, productIds: [] });
+      show(`✅ Birthday offer sent to ${d.sent || 0} ${audience}!`);
     } catch (e) { show("Error: " + e.message, false); }
     finally { setLoading(false); }
   };
@@ -430,25 +401,22 @@ export default function PromotionsScreen({ route }) {
         </TouchableOpacity>
       )}
 
-      {/* ─── Flash Sale / Early Bird ─────────────────────────────────────── */}
+      {/* ─── Flash offer ─────────────────────────────────────────────────── */}
       <PromoCard
-        icon={isEdu ? "🎓" : "⚡"}
-        title={isEdu ? "Early Bird / Flash Offer" : "Flash Sale"}
+        icon="⚡"
+        title="Flash Offer"
         color={Colors.yellow}
-        description={
-          isEdu
-            ? "Send an urgent limited-time enrollment offer to all students. Marks enrollments with flash_sale attribution."
-            : "Send an urgent limited-time DM to all customers. Marks orders with flash_sale attribution."
-        }
+        description="Send an urgent limited-time offer to all customers. Marks orders with flash_sale attribution."
         customersCount={customers.length}
       >
-        {/* Inline product/course picker */}
-        <Text style={styles.fieldLabel}>{isEdu ? "Courses to promote" : "Products to promote"}</Text>
+        <Text style={styles.fieldLabel}>{itemWordC}es to promote</Text>
         {flashNames
           ? <Text style={styles.pickerNames} numberOfLines={2}>{flashNames}</Text>
-          : <Text style={styles.pickerEmpty}>{isEdu ? "No courses selected" : "No products selected"}</Text>}
+          : <Text style={styles.pickerEmpty}>Nothing selected yet</Text>}
         <TouchableOpacity style={[styles.chooseBtn, { marginBottom: 10 }]} onPress={() => setPickModal("flash")}>
-          <Text style={styles.chooseBtnText}>{flashProds.length > 0 ? `${flashProds.length} selected — change` : isEdu ? "Choose Courses" : "Choose Products"}</Text>
+          <Text style={styles.chooseBtnText}>
+            {flashProds.length > 0 ? `${flashProds.length} selected — change` : `Choose ${itemWord}es`}
+          </Text>
         </TouchableOpacity>
 
         <MsgField
@@ -463,31 +431,26 @@ export default function PromotionsScreen({ route }) {
           onPress={sendFlash} disabled={loading}
         >
           {loading ? <ActivityIndicator color="#000" />
-            : <Text style={[styles.sendBtnText, { color: "#000" }]}>
-                {isEdu ? "Send Enrollment Offer DMs" : "Send Flash Sale DMs"}
-              </Text>}
+            : <Text style={[styles.sendBtnText, { color: "#000" }]}>Send Flash Offer</Text>}
         </TouchableOpacity>
       </PromoCard>
 
-      {/* ─── New Arrival / New Batch ─────────────────────────────────────── */}
+      {/* ─── New on the menu ─────────────────────────────────────────────── */}
       <PromoCard
-        icon={isEdu ? "📚" : "✨"}
-        title={isEdu ? "New Batch / Course Launch" : "New Arrival"}
+        icon="✨"
+        title="New on the Menu"
         color={Colors.blue}
-        description={
-          isEdu
-            ? "Announce a new batch or course to all students. Marks enrollments with new_arrival attribution."
-            : "Announce new products to all customers. Marks orders with new_arrival attribution."
-        }
+        description="Announce something new to all customers. Marks orders with new_arrival attribution."
         customersCount={customers.length}
       >
-        {/* Inline product/course picker */}
-        <Text style={styles.fieldLabel}>{isEdu ? "Courses to announce" : "Products to announce"}</Text>
+        <Text style={styles.fieldLabel}>{itemWordC}es to announce</Text>
         {arrivalNames
           ? <Text style={styles.pickerNames} numberOfLines={2}>{arrivalNames}</Text>
-          : <Text style={styles.pickerEmpty}>{isEdu ? "No courses selected" : "No products selected"}</Text>}
+          : <Text style={styles.pickerEmpty}>Nothing selected yet</Text>}
         <TouchableOpacity style={[styles.chooseBtn, { marginBottom: 10 }]} onPress={() => setPickModal("arrival")}>
-          <Text style={styles.chooseBtnText}>{arrivalProds.length > 0 ? `${arrivalProds.length} selected — change` : isEdu ? "Choose Courses" : "Choose Products"}</Text>
+          <Text style={styles.chooseBtnText}>
+            {arrivalProds.length > 0 ? `${arrivalProds.length} selected — change` : `Choose ${itemWord}es`}
+          </Text>
         </TouchableOpacity>
 
         <MsgField
@@ -502,30 +465,21 @@ export default function PromotionsScreen({ route }) {
           onPress={sendArrival} disabled={loading}
         >
           {loading ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.sendBtnText}>
-                {isEdu ? "Send New Batch DMs" : "Send New Arrival DMs"}
-              </Text>}
+            : <Text style={styles.sendBtnText}>Send Announcement</Text>}
         </TouchableOpacity>
       </PromoCard>
 
-      {/* ─── Abandoned Cart / Abandoned Inquiry Recovery ─────────────────── */}
+      {/* ─── Abandoned cart recovery ─────────────────────────────────────── */}
       <PromoCard
         icon="🛒"
-        title={isEdu ? "Abandoned Inquiry Recovery" : "Abandoned Cart Recovery"}
+        title="Abandoned Cart Recovery"
         color={Colors.accent}
-        description={
-          isEdu
-            ? "Re-engage students who enquired about a course but didn't complete enrollment in the last 24 hours."
-            : "Re-engage customers who started a conversation but didn't complete an order in the last 24 hours."
-        }
+        description="Re-engage customers who started an order but didn't finish it in the last 24 hours."
         customersCount={customers.length}
       >
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            {isEdu
-              ? "💡 Automatically finds students who enquired but haven't enrolled in 24h and sends a follow-up DM."
-              : "💡 Automatically finds customers who haven't ordered in 24h and sends a nudge DM."
-            }
+            💡 Finds customers who haven't completed an order in 24h and sends a nudge.
           </Text>
         </View>
         <TouchableOpacity
@@ -533,64 +487,62 @@ export default function PromotionsScreen({ route }) {
           onPress={sendAbandoned} disabled={loading}
         >
           {loading ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.sendBtnText}>
-                {isEdu ? "Recover Abandoned Inquiries" : "Recover Abandoned Carts"}
-              </Text>}
+            : <Text style={styles.sendBtnText}>Recover Abandoned Carts</Text>}
         </TouchableOpacity>
       </PromoCard>
 
-      {/* ─── Fee Reminder (education only) ──────────────────────────────── */}
-      {isEdu && (
-        <View onLayout={e => { feeReminderYRef.current = e.nativeEvent.layout.y; }}>
-          <PromoCard
-            icon="💰"
-            title="Fee Reminder"
-            color={Colors.yellow}
-            description="Send a payment reminder to your students. Choose to send to all students or a specific group."
-            customersCount={customers.length}
+      {/* ─── Birthdays & occasions ──────────────────────────────────────── */}
+      <View onLayout={e => { birthdayYRef.current = e.nativeEvent.layout.y; }}>
+        <PromoCard
+          icon="🎂"
+          title="Birthdays & Occasions"
+          color={Colors.accent}
+          description="A birthday you already know about is the cheapest order you'll ever get. Send the offer before someone else does."
+          customersCount={customers.length}
+        >
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>
+              💡 This sends to a customer segment. For per-person reminders driven by
+              saved birthdays, use the Occasions screen.
+            </Text>
+          </View>
+
+          <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Target segment</Text>
+          <SegmentSelector value={bdaySeg} onChange={setBdaySeg} />
+
+          <MsgField
+            label="Message"
+            value={bdayMsg}
+            onChange={setBdayMsg}
+            placeholder="Write your birthday offer…"
+            onTemplate={() => openTemplates("birthday", setBdayMsg)}
+            topMargin
+          />
+
+          <TouchableOpacity
+            style={[styles.sendBtn, { backgroundColor: Colors.accent }, loading && styles.sendBtnDisabled]}
+            onPress={sendBirthday}
+            disabled={loading}
           >
-            <Text style={styles.fieldLabel}>Target Students</Text>
-            <SegmentSelector value={feeSeg} onChange={setFeeSeg} />
-
-            <MsgField
-              label="Reminder Message"
-              value={feeMsg}
-              onChange={setFeeMsg}
-              placeholder="Write your fee reminder message…"
-              onTemplate={() => openTemplates("feeReminder", setFeeMsg)}
-              topMargin
-            />
-
-            <TouchableOpacity
-              style={[styles.sendBtn, { backgroundColor: Colors.yellow }, loading && styles.sendBtnDisabled]}
-              onPress={sendFeeReminder}
-              disabled={loading}
-            >
-              {loading
-                ? <ActivityIndicator color="#000" />
-                : <Text style={[styles.sendBtnText, { color: "#000" }]}>
-                    Send Fee Reminder to {SEGMENTS.find(s => s.key === feeSeg)?.label} Students →
-                  </Text>
-              }
-            </TouchableOpacity>
-          </PromoCard>
-        </View>
-      )}
+            {loading
+              ? <ActivityIndicator color="#fff" />
+              : <Text style={styles.sendBtnText}>
+                  Send to {SEGMENTS.find(s => s.key === bdaySeg)?.label} Customers →
+                </Text>
+            }
+          </TouchableOpacity>
+        </PromoCard>
+      </View>
 
       {/* ─── Segment Broadcast ───────────────────────────────────────────── */}
       <PromoCard icon="🎯" title="Segment Broadcast" color={Colors.primary}
-        description={
-          isEdu
-            ? "Target specific student groups — top performers, new students, inactive, or repeat enrollers."
-            : "Target specific customer groups — VIPs, new customers, inactive buyers, or repeat shoppers."
-        }
+        description="Target specific customer groups — regulars, new customers, inactive, or repeat buyers."
         customersCount={customers.length}
       >
         <Text style={styles.fieldLabel}>Target Segment</Text>
         <SegmentSelector value={segment} onChange={setSegment} />
 
-        {/* Optional product/course picker */}
-        <Text style={[styles.fieldLabel, { marginTop: 10 }]}>{isEdu ? "Courses (optional)" : "Products (optional)"}</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 10 }]}>{itemWordC}es (optional)</Text>
         {segProds.length > 0 && (
           <Text style={styles.pickerNames} numberOfLines={1}>
             {products.filter(p => segProds.includes(p.id)).map(p => p.name).join(", ")}
@@ -599,8 +551,8 @@ export default function PromotionsScreen({ route }) {
         <TouchableOpacity style={styles.chooseBtn} onPress={() => setPickModal("segment")}>
           <Text style={styles.chooseBtnText}>
             {segProds.length > 0
-              ? `${segProds.length} ${isEdu ? "course(s)" : "product(s)"} selected`
-              : isEdu ? "Choose Courses (optional)" : "Choose Products (optional)"}
+              ? `${segProds.length} ${itemWord}(s) selected`
+              : `Choose ${itemWord}es (optional)`}
           </Text>
         </TouchableOpacity>
 
@@ -673,10 +625,8 @@ export default function PromotionsScreen({ route }) {
       </PromoCard>
 
       {/* ─── Image / Photo Blast ─────────────────────────────────────────── */}
-      <PromoCard icon="📸" title={isEdu ? "Share Photo / Image" : "Photo Blast"} color="#00BCD4"
-        description={isEdu
-          ? "Send a photo (whiteboard, notes, announcement) to all or a group of students instantly."
-          : "Send a product photo or announcement image to all or a segment of customers."}
+      <PromoCard icon="📸" title="Photo Blast" color="#00BCD4"
+        description="Send a photo of today's specials, the menu or an announcement to all or a segment of customers."
         customersCount={customers.length}
         audience={audience}
       >
@@ -742,10 +692,8 @@ export default function PromotionsScreen({ route }) {
       </PromoCard>
 
       {/* ─── PDF / Notes Blast ───────────────────────────────────────────── */}
-      <PromoCard icon="📄" title={isEdu ? "Share Notes / PDF" : "PDF Blast"} color="#FF7043"
-        description={isEdu
-          ? "Send study notes, worksheets, or documents as a PDF to all or a group of students on WhatsApp."
-          : "Send a PDF document or brochure to all or a segment of customers."}
+      <PromoCard icon="📄" title="PDF Blast" color="#FF7043"
+        description="Send your menu card, price list or catering package as a PDF to all or a segment of customers."
         customersCount={customers.length}
         audience={audience}
       >
@@ -789,7 +737,7 @@ export default function PromotionsScreen({ route }) {
           </>
         )}
 
-        {/* Filename shown to students */}
+        {/* Filename the customer sees on the attachment */}
         <View style={[styles.fieldLabelRow, { marginTop: 10 }]}>
           <Text style={styles.fieldLabel}>Filename shown to receiver</Text>
         </View>
@@ -842,7 +790,7 @@ export default function PromotionsScreen({ route }) {
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{isEdu ? "Pick Courses" : "Pick Products"}</Text>
+              <Text style={styles.modalTitle}>Pick {itemWord}es</Text>
               <TouchableOpacity onPress={() => setPickModal(null)}>
                 <Text style={styles.closeBtn}>Done</Text>
               </TouchableOpacity>

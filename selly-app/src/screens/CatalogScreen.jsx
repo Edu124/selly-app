@@ -9,30 +9,17 @@ import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
+import { typeConfig } from "../lib/businessTypes";
 import {
   fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct,
   uploadProductImage,
 } from "../lib/api";
 
-// ── Industry Configuration ────────────────────────────────────────────────────
+// ── Menu configuration per business type ──────────────────────────────────────
+// Keyed by business type id. Bakery gets its own categories; cloud kitchen
+// shares the café menu since it sells the same food, just for delivery.
 const INDUSTRIES = {
-  education: {
-    icon: "🎓", label: "Education", color: "#3b82f6",
-    itemLabel: "Course",
-    categories: ["Programming","Design","Languages","Arts & Crafts","Science","Mathematics","Music","Fitness","Business","Other"],
-    subCategories: {
-      "Programming": ["Web Development","Mobile Apps","Data Science","AI/ML","Cybersecurity","Cloud Computing"],
-      "Design":      ["UI/UX","Graphic Design","Animation","3D Modelling","Video Editing"],
-      "Languages":   ["English","Hindi","French","Spanish","Japanese","Arabic","German"],
-      "Music":       ["Guitar","Piano","Vocals","Tabla","Violin","Flute","DJ"],
-      "Fitness":     ["Yoga","Zumba","Cricket","Football","Martial Arts","Swimming","Cycling"],
-      "Business":    ["Digital Marketing","Finance","HR","Entrepreneurship","Sales","Accounting"],
-      "Arts & Crafts":["Painting","Pottery","Jewellery Making","Photography","Embroidery"],
-      "Science":     ["Physics","Chemistry","Biology","Astronomy"],
-      "Mathematics": ["Algebra","Calculus","Statistics","Mental Maths"],
-    },
-  },
-  restaurant: {
+  cafe: {
     icon: "🍽️", label: "Menu", color: "#f59e0b",
     itemLabel: "Dish",
     categories: ["Starters","Main Course","Breads","Rice & Biryani","South Indian","Chinese","Snacks & Chaat","Pizza & Burgers","Desserts","Beverages"],
@@ -52,9 +39,30 @@ const INDUSTRIES = {
       "default": ["Half","Full","Regular","Large","Family Pack"],
     },
   },
+
+  bakery: {
+    icon: "🍰", label: "Cake Menu", color: "#ff6b9d",
+    itemLabel: "Cake",
+    categories: ["Cakes","Cupcakes","Pastries","Cookies & Biscuits","Breads","Desserts","Savouries","Beverages"],
+    subCategories: {
+      "Cakes":              ["Chocolate Truffle","Red Velvet","Butterscotch","Fresh Pineapple","Black Forest","Vanilla","Cheesecake","Photo Cake","Fondant"],
+      "Cupcakes":           ["Chocolate","Vanilla","Red Velvet","Assorted Box"],
+      "Pastries":           ["Chocolate","Pineapple","Black Forest","Mousse","Tiramisu"],
+      "Cookies & Biscuits": ["Chocolate Chip","Butter","Nankhatai","Macarons","Brownie"],
+      "Breads":             ["Sourdough","Focaccia","Croissant","Bun","Multigrain"],
+      "Desserts":           ["Tart","Pudding","Donut","Eclair"],
+      "Savouries":          ["Puff","Quiche","Sandwich","Garlic Bread"],
+      "Beverages":          ["Coffee","Tea","Cold Coffee","Milkshake","Hot Chocolate"],
+    },
+    sizes: {
+      // Cakes are sold by weight, not portion size.
+      "default": ["0.5 kg","1 kg","1.5 kg","2 kg","3 kg"],
+    },
+  },
 };
 
-const COMMON_SIZES = ["XS","S","M","L","XL","XXL","28","30","32","34","36","38","Free Size"];
+// Cloud kitchens sell the same food as a café — same menu structure, no tables.
+INDUSTRIES.cloudkitchen = { ...INDUSTRIES.cafe, label: "Menu" };
 
 // ── Chip Row (horizontal scrollable chips) ────────────────────────────────────
 function ChipRow({ items, selected, onSelect, color }) {
@@ -161,89 +169,15 @@ function MultiPhotoPicker({ imageUrls = [], onAdd, onRemove, uploadingIdx }) {
 }
 
 
-// ── Education Form ────────────────────────────────────────────────────────────
-function EducationForm({ form, set }) {
-  const cfg = INDUSTRIES.education;
-  const subCats = cfg.subCategories[form.category] || [];
+// ── Menu Item Form ────────────────────────────────────────────────────────────
+// One form for all three business types — the categories, sub-categories and
+// portion sizes all come from `cfg`, so a bakery sees weights where a café sees
+// Half/Full.
+const DIET_OPTIONS = ["Veg", "Non-veg", "Egg", "Vegan"];
 
-  return (
-    <>
-      <Text style={styles.fieldLabel}>Subject *</Text>
-      <ChipRow items={cfg.categories} selected={form.category} onSelect={v => set("category", v)} color={cfg.color} />
-
-      {subCats.length > 0 && (
-        <>
-          <Text style={styles.fieldLabel}>Topic</Text>
-          <ChipRow items={subCats} selected={form.subCategory} onSelect={v => set("subCategory", v)} color={cfg.color} />
-        </>
-      )}
-
-      <Text style={styles.fieldLabel}>Course Name *</Text>
-      <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)} placeholder="e.g. Full Stack Web Development" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Course Fees (₹) *</Text>
-      <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="e.g. 4999" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Duration</Text>
-      <TextInput style={styles.input} value={form.duration} onChangeText={v => set("duration", v)} placeholder="e.g. 3 months / 12 sessions" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Batch Timing</Text>
-      <TextInput style={styles.input} value={form.batchTiming} onChangeText={v => set("batchTiming", v)} placeholder="e.g. Mon-Fri 6-7 PM" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Mode</Text>
-      <ChipRow items={["Online","Offline","Hybrid"]} selected={form.mode} onSelect={v => set("mode", v)} color={cfg.color} />
-
-      {(form.mode === "Online" || form.mode === "Hybrid") && (
-        <>
-          <Text style={styles.fieldLabel}>Online Class Link (Zoom / Meet / etc.)</Text>
-          <TextInput style={styles.input} value={form.classLink} onChangeText={v => set("classLink", v)}
-            placeholder="https://meet.google.com/..." placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none" keyboardType="url" />
-        </>
-      )}
-
-      <Text style={styles.fieldLabel}>What's Included</Text>
-      <TextInput
-        style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-        value={form.whatIncluded} onChangeText={v => set("whatIncluded", v)}
-        placeholder="e.g. Live sessions, recordings, certificate, doubt clearing…"
-        placeholderTextColor={Colors.textMuted} multiline
-      />
-
-      <Text style={styles.fieldLabel}>Description</Text>
-      <TextInput
-        style={[styles.input, { height: 70, textAlignVertical: "top" }]}
-        value={form.description} onChangeText={v => set("description", v)}
-        placeholder="Short description of the course…"
-        placeholderTextColor={Colors.textMuted} multiline
-      />
-    </>
-  );
-}
-
-// ── Product Form ──────────────────────────────────────────────────────────────
-// Categories that need size options and what sizes to show
-const CATEGORY_SIZES = {
-  "Clothing"         : ["XS","S","M","L","XL","XXL","XXXL"],
-  // Waist-size subcategories within Clothing
-  "_waist"           : ["28","30","32","34","36","38","40","42","Free Size"],
-};
-const WAIST_SUBCATS  = ["Jeans","Pants","Cargo","Shorts"];
-// Categories that need a Material/Fabric field
-const NEEDS_MATERIAL = new Set(["Clothing","Accessories","Home Decor","Sports"]);
-
-function ProductItemForm({ form, set }) {
-  const cfg     = INDUSTRIES.restaurant;
-  const subCats = cfg.subCategories[form.category] || [];
-
-  // Only Clothing gets size chips; waist sub-cats get waist sizes
-  const isClothing   = form.category === "Clothing";
-  const isWaistSubCat = isClothing && WAIST_SUBCATS.includes(form.subCategory);
-  const sizeOpts     = isClothing
-    ? (isWaistSubCat ? CATEGORY_SIZES["_waist"] : CATEGORY_SIZES["Clothing"])
-    : null; // null = hide size section
-
-  const showMaterial = NEEDS_MATERIAL.has(form.category);
+function MenuItemForm({ form, set, cfg }) {
+  const subCats  = cfg.subCategories[form.category] || [];
+  const sizeOpts = cfg.sizes?.default || [];
 
   const toggleSize = (s) => {
     const current = form.sizes || [];
@@ -257,73 +191,67 @@ function ProductItemForm({ form, set }) {
 
       {subCats.length > 0 && (
         <>
-          <Text style={styles.fieldLabel}>Type *</Text>
+          <Text style={styles.fieldLabel}>Type</Text>
           <ChipRow items={subCats} selected={form.subCategory} onSelect={v => set("subCategory", v)} color={cfg.color} />
         </>
       )}
 
-      <Text style={styles.fieldLabel}>Product Name *</Text>
-      <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)} placeholder={`e.g. ${form.subCategory || "Product"} name`} placeholderTextColor={Colors.textMuted} />
+      <Text style={styles.fieldLabel}>{cfg.itemLabel} Name *</Text>
+      <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)}
+        placeholder={`e.g. ${form.subCategory || cfg.itemLabel} name`} placeholderTextColor={Colors.textMuted} />
 
       <Text style={styles.fieldLabel}>Price (₹) *</Text>
-      <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="e.g. 1299" placeholderTextColor={Colors.textMuted} />
+      <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)}
+        keyboardType="numeric" placeholder="e.g. 180" placeholderTextColor={Colors.textMuted} />
 
-      {sizeOpts && (
+      {sizeOpts.length > 0 && (
         <>
-          <Text style={styles.fieldLabel}>Available Sizes</Text>
+          <Text style={styles.fieldLabel}>Portions / Sizes</Text>
           <ChipRow items={sizeOpts} selected={form.sizes || []} onSelect={toggleSize} color={cfg.color} />
         </>
       )}
 
-      <Text style={styles.fieldLabel}>Colors (comma-separated)</Text>
-      <TextInput style={styles.input} value={form.colors} onChangeText={v => set("colors", v)} placeholder="Red, Black, Navy Blue" placeholderTextColor={Colors.textMuted} />
+      <Text style={styles.fieldLabel}>Diet</Text>
+      <ChipRow items={DIET_OPTIONS} selected={form.diet} onSelect={v => set("diet", v)} color={cfg.color} />
 
-      {showMaterial && (
-        <>
-          <Text style={styles.fieldLabel}>Material / Fabric</Text>
-          <TextInput style={styles.input} value={form.material} onChangeText={v => set("material", v)} placeholder="e.g. Cotton, Silk, Denim" placeholderTextColor={Colors.textMuted} />
-        </>
-      )}
+      <Text style={styles.fieldLabel}>Prep time (minutes)</Text>
+      <Text style={styles.fieldHintSm}>
+        Used for the "ready in about N minutes" line in the customer's WhatsApp confirmation.
+      </Text>
+      <TextInput style={styles.input} value={form.prepMinutes} onChangeText={v => set("prepMinutes", v)}
+        keyboardType="numeric" placeholder="e.g. 8" placeholderTextColor={Colors.textMuted} />
 
-      <Text style={styles.fieldLabel}>Product Code / SKU</Text>
-      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
-        Internal code visible only to you (e.g. BLU-JNS-32). Shown in orders.
+      <Text style={styles.fieldLabel}>Item code</Text>
+      <Text style={styles.fieldHintSm}>
+        Internal code visible only to you. Shown on orders and the kitchen queue.
       </Text>
       <TextInput style={styles.input} value={form.productNumber} onChangeText={v => set("productNumber", v)}
-        placeholder="e.g. SHIRT-RED-L-001" placeholderTextColor={Colors.textMuted}
+        placeholder="e.g. CAP-REG-01" placeholderTextColor={Colors.textMuted}
         autoCapitalize="characters" autoCorrect={false} />
 
-      <Text style={styles.fieldLabel}>Stock Count</Text>
-      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
-        How many units in stock? Leave blank to not track. Shows low-stock alert when ≤ 5.
+      <Text style={styles.fieldLabel}>Stock count</Text>
+      <Text style={styles.fieldHintSm}>
+        Leave blank if you don't run out. Shows a low-stock alert at 5 or fewer.
       </Text>
       <TextInput style={styles.input} value={form.stockCount} onChangeText={v => set("stockCount", v)}
-        placeholder="e.g. 50 (leave blank = unlimited)" placeholderTextColor={Colors.textMuted}
+        placeholder="Leave blank = always available" placeholderTextColor={Colors.textMuted}
         keyboardType="numeric" />
-
-      <Text style={styles.fieldLabel}>Product Video URL</Text>
-      <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4 }}>
-        Paste a YouTube, Instagram Reel, or direct video link. Shown on your shop page.
-      </Text>
-      <TextInput style={styles.input} value={form.videoUrl} onChangeText={v => set("videoUrl", v)}
-        placeholder="https://youtube.com/..." placeholderTextColor={Colors.textMuted}
-        autoCapitalize="none" autoCorrect={false} keyboardType="url" />
 
       <Text style={styles.fieldLabel}>Description</Text>
       <TextInput
         style={[styles.input, { height: 70, textAlignVertical: "top" }]}
         value={form.description} onChangeText={v => set("description", v)}
-        placeholder="Short product description…"
+        placeholder="Short description shown on your menu page…"
         placeholderTextColor={Colors.textMuted} multiline
       />
 
-      {/* Premium toggle */}
+      {/* Signature-dish toggle */}
       <TouchableOpacity style={styles.premiumRow} onPress={() => set("isPremium", !form.isPremium)}>
         <View style={styles.premiumLeft}>
           <Text style={styles.premiumIcon}>👑</Text>
           <View>
-            <Text style={styles.premiumLabel}>Premium Product</Text>
-            <Text style={styles.premiumHint}>Shown first, highlighted in WhatsApp catalog</Text>
+            <Text style={styles.premiumLabel}>Signature {cfg.itemLabel.toLowerCase()}</Text>
+            <Text style={styles.premiumHint}>Shown first on the menu and in WhatsApp</Text>
           </View>
         </View>
         <Switch
@@ -337,64 +265,14 @@ function ProductItemForm({ form, set }) {
   );
 }
 
-// ── Tourism Form ──────────────────────────────────────────────────────────────
-function TourismForm({ form, set }) {
-  const cfg     = INDUSTRIES.tourism;
-  const subCats = cfg.subCategories[form.category] || [];
-
-  return (
-    <>
-      <Text style={styles.fieldLabel}>Package Type *</Text>
-      <ChipRow items={cfg.categories} selected={form.category} onSelect={v => { set("category", v); set("subCategory", ""); }} color={cfg.color} />
-
-      {subCats.length > 0 && (
-        <>
-          <Text style={styles.fieldLabel}>Destination</Text>
-          <ChipRow items={subCats} selected={form.subCategory} onSelect={v => set("subCategory", v)} color={cfg.color} />
-        </>
-      )}
-
-      <Text style={styles.fieldLabel}>Package Name *</Text>
-      <TextInput style={styles.input} value={form.name} onChangeText={v => set("name", v)} placeholder="e.g. Goa Weekend Getaway 3D/2N" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Price Per Person (₹) *</Text>
-      <TextInput style={styles.input} value={String(form.price)} onChangeText={v => set("price", v)} keyboardType="numeric" placeholder="e.g. 8999" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Duration</Text>
-      <TextInput style={styles.input} value={form.duration} onChangeText={v => set("duration", v)} placeholder="e.g. 3 Days / 2 Nights" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>Min Group Size</Text>
-      <TextInput style={styles.input} value={form.groupSize} onChangeText={v => set("groupSize", v)} keyboardType="numeric" placeholder="e.g. 2" placeholderTextColor={Colors.textMuted} />
-
-      <Text style={styles.fieldLabel}>What's Included</Text>
-      <TextInput
-        style={[styles.input, { height: 80, textAlignVertical: "top" }]}
-        value={form.inclusions} onChangeText={v => set("inclusions", v)}
-        placeholder="e.g. Hotel (3 star), Breakfast, Airport pickup, Sightseeing…"
-        placeholderTextColor={Colors.textMuted} multiline
-      />
-
-      <Text style={styles.fieldLabel}>Description</Text>
-      <TextInput
-        style={[styles.input, { height: 70, textAlignVertical: "top" }]}
-        value={form.description} onChangeText={v => set("description", v)}
-        placeholder="Short description of the package…"
-        placeholderTextColor={Colors.textMuted} multiline
-      />
-    </>
-  );
-}
-
 // ── Add / Edit Modal ──────────────────────────────────────────────────────────
 const BLANK = {
   name:"", price:"", category:"", subCategory:"", description:"",
   imageUrl:"", imageUrls:[],
-  sizes:[], colors:"", material:"", isPremium:false, inStock:true,
-  duration:"", batchTiming:"", mode:"Online", whatIncluded:"", classLink:"",
-  destination:"", groupSize:"", inclusions:"",
+  sizes:[], isPremium:false, inStock:true,
+  diet:"", prepMinutes:"",
   productNumber:"",
   stockCount: "",
-  videoUrl: "",
 };
 
 function toForm(p) {
@@ -408,21 +286,12 @@ function toForm(p) {
     imageUrl:     p.imageUrl    || "",
     imageUrls:    p.imageUrls   || (p.imageUrl ? [p.imageUrl] : []),
     sizes:        p.sizes       || [],
-    colors:       (p.colors || []).join(", "),
-    material:     p.material    || "",
     isPremium:    p.isPremium   || false,
     inStock:      p.inStock !== false,
-    duration:     ef.duration    || "",
-    batchTiming:  ef.batchTiming || "",
-    mode:         ef.mode        || "Online",
-    whatIncluded: ef.whatIncluded|| "",
-    classLink:    ef.classLink   || "",
-    destination:   ef.destination || p.subCategory || "",
-    groupSize:     String(ef.groupSize || ""),
-    inclusions:    ef.inclusions  || "",
+    diet:         ef.diet        || "",
+    prepMinutes:  String(ef.prepMinutes || ""),
     productNumber: p.productNumber || "",
     stockCount:   p.stockCount != null && p.stockCount >= 0 ? String(p.stockCount) : "",
-    videoUrl:     p.videoUrl     || "",
   };
 }
 
@@ -438,7 +307,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const cfg = INDUSTRIES[industry] || INDUSTRIES.restaurant;
+  const cfg = INDUSTRIES[typeConfig(industry).id] || INDUSTRIES.cafe;
 
   // Add or replace image at slot index
   const handlePhotoAdd = async (localUri, slotIndex) => {
@@ -467,20 +336,11 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
   };
 
   const buildPayload = () => {
+    // Food-specific attributes live in the catalog.extra_fields jsonb column.
     const extraFields = {};
-    if (industry === "education") {
-      if (form.duration)     extraFields.duration     = form.duration;
-      if (form.batchTiming)  extraFields.batchTiming  = form.batchTiming;
-      if (form.mode)         extraFields.mode         = form.mode;
-      if (form.whatIncluded) extraFields.whatIncluded = form.whatIncluded;
-      if (form.classLink)    extraFields.classLink    = form.classLink;
-    }
-    if (industry === "tourism") {
-      if (form.subCategory) extraFields.destination  = form.subCategory;
-      if (form.duration)    extraFields.duration     = form.duration;
-      if (form.groupSize)   extraFields.groupSize    = form.groupSize;
-      if (form.inclusions)  extraFields.inclusions   = form.inclusions;
-    }
+    if (form.diet)        extraFields.diet        = form.diet;
+    if (form.prepMinutes) extraFields.prepMinutes = Number(form.prepMinutes) || 0;
+
     const imageUrls = form.imageUrls && form.imageUrls.length > 0
       ? form.imageUrls
       : (form.imageUrl ? [form.imageUrl] : []);
@@ -493,20 +353,16 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       imageUrl    : imageUrls[0] || "",
       imageUrls,
       sizes       : Array.isArray(form.sizes) ? form.sizes : [],
-      colors      : form.colors ? form.colors.split(",").map(c => c.trim()).filter(Boolean) : [],
-      material    : form.material.trim(),
       isPremium     : !!form.isPremium,
       extraFields,
       inStock       : form.inStock,
       productNumber : (form.productNumber || "").trim().toUpperCase(),
       stockCount    : form.stockCount !== "" && !isNaN(Number(form.stockCount)) ? Number(form.stockCount) : -1,
-      videoUrl      : (form.videoUrl || "").trim(),
     };
   };
 
-  // Industry-aware validation labels
-  const nameLbl  = industry === "education" ? "course name" : industry === "tourism" ? "package name" : "product name";
-  const priceLbl = industry === "education" ? "course fees" : industry === "tourism" ? "package price" : "price";
+  const nameLbl  = `${cfg.itemLabel.toLowerCase()} name`;
+  const priceLbl = "price";
 
   const submit = async () => {
     if (!form.name.trim()) { Alert.alert("Required", `Please enter a ${nameLbl}.`); return; }
@@ -545,10 +401,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
               uploadingIdx={uploadingIdx}
             />
 
-            {/* Industry-specific form */}
-            {industry === "education" && <EducationForm form={form} set={set} />}
-            {industry === "product"   && <ProductItemForm form={form} set={set} />}
-            {industry === "tourism"   && <TourismForm form={form} set={set} />}
+            <MenuItemForm form={form} set={set} cfg={cfg} />
 
             {/* Stock toggle (edit only) */}
             {isEdit && (
@@ -578,7 +431,7 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
 
 // ── Product Card ──────────────────────────────────────────────────────────────
 function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
-  const cfg = INDUSTRIES[industry] || INDUSTRIES.restaurant;
+  const cfg = INDUSTRIES[typeConfig(industry).id] || INDUSTRIES.cafe;
   const ef  = p.extraFields || {};
   const inStock = p.inStock;
 
@@ -603,31 +456,15 @@ function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
           <Text style={styles.productPrice}>₹{(p.price || 0).toLocaleString("en-IN")}</Text>
         </View>
 
-        {/* Industry-specific info line */}
-        {industry === "education" && (
-          <Text style={styles.productMeta} numberOfLines={1}>
-            {[p.category, p.subCategory].filter(Boolean).join(" › ")}
-            {ef.duration ? `  ·  ⏱ ${ef.duration}` : ""}
-            {ef.mode     ? `  ·  ${ef.mode}` : ""}
-          </Text>
-        )}
-        {industry === "product" && (
-          <>
-            <Text style={styles.productMeta} numberOfLines={1}>
-              {[p.category, p.subCategory].filter(Boolean).join(" › ")}
-              {p.sizes?.length ? `  ·  📏 ${p.sizes.slice(0,4).join(", ")}` : ""}
-            </Text>
-            {p.productNumber ? (
-              <Text style={styles.productCode}>🏷 {p.productNumber}</Text>
-            ) : null}
-          </>
-        )}
-        {industry === "tourism" && (
-          <Text style={styles.productMeta} numberOfLines={1}>
-            {[p.category, p.subCategory || ef.destination].filter(Boolean).join(" › ")}
-            {ef.duration ? `  ·  ⏱ ${ef.duration}` : ""}
-          </Text>
-        )}
+        <Text style={styles.productMeta} numberOfLines={1}>
+          {[p.category, p.subCategory].filter(Boolean).join(" › ")}
+          {p.sizes?.length   ? `  ·  ${p.sizes.slice(0, 3).join(", ")}` : ""}
+          {ef.diet           ? `  ·  ${ef.diet === "Veg" ? "🟢" : ef.diet === "Non-veg" ? "🔴" : "🟡"} ${ef.diet}` : ""}
+          {ef.prepMinutes    ? `  ·  ⏱ ${ef.prepMinutes} min` : ""}
+        </Text>
+        {p.productNumber ? (
+          <Text style={styles.productCode}>🏷 {p.productNumber}</Text>
+        ) : null}
 
         {/* Stock count badge */}
         {p.stockCount != null && p.stockCount >= 0 && (
@@ -705,7 +542,7 @@ export default function CatalogScreen() {
     ]);
   };
 
-  const cfg      = INDUSTRIES[industry] || INDUSTRIES.restaurant;
+  const cfg      = INDUSTRIES[typeConfig(industry).id] || INDUSTRIES.cafe;
   const filtered = search.trim()
     ? products.filter(p =>
         p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -889,6 +726,7 @@ const styles = StyleSheet.create({
   modalTitle  : { color: Colors.textPrimary, fontSize: 20, fontWeight: "800" },
   closeBtn    : { color: Colors.textSecondary, fontSize: 20, padding: 4 },
   fieldLabel  : { color: Colors.textSecondary, fontSize: 12, fontWeight: "600", marginBottom: 6, marginTop: 12 },
+  fieldHintSm : { color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -4, lineHeight: 15 },
   input       : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border },
   submitBtn         : { backgroundColor: Colors.primary, borderRadius: 12, padding: 16, alignItems: "center", marginTop: 20 },
   submitBtnDisabled : { opacity: 0.6 },
