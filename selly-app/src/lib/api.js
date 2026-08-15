@@ -5,6 +5,9 @@
 
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+// Dev-only order store, shared with the guest ordering page at /customer.html.
+// No-ops outside a dev build running the login bypass.
+import { useFixtures, devFetchOrders, devFetchDashboard, patchDevOrder } from "./devStore";
 // saveBusinessSettings routes through the server (supabaseAdmin) — no direct import needed
 
 const DEFAULT_URL = "https://instagram-bot-production-04ae.up.railway.app";
@@ -52,6 +55,7 @@ async function client() {
 // Using the server ensures dashboard stats are computed from the same
 // supabaseAdmin query, so stats always match what appears in the list screens.
 export async function fetchDashboard() {
+  if (useFixtures()) return devFetchDashboard();
   try {
     const c = await client();
     // Fetch stats + recent 5 orders + customers in parallel
@@ -75,6 +79,7 @@ export async function fetchDashboard() {
 // This ensures orders created by the bot (with any business_id) are visible
 // as long as the phone number was registered with the correct business_id.
 export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
+  if (useFixtures()) return devFetchOrders({ status, page, limit });
   try {
     const c = await client();
     const params = { page, limit };
@@ -89,6 +94,10 @@ export async function fetchOrders({ status, page = 1, limit = 20 } = {}) {
 }
 
 export async function updateOrderStatus(orderId, status, extra = {}) {
+  if (useFixtures()) {
+    const order = await patchDevOrder(orderId, { status, ...extra });
+    return { ok: true, order };
+  }
   const c = await client();
   const r = await c.post(`/api/orders/${orderId}/status`, { status, ...extra });
   return r.data;

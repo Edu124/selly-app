@@ -19,7 +19,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
-import { typeConfig } from "../lib/businessTypes";
+import { typeConfig, STATUS_LABELS } from "../lib/businessTypes";
+import { subscribeDevOrders } from "../lib/devStore";
 import { fetchDashboard } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 
@@ -111,6 +112,20 @@ function Pill({ text, tone }) {
   );
 }
 
+// Status → pill colour on the open-orders panel.
+const PILL_TONE = {
+  pending_payment : "due",
+  confirmed       : "prep",
+  preparing       : "prep",
+  baking          : "prep",
+  ready           : "ready",
+  served          : "ready",
+  packed          : "ready",
+  out_for_delivery: "ready",
+  paid            : "paid",
+  delivered       : "paid",
+};
+
 function EmptyRow({ text, hint }) {
   return (
     <View style={styles.empty}>
@@ -181,7 +196,11 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => {
+    load();
+    // Live-update when the guest ordering page places an order in another tab.
+    return subscribeDevOrders(() => load(true));
+  }, []));
 
   if (loading && !data) {
     return (
@@ -198,15 +217,22 @@ export default function HomeScreen({ navigation }) {
   // order is settled at "paid", a bakery order at "delivered".
   const openOrd  = recent.filter(o => type.unpaid.includes(o.status));
   const paidOrd  = recent.filter(o => type.settled.includes(o.status));
+  // Money actually in the till, not lifetime revenue.
+  const settledRs = paidOrd.reduce((sum, o) => sum + (o.bill?.total || 0), 0);
   const today    = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
-  // Revenue trend — derived from real orders if timestamps exist, else flat.
+  // Cumulative revenue through the day, bucketed into two-hour slots.
+  // It reads `createdAt` and `bill.total` — the fields the order mapper actually
+  // emits. It previously read created_at/o.total, neither of which exist, so
+  // every order landed in the current bucket with a value of zero.
   const trend = (() => {
     const buckets = new Array(12).fill(0);
+    const today   = new Date().toDateString();
     recent.forEach(o => {
-      const t = new Date(o.created_at || o.createdAt || Date.now());
-      const h = Math.min(11, Math.floor(t.getHours() / 2));
-      buckets[h] += Number(o.total || o.amount || 0);
+      if (o.status === "pending_payment" || o.status === "cancelled") return;
+      const t = new Date(o.createdAt || Date.now());
+      if (t.toDateString() !== today) return;
+      buckets[Math.min(11, Math.floor(t.getHours() / 2))] += Number(o.bill?.total || 0);
     });
     let run = 0;
     return buckets.map(v => (run += v));
@@ -242,11 +268,11 @@ export default function HomeScreen({ navigation }) {
         <KpiCard icon="cash-outline"     tile="violet" label={L.kpi1}
                  value={inr(s.todayRevenue)} sub={`Total ${inr(s.totalRevenue)}`} />
         <KpiCard icon="receipt-outline"  tile="amber"  label={L.kpi2}
-                 value={s.pending || 0}      sub={`${s.confirmed || 0} confirmed`} />
+                 value={openOrd.length}      sub={`${s.confirmed || 0} confirmed`} />
         <KpiCard icon="cube-outline"     tile="blue"   label={L.kpi3}
-                 value={s.total || 0}        sub={`${s.delivered || 0} completed`} />
+                 value={s.total || 0}        sub={`${s.completed || 0} completed`} />
         <KpiCard icon="wallet-outline"   tile="green"  label={L.kpi4}
-                 value={inr(s.totalRevenue)} sub={`${paidOrd.length} settled`} />
+                 value={inr(settledRs)}      sub={`${paidOrd.length} settled`} />
       </View>
 
       <View style={twoCol ? styles.gridTwo : styles.gridOne}>
@@ -265,21 +291,23 @@ export default function HomeScreen({ navigation }) {
           {openOrd.length === 0 ? (
             <EmptyRow text="No open orders right now"
                       hint="New orders from WhatsApp appear here." />
-          ) : openOrd.map(o => (
-            <View key={o.id} style={styles.tr}>
-              <Text style={[styles.td, styles.tdStrong, { flex: 1 }]}>
-                {o.table_no || `#${String(o.id).slice(-4)}`}
-              </Text>
-              <Text style={[styles.td, { flex: 1 }]}>{(o.items?.length ?? 1)} item{(o.items?.length ?? 1) > 1 ? "s" : ""}</Text>
-              <Text style={[styles.td, { flex: 1.2 }]}>
-                {new Date(o.created_at || Date.now()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-              </Text>
-              <View style={{ width: 76, alignItems: "flex-end" }}>
-                <Pill text={o.status === "packed" ? "Ready" : "Preparing"}
-                      tone={o.status === "packed" ? "ready" : "prep"} />
+          ) : openOrd.map(o => {
+            const n = (o.cart || []).length;
+            return (
+              <View key={o.id} style={styles.tr}>
+                <Text style={[styles.td, styles.tdStrong, { flex: 1 }]}>
+                  {o.table_no || `#${String(o.id).slice(-4)}`}
+                </Text>
+                <Text style={[styles.td, { flex: 1 }]}>{n} item{n === 1 ? "" : "s"}</Text>
+                <Text style={[styles.td, { flex: 1.2 }]}>
+                  {new Date(o.createdAt || Date.now()).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+                <View style={{ width: 76, alignItems: "flex-end" }}>
+                  <Pill text={STATUS_LABELS[o.status] || o.status} tone={PILL_TONE[o.status] || "prep"} />
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </Panel>
 
         {/* Running dishes / ongoing classes — needsBackend: live kitchen status */}

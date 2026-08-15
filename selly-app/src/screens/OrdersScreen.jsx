@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext";
 import OrderRow from "../components/OrderRow";
 import StatusPill from "../components/StatusPill";
 import { typeConfig, STATUS_LABELS, ADVANCE_LABELS, nextStatus } from "../lib/businessTypes";
+import { subscribeDevOrders } from "../lib/devStore";
 
 // ── Per-type screen config ────────────────────────────────────────────────────
 // The status flow itself comes from businessTypes.js so the filter chips, the
@@ -77,9 +78,12 @@ export default function OrdersScreen({ navigation, route }) {
   };
 
   useFocusEffect(useCallback(() => {
-    // Reset filter to "all" when industry changes and reload
+    // Reset filter to "all" when the business type changes and reload
     setFilter("all");
     load(true);
+    // Live-update when the guest ordering page places an order in another tab.
+    // No-op outside the dev bypass.
+    return subscribeDevOrders(() => load(true));
   }, [industry]));
 
   const onRefresh = () => { setRefreshing(true); load(true); };

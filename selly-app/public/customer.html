@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selly — Table Ordering (Customer)</title>
+<!--
+  GUEST ORDERING PAGE
+  ===================
+  This is what the QR sticker on a cafe table opens. Same WhatsApp-style
+  interface as the pitch demos, but this one is wired to the real app.
+
+  It is served from Metro's public/ folder, so it sits on the SAME ORIGIN as
+  the Selly app (localhost:8081). That matters: on web, AsyncStorage is plain
+  localStorage keyed verbatim, so writing "@selly_dev_orders" here lands in
+  exactly what the app reads through fetchOrders(). The pitch demos each run on
+  their own port, which is a different origin, and their storage can never
+  reach the app.
+
+  In production this transport is Meta -> the Railway bot -> the orders table.
+  Only the transport is stood in for here; the order shape is the real one.
+-->
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0a12; --card:#14141f; --elev:#1a1a28; --line:#242437;
+    --tx:#f2f2f7; --tx2:#9a9ab4; --tx3:#63637d;
+    --wa:#25D366; --wa-dark:#128C7E; --violet:#7c5cff; --amber:#f5a524;
+  }
+  body{
+    background:var(--bg); color:var(--tx); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:18px 12px 30px;
+  }
+
+  .bar{width:100%;max-width:430px;margin-bottom:14px}
+  .bar h1{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .bar p{font-size:12px;color:var(--tx2);margin-top:4px;line-height:1.5}
+  .bar .tbl{color:var(--amber);font-weight:700}
+
+  /* phone */
+  .phone{
+    width:100%;max-width:430px;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;overflow:hidden;display:flex;flex-direction:column;height:640px;
+  }
+  .hd{display:flex;align-items:center;gap:10px;background:#1f2c34;padding:10px 12px}
+  .av{width:36px;height:36px;border-radius:50%;background:var(--wa-dark);display:grid;place-items:center;font-size:17px}
+  .hd b{font-size:14px;display:block}
+  .hd small{font-size:11px;color:#8fa3ad}
+  .tick{color:#53bdeb;font-size:11px}
+
+  .chat{
+    flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px;
+    background:#0b141a;
+  }
+  .day{align-self:center;background:#182229;color:#8fa3ad;font-size:10.5px;
+       padding:4px 11px;border-radius:8px;margin-bottom:4px}
+  .msg{max-width:82%;padding:8px 11px;border-radius:9px;font-size:13.5px;line-height:1.5;
+       white-space:pre-wrap;word-wrap:break-word;position:relative}
+  .in{align-self:flex-start;background:#202c33;border-top-left-radius:2px}
+  .out{align-self:flex-end;background:#005c4b;border-top-right-radius:2px}
+  .msg .t{font-size:10px;color:#8fa3ad;float:right;margin:6px 0 0 8px}
+  .msg b{font-weight:700}
+  .msg i{font-style:italic;color:#c5d0d6}
+  .lnk{color:#53bdeb;text-decoration:underline;cursor:pointer}
+  .typing{align-self:flex-start;background:#202c33;padding:11px 14px;border-radius:9px;display:flex;gap:4px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:#8fa3ad;display:block;
+            animation:bob 1.2s infinite}
+  .typing i:nth-child(2){animation-delay:.18s}
+  .typing i:nth-child(3){animation-delay:.36s}
+  @keyframes bob{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+  .chips{display:flex;gap:6px;padding:8px 10px;background:#111b21;overflow-x:auto;border-top:1px solid #1f2c34}
+  .chip{white-space:nowrap;background:#202c33;color:#53bdeb;border:1px solid #2a3942;
+        border-radius:16px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
+  .chip:hover{background:#2a3942}
+  .bottom{display:flex;gap:8px;padding:9px 10px;background:#111b21;align-items:center}
+  .bottom input{flex:1;background:#202c33;border:none;border-radius:20px;padding:10px 14px;
+                color:var(--tx);font-size:13.5px;outline:none}
+  .send{width:38px;height:38px;border-radius:50%;background:var(--wa);border:none;color:#fff;
+        font-size:16px;cursor:pointer;flex-shrink:0}
+
+  /* menu sheet */
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;
+         align-items:flex-end;justify-content:center;z-index:40}
+  .sheet.on{display:flex}
+  .sheetIn{width:100%;max-width:430px;background:var(--card);border-radius:18px 18px 0 0;
+           max-height:86vh;display:flex;flex-direction:column;border:1px solid var(--line)}
+  .sheetHd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;
+           align-items:center;justify-content:space-between}
+  .sheetHd b{font-size:15px}
+  .sheetHd small{display:block;color:var(--tx2);font-size:11.5px;margin-top:2px}
+  .x{background:none;border:none;color:var(--tx3);font-size:20px;cursor:pointer}
+  .cats{display:flex;gap:7px;padding:11px 16px;overflow-x:auto;border-bottom:1px solid var(--line)}
+  .cat{white-space:nowrap;background:var(--elev);border:1px solid var(--line);color:var(--tx2);
+       border-radius:16px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600}
+  .cat.on{background:rgba(124,92,255,.18);border-color:var(--violet);color:#b7a5ff}
+  .items{flex:1;overflow-y:auto;padding:8px 16px}
+  .item{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .item .em{font-size:22px;width:30px;text-align:center}
+  .item .nm{flex:1}
+  .item .nm b{display:block;font-size:13.5px;font-weight:600}
+  .item .nm small{color:var(--tx2);font-size:12px}
+  .add{background:rgba(37,211,102,.14);border:1px solid rgba(37,211,102,.4);color:var(--wa);
+       border-radius:8px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .qty{display:flex;align-items:center;gap:9px}
+  .qty button{width:26px;height:26px;border-radius:7px;background:var(--elev);
+              border:1px solid var(--line);color:var(--tx);font-size:15px;cursor:pointer}
+  .qty span{min-width:16px;text-align:center;font-weight:700;font-size:13px}
+  .foot{padding:13px 16px;border-top:1px solid var(--line);background:var(--elev)}
+  .foot .row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--tx2);margin-bottom:9px}
+  .foot .row b{color:var(--tx);font-size:15px}
+  .confirm{width:100%;background:var(--wa);border:none;color:#fff;border-radius:11px;
+           padding:13px;font-size:14px;font-weight:700;cursor:pointer}
+  .confirm:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  .note{max-width:430px;width:100%;margin-top:14px;background:var(--card);border:1px solid var(--line);
+        border-left:3px solid var(--violet);border-radius:10px;padding:11px 13px;
+        font-size:12px;color:var(--tx2);line-height:1.65}
+  .note b{color:var(--tx)}
+  .note code{background:var(--elev);padding:1px 5px;border-radius:4px;font-size:11px;color:#b7a5ff}
+  .note a{color:#9d87ff}
+
+  .toast{position:fixed;right:16px;bottom:16px;background:var(--card);border:1px solid var(--line);
+         border-left:3px solid var(--wa);border-radius:10px;padding:11px 14px;font-size:12.5px;
+         max-width:290px;box-shadow:0 8px 26px rgba(0,0,0,.5);z-index:60;line-height:1.5}
+  @media (max-width:520px){ .phone{height:74vh} .toast{left:16px;right:16px;max-width:none} }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>☕ Crumb &amp; Co. — order from your table</h1>
+  <p>This is what the QR on <span class="tbl" id="tblLabel">Table 7</span> opens. Place an order here,
+     then switch to the Selly app tab — it lands on the owner's Orders screen.</p>
+</div>
+
+<div class="phone">
+  <div class="hd">
+    <div class="av">🍽️</div>
+    <div style="flex:1">
+      <b>Crumb &amp; Co. <span class="tick">✔</span></b>
+      <small id="status">online</small>
+    </div>
+  </div>
+
+  <div class="chat" id="chat">
+    <div class="day" id="dayChip">Today · scanned QR at Table 7</div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+
+  <div class="bottom">
+    <input id="inp" placeholder="Type a message" autocomplete="off">
+    <button class="send" id="sendBtn">➤</button>
+  </div>
+</div>
+
+<div class="note">
+  <b>How this is wired.</b> The order is written in the same shape the WhatsApp bot
+  produces, into <code>@selly_dev_orders</code> — the store the app reads through
+  <code>fetchOrders()</code>. Open <a href="/" target="_blank">the Selly app</a> in another
+  tab and the order appears on <b>Orders</b> without a refresh.
+  In production the transport is Meta → the Railway bot → the <code>orders</code> table.
+</div>
+
+<!-- Menu sheet -->
+<div class="sheet" id="sheet">
+  <div class="sheetIn">
+    <div class="sheetHd">
+      <div>
+        <b>☕ Crumb &amp; Co.</b>
+        <small>Ordering for <span id="tblLabel2">Table 7</span> · no app, no login</small>
+      </div>
+      <button class="x" id="closeSheet">✕</button>
+    </div>
+    <div class="cats" id="cats"></div>
+    <div class="items" id="items"></div>
+    <div class="foot">
+      <div class="row"><span id="cartCount">0 items</span><b id="cartTotal">₹0</b></div>
+      <button class="confirm" id="confirmBtn" disabled>Confirm order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Table identity comes from the QR's query string ────────────────────────
+  var params  = new URLSearchParams(location.search);
+  var TABLE   = parseInt(params.get("t") || params.get("table") || "7", 10) || 7;
+  var BIZ     = "Crumb & Co.";
+  var STORAGE = "@selly_dev_orders";
+
+  document.getElementById("tblLabel").textContent  = "Table " + TABLE;
+  document.getElementById("tblLabel2").textContent = "Table " + TABLE;
+  document.getElementById("dayChip").textContent   = "Today · scanned QR at Table " + TABLE;
+
+  // ── Menu ───────────────────────────────────────────────────────────────────
+  var MENU = {
+    "Coffee": [
+      { id:"c1", name:"Cappuccino",        price:180, emoji:"☕" },
+      { id:"c2", name:"Cold Brew",         price:220, emoji:"🧊" },
+      { id:"c3", name:"Filter Coffee",     price:120, emoji:"☕" },
+      { id:"c4", name:"Hazelnut Latte",    price:240, emoji:"🥛" }
+    ],
+    "Bakery": [
+      { id:"b1", name:"Butter Croissant",  price:150, emoji:"🥐" },
+      { id:"b2", name:"Chocolate Brownie", price:180, emoji:"🍫" },
+      { id:"b3", name:"Blueberry Muffin",  price:160, emoji:"🧁" },
+      { id:"b4", name:"Cinnamon Roll",     price:170, emoji:"🌀" }
+    ],
+    "All-Day Breakfast": [
+      { id:"f1", name:"Avocado Toast",     price:320, emoji:"🥑" },
+      { id:"f2", name:"Masala Omelette",   price:260, emoji:"🍳" },
+      { id:"f3", name:"Pancake Stack",     price:290, emoji:"🥞" }
+    ]
+  };
+  var ALL = Object.keys(MENU).reduce(function (a, k) { return a.concat(MENU[k]); }, []);
+  var findItem = function (id) {
+    for (var i = 0; i < ALL.length; i++) if (ALL[i].id === id) return ALL[i];
+    return null;
+  };
+
+  var cart = {};                       // itemId -> qty
+  var activeCat = Object.keys(MENU)[0];
+  var guestName = "";
+
+  var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+  var now = function () {
+    return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  // ── Chat plumbing ──────────────────────────────────────────────────────────
+  var chat  = document.getElementById("chat");
+  var chips = document.getElementById("chips");
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function fmt(s) {
+    return esc(s)
+      .replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+      .replace(/_([^_\n]+)_/g, "<i>$1</i>")
+      .replace(/\{\{MENU\}\}/g,
+        '<span class="lnk" data-menu="1">selly.app/menu/crumbco?table=' + TABLE + "</span>");
+  }
+  function scroll() { chat.scrollTop = chat.scrollHeight; }
+
+  function addMsg(text, dir) {
+    var d = document.createElement("div");
+    d.className = "msg " + (dir === "out" ? "out" : "in");
+    d.innerHTML = fmt(text) + '<span class="t">' + now() + "</span>";
+    chat.appendChild(d);
+    scroll();
+    return d;
+  }
+
+  function botPush(text, newChips) {
+    var t = document.createElement("div");
+    t.className = "typing";
+    t.innerHTML = "<i></i><i></i><i></i>";
+    chat.appendChild(t);
+    scroll();
+    document.getElementById("status").textContent = "typing…";
+    setTimeout(function () {
+      t.remove();
+      document.getElementById("status").textContent = "online";
+      addMsg(text, "in");
+      if (newChips) setChips(newChips);
+    }, 850 + Math.random() * 350);
+  }
+
+  function setChips(list) {
+    chips.innerHTML = "";
+    list.forEach(function (c) {
+      var b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = c;
+      b.onclick = function () { userSend(c); };
+      chips.appendChild(b);
+    });
+  }
+
+  chat.addEventListener("click", function (e) {
+    if (e.target && e.target.dataset && e.target.dataset.menu) openSheet();
+  });
+
+  // ── Menu sheet ─────────────────────────────────────────────────────────────
+  var sheet = document.getElementById("sheet");
+  function openSheet()  { sheet.classList.add("on"); renderCats(); renderItems(); }
+  function closeSheet() { sheet.classList.remove("on"); }
+  document.getElementById("closeSheet").onclick = closeSheet;
+
+  function renderCats() {
+    var el = document.getElementById("cats");
+    el.innerHTML = "";
+    Object.keys(MENU).forEach(function (c) {
+      var b = document.createElement("button");
+      b.className = "cat" + (c === activeCat ? " on" : "");
+      b.textContent = c;
+      b.onclick = function () { activeCat = c; renderCats(); renderItems(); };
+      el.appendChild(b);
+    });
+  }
+
+  function renderItems() {
+    var el = document.getElementById("items");
+    el.innerHTML = "";
+    MENU[activeCat].forEach(function (it) {
+      var row = document.createElement("div");
+      row.className = "item";
+      var q = cart[it.id] || 0;
+      row.innerHTML =
+        '<div class="em">' + it.emoji + "</div>" +
+        '<div class="nm"><b>' + esc(it.name) + "</b><small>" + inr(it.price) + "</small></div>";
+      var right = document.createElement("div");
+      if (q > 0) {
+        right.className = "qty";
+        var minus = document.createElement("button"); minus.textContent = "−";
+        var span  = document.createElement("span");   span.textContent = q;
+        var plus  = document.createElement("button"); plus.textContent = "+";
+        minus.onclick = function () { setQty(it.id, q - 1); };
+        plus.onclick  = function () { setQty(it.id, q + 1); };
+        right.appendChild(minus); right.appendChild(span); right.appendChild(plus);
+      } else {
+        var add = document.createElement("button");
+        add.className = "add"; add.textContent = "Add";
+        add.onclick = function () { setQty(it.id, 1); };
+        right.appendChild(add);
+      }
+      row.appendChild(right);
+      el.appendChild(row);
+    });
+    renderCart();
+  }
+
+  function setQty(id, q) {
+    if (q <= 0) delete cart[id]; else cart[id] = q;
+    renderItems();
+  }
+
+  function cartLines() {
+    return Object.keys(cart).map(function (id) {
+      var it = findItem(id);
+      return { item: it, qty: cart[id], line: it.price * cart[id] };
+    });
+  }
+  function cartTotal() {
+    return cartLines().reduce(function (s, l) { return s + l.line; }, 0);
+  }
+
+  function renderCart() {
+    var lines = cartLines();
+    var count = lines.reduce(function (s, l) { return s + l.qty; }, 0);
+    document.getElementById("cartCount").textContent = count + (count === 1 ? " item" : " items");
+    document.getElementById("cartTotal").textContent = inr(cartTotal());
+    var btn = document.getElementById("confirmBtn");
+    btn.disabled = count === 0;
+    btn.textContent = count === 0 ? "Confirm order" : "Confirm order for Table " + TABLE;
+  }
+
+  // ── Writing the order ──────────────────────────────────────────────────────
+  // Shape matches supabase_data._toOrder() exactly, so the app's screens need
+  // no special-casing for orders that came from here.
+  function readOrders() {
+    try {
+      var raw = window.localStorage.getItem(STORAGE);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) { return []; }
+  }
+
+  function placeOrder() {
+    var lines = cartLines();
+    if (!lines.length) return;
+
+    var total = cartTotal();
+    var order = {
+      id            : String(Date.now()),
+      customerId    : null,
+      name          : guestName || ("Table " + TABLE),
+      cart          : lines.map(function (l) {
+        return { name: l.item.name, productNumber: l.item.id, size: null, qty: l.qty, price: l.item.price };
+      }),
+      address       : "",
+      mobile        : "",
+      bill          : { subtotal: total, discount: 0, delivery: 0, total: total },
+      payLink       : null,
+      paymentMode   : "counter",
+      status        : "confirmed",     // the bot creates orders already confirmed
+      statusDates   : {},
+      trackingNumber: null,
+      trackingUrl   : null,
+      source        : "whatsapp",
+      table_no      : TABLE,
+      order_kind    : "standard",
+      channel       : "qr",
+      extra         : {},
+      createdAt     : Date.now(),
+      updatedAt     : Date.now()
+    };
+
+    var all = readOrders();
+    all.push(order);
+    // Writing to localStorage fires a `storage` event in the app's tab, which is
+    // what makes the order appear there without a refresh.
+    window.localStorage.setItem(STORAGE, JSON.stringify(all));
+
+    cart = {};
+    closeSheet();
+
+    var itemText = order.cart.map(function (i) {
+      var it = findItem(i.productNumber);
+      return (it ? it.emoji + " " : "") + i.name + " ×" + i.qty + " — " + inr(i.price * i.qty);
+    }).join("\n");
+
+    botPush(
+      "✅ *Order confirmed — Table " + TABLE + "*\n\n" +
+      itemText + "\n\n" +
+      "💰 Total: *" + inr(total) + "* (pay at the end)\n" +
+      "⏱ Ready in about 8–10 minutes\n\n" +
+      "_We'll message you here when the kitchen starts on it._",
+      ["🧾 Bill please", "Order more", "🙋 Call server"]
+    );
+
+    toast("🧾 Order for Table " + TABLE + " — " + inr(total) +
+          ". Switch to the Selly app tab: it's on the Orders screen now.");
+  }
+  document.getElementById("confirmBtn").onclick = placeOrder;
+
+  // ── Bot router ─────────────────────────────────────────────────────────────
+  function userSend(text) {
+    var t = String(text || "").trim();
+    if (!t) return;
+    addMsg(t, "out");
+    document.getElementById("inp").value = "";
+    setTimeout(function () { reply(t); }, 400);
+  }
+
+  function reply(raw) {
+    var t = raw.toLowerCase();
+
+    if (/menu|order|eat|drink|coffee|hungry|card/.test(t)) {
+      botPush(
+        "📖 Here's our menu — tap to open and order right from your phone:\n\n{{MENU}}",
+        ["🧾 Bill please", "🙋 Call server"]
+      );
+      setTimeout(openSheet, 900);
+      return;
+    }
+
+    if (/bill|check|pay|invoice/.test(t)) {
+      var mine = readOrders().filter(function (o) {
+        return o.table_no === TABLE && o.status !== "paid";
+      });
+      if (!mine.length) {
+        botPush("🧾 No open order on Table " + TABLE + " yet. Tap the menu to order first:\n\n{{MENU}}",
+                ["📖 Menu"]);
+        return;
+      }
+      var sum = 0, lines = [];
+      mine.forEach(function (o) {
+        (o.cart || []).forEach(function (i) {
+          sum += i.price * i.qty;
+          lines.push(i.name + " ×" + i.qty + " — " + inr(i.price * i.qty));
+        });
+      });
+      botPush(
+        "🧾 *Bill — Table " + TABLE + "*\n\n" + lines.join("\n") +
+        "\n──────────────\n*Total: " + inr(sum) + "*\n\n" +
+        "💳 Pay by UPI: *crumbco@upi*\n" +
+        "Or just tell your server — they've been notified.\n\n_No waiting, no waving._ 🙂",
+        ["Order more", "🙋 Call server"]
+      );
+      return;
+    }
+
+    if (/server|waiter|help|water|napkin/.test(t)) {
+      botPush("🙋 Done — our server has been buzzed for *Table " + TABLE + "*. Someone will be with you in a moment.",
+              ["📖 Menu", "🧾 Bill please"]);
+      return;
+    }
+
+    if (/^\s*(hi|hello|hey|namaste)\b/.test(t)) {
+      botPush(greeting(), ["📖 Menu", "🧾 Bill please", "🙋 Call server"]);
+      return;
+    }
+
+    if (/thank|thanks|nice|great|lovely/.test(t)) {
+      botPush("So glad you're enjoying it! ☕ Come back soon — we'll remember your usual. 🙂",
+              ["📖 Menu", "🧾 Bill please"]);
+      return;
+    }
+
+    // Anything else that looks like a name, before an order exists
+    if (!guestName && /^[a-z\s]{2,20}$/i.test(raw.trim())) {
+      guestName = raw.trim().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+      botPush("Nice to meet you, *" + guestName + "*! 😊\n\nTap the menu whenever you're ready:\n\n{{MENU}}",
+              ["📖 Menu", "🧾 Bill please"]);
+      return;
+    }
+
+    botPush(
+      "🤖 I didn't catch that. At Table " + TABLE + " you can:\n\n" +
+      "📖 *menu* — browse & order\n" +
+      "🧾 *bill* — get your bill here\n" +
+      "🙋 *server* — call someone over",
+      ["📖 Menu", "🧾 Bill please", "🙋 Call server"]
+    );
+  }
+
+  function greeting() {
+    return "👋 *Welcome to " + BIZ + "!*\n\n" +
+      "You're seated at *Table " + TABLE + "* ☕\n\n" +
+      "No need to wait for a server — browse our menu and order right from your phone. " +
+      "Everything comes to your table.\n\n" +
+      "📖 Our menu:\n{{MENU}}";
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  var toastEl = null;
+  function toast(msg) {
+    if (toastEl) toastEl.remove();
+    toastEl = document.createElement("div");
+    toastEl.className = "toast";
+    toastEl.textContent = msg;
+    document.body.appendChild(toastEl);
+    setTimeout(function () { if (toastEl) { toastEl.remove(); toastEl = null; } }, 6000);
+  }
+
+  // ── Input wiring ───────────────────────────────────────────────────────────
+  document.getElementById("sendBtn").onclick = function () {
+    userSend(document.getElementById("inp").value);
+  };
+  document.getElementById("inp").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") userSend(this.value);
+  });
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  setChips(["📖 Menu", "🧾 Bill please", "🙋 Call server"]);
+  setTimeout(function () { botPush(greeting()); }, 600);
+})();
+</script>
+</body>
+</html>
