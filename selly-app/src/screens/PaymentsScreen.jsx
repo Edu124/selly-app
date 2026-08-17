@@ -68,7 +68,15 @@ export default function PaymentsScreen() {
   useFocusEffect(useCallback(() => { load(); }, []));
 
   /* ── helpers ──────────────────────────────────────────────────────────── */
-  const unitOf  = o => o.table_no ?? null;
+  // What identifies a bill differs by business: a café calls it by table, a
+  // bakery by pickup slot, a cloud kitchen by order number — it has no table, so
+  // reading table_no there only ever produced a dash.
+  const unitOf = (o) => {
+    if (!o) return null;
+    if (type.id === "cafe")   return o.table_no ?? null;
+    if (type.id === "bakery") return o.extra?.due || null;
+    return o.id ? `#${String(o.id).slice(-5)}` : null;
+  };
   const itemsOf = o => Array.isArray(o.cart) ? o.cart : [];
   // `bill` is a jsonb object ({subtotal, discount, delivery, total}). Reading it
   // as a number always yielded NaN, so this silently fell through to summing the
@@ -179,7 +187,12 @@ export default function PaymentsScreen() {
               <View style={styles.cardTop}>
                 <View style={styles.unitBox}>
                   <Text style={styles.unitLbl}>{unitWord.toUpperCase()}</Text>
-                  <Text style={styles.unitNo}>{unit || "—"}</Text>
+                  <Text
+                    style={[styles.unitNo, String(unit || "").length > 4 && styles.unitNoSm]}
+                    numberOfLines={2}
+                  >
+                    {unit || "—"}
+                  </Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.custName}>{o.name || cust?.name || "Guest"}</Text>
@@ -220,7 +233,7 @@ export default function PaymentsScreen() {
           <View style={styles.mdSheet}>
             <View style={styles.mdHead}>
               <Text style={styles.mdTitle}>
-                Bill preview{unitOf(sheet || {}) ? ` · ${unitWord} ${unitOf(sheet)}` : ""}
+                Bill preview{unitOf(sheet) ? ` · ${unitWord} ${unitOf(sheet)}` : ""}
               </Text>
               <TouchableOpacity onPress={() => setSheet(null)}>
                 <Ionicons name="close" size={20} color={Colors.textMuted} />
@@ -284,7 +297,9 @@ const styles = StyleSheet.create({
   cardTop : { flexDirection: "row", alignItems: "center", gap: 11 },
   unitBox : { width: 52, backgroundColor: Colors.bgElevated, borderRadius: 10, paddingVertical: 7, alignItems: "center" },
   unitLbl : { color: Colors.textMuted, fontSize: 8, letterSpacing: 0.8, fontWeight: "700" },
-  unitNo  : { color: Colors.textPrimary, fontSize: 17, fontWeight: "800", lineHeight: 21 },
+  unitNo  : { color: Colors.textPrimary, fontSize: 17, fontWeight: "800", lineHeight: 21, textAlign: "center" },
+  // Slot names and order numbers don't fit at table-number size.
+  unitNoSm: { fontSize: 11, lineHeight: 14, paddingHorizontal: 3 },
   custName: { color: Colors.textPrimary, fontSize: 14, fontWeight: "700" },
   itemsLine: { color: Colors.textSecondary, fontSize: 11.5, marginTop: 2, lineHeight: 16 },
   warnLine: { color: Colors.yellow, fontSize: 10.5, marginTop: 3 },

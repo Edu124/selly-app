@@ -19,9 +19,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFixtures, FX_ORDERS } from "./devFixtures";
+import { useFixtures, FX_ORDERS, FX_DELIVERY_ORDERS, FX_CAKE_ORDERS } from "./devFixtures";
 
 export const DEV_ORDERS_KEY = "@selly_dev_orders";
+// The chosen business type, persisted so a reload doesn't send you back through
+// the setup screen — and so the seed below knows which demo data to lay down.
+export const DEV_INDUSTRY_KEY = "@selly_dev_industry";
 // Trading state, read by the guest ordering page so it can refuse politely when
 // the kitchen is shut.
 export const DEV_STORE_CONFIG_KEY = "@selly_dev_store_config";
@@ -32,26 +35,45 @@ const isWeb = typeof window !== "undefined" && !!window.localStorage;
 // fires in *other* tabs, which is the case we care about but not the only one.
 const SAME_TAB_EVENT = "selly-dev-orders-changed";
 
-// Café orders only. The cake fixtures are deliberately left out: they'd show up
-// on a café owner's board as "Red Velvet · 1 kg · Eggless", which is confusing.
-// Phase 5 seeds them alongside the rewritten cake screens.
-function seed() {
+/** The persisted business type, or null before setup has run. */
+export async function getDevIndustry() {
+  try {
+    return await AsyncStorage.getItem(DEV_INDUSTRY_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function setDevIndustry(industry) {
+  try {
+    if (industry) await AsyncStorage.setItem(DEV_INDUSTRY_KEY, String(industry));
+    else          await AsyncStorage.removeItem(DEV_INDUSTRY_KEY);
+  } catch { /* preview convenience only — never worth surfacing */ }
+}
+
+// Seed data has to match the business type. A cloud kitchen has no tables, so
+// seeding it with café orders showed a table number on every order — orders that
+// were never eaten in. Bakery gets cake orders for the same reason.
+function seedFor(industry) {
+  if (industry === "cloudkitchen") return [...FX_DELIVERY_ORDERS];
+  if (industry === "bakery")       return [...FX_CAKE_ORDERS];
   return [...FX_ORDERS];
 }
 
-/** All orders, newest first. Seeds fixtures on first read. */
+/** All orders, newest first. Seeds type-appropriate fixtures on first read. */
 export async function getDevOrders() {
   try {
     const raw = await AsyncStorage.getItem(DEV_ORDERS_KEY);
     if (raw == null) {
-      const s = seed();
+      const s = seedFor(await getDevIndustry());
       await AsyncStorage.setItem(DEV_ORDERS_KEY, JSON.stringify(s));
       return sortNewest(s);
     }
     const parsed = JSON.parse(raw);
-    return sortNewest(Array.isArray(parsed) ? parsed : seed());
+    if (!Array.isArray(parsed)) return sortNewest(seedFor(await getDevIndustry()));
+    return sortNewest(parsed);
   } catch {
-    return sortNewest(seed());
+    return sortNewest(FX_ORDERS);
   }
 }
 
@@ -76,9 +98,13 @@ export async function patchDevOrder(orderId, changes) {
   return updated.find(o => String(o.id) === String(orderId)) || null;
 }
 
-/** Wipe back to the seeded fixtures. */
-export async function resetDevOrders() {
-  await writeAll(seed());
+/**
+ * Wipe back to the fixtures for a business type. Called when the type changes,
+ * because switching from a café to a cloud kitchen is a different scenario, not
+ * the same orders relabelled.
+ */
+export async function resetDevOrders(industry) {
+  await writeAll(seedFor(industry ?? (await getDevIndustry())));
 }
 
 /**

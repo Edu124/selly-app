@@ -15,6 +15,7 @@ import { supabase } from "../lib/supabase";
 import { fetchSubscription, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import { normalizeBusinessType } from "../lib/businessTypes";
+import { useFixtures, getDevIndustry, setDevIndustry, resetDevOrders } from "../lib/devStore";
 
 const AuthContext = createContext(null);
 
@@ -53,9 +54,9 @@ export function AuthProvider({ children }) {
           trial_days_left: 14,
           whatsapp_number: "+91 98765 43210",
         });
-        // null → business-type setup screen. Set "cafe", "bakery" or
-        // "cloudkitchen" here to skip straight into that layout while working.
-        setIndustry(null);
+        // Remember the business type across reloads so previewing doesn't mean
+        // re-picking it every time. First run still lands on setup.
+        setIndustry(normalizeBusinessType(await getDevIndustry()));
         setLoading(false);
         return;
       }
@@ -158,7 +159,19 @@ export function AuthProvider({ children }) {
   // ── Update business type (from BusinessTypeSetupScreen / Settings) ────────
   async function updateIndustry(industryId) {
     const next = normalizeBusinessType(industryId);
+    const changed = next !== industry;
     setIndustry(next); // Optimistic — the sidebar switches immediately
+
+    if (useFixtures()) {
+      // Preview only: persist the choice, and lay down that type's demo data.
+      // Switching from a café to a cloud kitchen is a different scenario, not the
+      // same orders relabelled — café orders carry table numbers a cloud kitchen
+      // has no use for.
+      await setDevIndustry(next);
+      if (changed) await resetDevOrders(next);
+      return { ok: true };
+    }
+
     try {
       await saveBusinessSettings({ industry: next });
       return { ok: true };

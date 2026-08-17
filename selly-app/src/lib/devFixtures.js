@@ -96,6 +96,70 @@ export const FX_ORDERS = [
   },
 ];
 
+// ── Cloud kitchen ─────────────────────────────────────────────────────────────
+// Delivery orders: an address, no table, and channel "web". A cloud kitchen has
+// no tables, so seeding it with the café orders above would show table numbers
+// for orders that were never eaten in. Menu matches public/order.html so the
+// owner screens and the ordering page tell one story.
+
+export const FX_DELIVERY_ORDERS = [
+  {
+    id: "1755003001", customerId: "d1", name: "Priya Nair", mobile: "+919820011223",
+    cart: [
+      { name: "Butter Chicken",       productNumber: "m1", size: null, qty: 1, price: 320 },
+      { name: "Butter Naan",          productNumber: "b1", size: null, qty: 3, price: 45  },
+    ],
+    bill: { subtotal: 455, discount: 0, delivery: 49, total: 504 },
+    address: "Flat 402, Sunrise Apartments, Baner Road, near D-Mart",
+    payLink: null, paymentMode: "cod", status: "preparing",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "standard",
+    extra: { note: "less spicy please" },
+    createdAt: minsAgo(12), updatedAt: minsAgo(6),
+  },
+  {
+    id: "1755003002", customerId: "d2", name: "Arjun Mehta", mobile: "+919820044556",
+    cart: [
+      { name: "Chicken Biryani",      productNumber: "m4", size: null, qty: 2, price: 280 },
+      { name: "Jeera Rice",           productNumber: "b3", size: null, qty: 1, price: 120 },
+    ],
+    bill: { subtotal: 680, discount: 0, delivery: 0, total: 680 },
+    address: "3rd floor, Nucleus Mall office block, Camp",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "standard",
+    extra: {},
+    createdAt: minsAgo(4), updatedAt: minsAgo(4),
+  },
+  {
+    id: "1755003003", customerId: "d3", name: "Fatima Shaikh", mobile: "+919820077889",
+    cart: [
+      { name: "Veg Thali",            productNumber: "t1", size: null, qty: 2, price: 180 },
+    ],
+    bill: { subtotal: 360, discount: 0, delivery: 49, total: 409 },
+    address: "Shop 7, Kalyani Nagar market lane",
+    payLink: null, paymentMode: "cod", status: "out_for_delivery",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "whatsapp", channel: "whatsapp", table_no: null, order_kind: "standard",
+    extra: {},
+    createdAt: minsAgo(38), updatedAt: minsAgo(3),
+  },
+  {
+    id: "1755003004", customerId: "d4", name: "Rohit Kulkarni", mobile: "+919820022110",
+    cart: [
+      { name: "Paneer Butter Masala", productNumber: "m2", size: null, qty: 1, price: 260 },
+      { name: "Tandoori Roti",        productNumber: "b2", size: null, qty: 4, price: 25  },
+    ],
+    bill: { subtotal: 360, discount: 0, delivery: 49, total: 409 },
+    address: "B-12, Sai Residency, Wakad",
+    payLink: null, paymentMode: "upi", status: "delivered",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "standard",
+    extra: {},
+    createdAt: hoursAgo(2), updatedAt: hoursAgo(1),
+  },
+];
+
 // ── Bakery ────────────────────────────────────────────────────────────────────
 
 export const FX_CAKE_CONFIG = {
