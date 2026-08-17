@@ -174,9 +174,23 @@ export async function deleteDevProduct(id) {
 }
 
 // ── Customers ─────────────────────────────────────────────────────────────────
+// The ordering page appends whoever orders, because sendMessageToCustomer resolves
+// a bot_customers id — not a phone number. Without the customer being saved, an
+// order placed from the web can never be notified, which is exactly what the real
+// bot does when it creates a customer on first contact.
+
+export const DEV_CUSTOMERS_KEY = "@selly_dev_customers";
 
 export async function getDevCustomers() {
-  return [...FX_CUSTOMERS];
+  try {
+    const raw   = await AsyncStorage.getItem(DEV_CUSTOMERS_KEY);
+    const added = raw ? JSON.parse(raw) : [];
+    const extra = Array.isArray(added) ? added : [];
+    // Web arrivals first — they're the ones the owner is dealing with right now.
+    return [...extra, ...FX_CUSTOMERS];
+  } catch {
+    return [...FX_CUSTOMERS];
+  }
 }
 
 // ── Outbox ────────────────────────────────────────────────────────────────────
