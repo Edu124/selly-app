@@ -8,7 +8,7 @@
   CONSUMER ORDERING — WhatsApp chat
   =================================
   One number a diner messages. It recommends nearby cloud kitchens, takes the
-  order for the one that's on Selly, and then shows the kitchen's own status
+  order for whichever one they pick, and then shows that kitchen's own status
   updates arriving in the same thread.
 
   That last part is the real loop, not a mock: when the owner taps "Start
@@ -190,41 +190,38 @@
   var AREA = "Baner";
 
   // ── Nearby cloud kitchens ──────────────────────────────────────────────────
-  // `onSelly` marks the one whose owner is running the app. Ordering happens in
-  // chat for that kitchen; for the rest we hand over a phone number rather than
-  // pretend we can place an order we can't.
+  // Every kitchen here can be ordered from. Each has its own menu below.
   var KITCHENS = [
     { id:"k1", name:"Ghar Ka Khana", emoji:"🍲", cuisine:"Home-style North Indian",
       dist:1.2, eta:30, rating:4.6, reviews:840, phone:"+91 98765 43210",
       dishes:["thali","paneer","dal","roti","biryani","noodles"],
       signature:"Ghar Ki Dal + 4 Roti Thali", price:"₹180",
-      why:"Reviewers keep saying the dal tastes like home — not restaurant food",
-      onSelly:true },
+      why:"Reviewers keep saying the dal tastes like home — not restaurant food" },
     { id:"k2", name:"Biryani Adda", emoji:"🍚", cuisine:"Hyderabadi",
       dist:2.1, eta:40, rating:4.4, reviews:2100, phone:"+91 98220 33447",
       dishes:["biryani","kebab"],
       signature:"Dum Biryani (boneless)", price:"₹280",
-      why:"2,100 reviews and the biryani is still what people mention",
-      onSelly:false },
+      why:"2,100 reviews and the biryani is still what people mention" },
     { id:"k3", name:"Wok Box", emoji:"🍜", cuisine:"Indo-Chinese",
       dist:1.8, eta:35, rating:4.3, reviews:520,  phone:"+91 98220 55661",
       dishes:["noodles","momos","fried rice","manchurian"],
       signature:"Burnt Garlic Hakka Noodles", price:"₹210",
-      why:"Reviewers single out the burnt garlic — not a generic Chinese menu",
-      onSelly:false },
+      why:"Reviewers single out the burnt garlic — not a generic Chinese menu" },
     { id:"k4", name:"Green Bowl", emoji:"🥗", cuisine:"Salads & bowls",
       dist:3.1, eta:40, rating:4.5, reviews:310,  phone:"+91 98220 66772",
       dishes:["salad","bowl","paneer"],
       signature:"Peanut Chicken Bowl", price:"₹290",
-      why:"The only place nearby that portions a salad like a meal",
-      onSelly:false },
+      why:"The only place nearby that portions a salad like a meal" },
     { id:"k5", name:"Punjabi Tadka", emoji:"🍛", cuisine:"Punjabi",
       dist:2.6, eta:45, rating:4.2, reviews:610,  phone:"+91 98220 22110",
       dishes:["thali","paneer","roti","dal"],
       signature:"Unlimited Punjabi Thali", price:"₹260",
-      why:"Unlimited and still generous — regulars go for the chole",
-      onSelly:false }
+      why:"Unlimited and still generous — regulars go for the chole" }
   ];
+  function kitchenById(id) {
+    for (var i = 0; i < KITCHENS.length; i++) if (KITCHENS[i].id === id) return KITCHENS[i];
+    return KITCHENS[0];
+  }
 
   // Areas we cover. Anything else gets an honest refusal, not a wrong answer.
   var COVERED = ["baner", "balewadi", "wakad", "aundh", "pashan"];
@@ -246,38 +243,134 @@
     paneer:"पनीर", dal:"दाल", salad:"सलाद", kebab:"कबाब", roti:"रोटी"
   };
 
-  // ── Menu of the Selly kitchen ──────────────────────────────────────────────
-  var MENU = {
-    "Thalis": [
-      { id:"t1", name:"Veg Thali",            price:180, emoji:"🍛", diet:"veg" },
-      { id:"t2", name:"Non-veg Thali",        price:240, emoji:"🍗", diet:"nonveg" },
-      { id:"t3", name:"Mini Thali",           price:130, emoji:"🥗", diet:"veg" }
-    ],
-    "Main Course": [
-      { id:"m1", name:"Butter Chicken",       price:320, emoji:"🍗", diet:"nonveg" },
-      { id:"m2", name:"Paneer Butter Masala", price:260, emoji:"🧀", diet:"veg" },
-      { id:"m3", name:"Dal Tadka",            price:160, emoji:"🍲", diet:"veg" },
-      { id:"m4", name:"Chicken Biryani",      price:280, emoji:"🍚", diet:"nonveg" }
-    ],
-    "Breads & Rice": [
-      { id:"b1", name:"Butter Naan",          price:45,  emoji:"🫓", diet:"veg" },
-      { id:"b2", name:"Tandoori Roti",        price:25,  emoji:"🫓", diet:"veg" },
-      { id:"b3", name:"Jeera Rice",           price:120, emoji:"🍚", diet:"veg" }
-    ]
+  // ── Menus, one per kitchen ─────────────────────────────────────────────────
+  // Ghar Ka Khana's ids match FX_CATALOG, so the owner's sold-out list applies to
+  // it. The others are their own kitchens with their own food.
+  var MENUS = {
+    k1: {
+      "Thalis": [
+        { id:"t1", name:"Veg Thali",            price:180, emoji:"🍛", diet:"veg" },
+        { id:"t2", name:"Non-veg Thali",        price:240, emoji:"🍗", diet:"nonveg" },
+        { id:"t3", name:"Mini Thali",           price:130, emoji:"🥗", diet:"veg" }
+      ],
+      "Main Course": [
+        { id:"m1", name:"Butter Chicken",       price:320, emoji:"🍗", diet:"nonveg" },
+        { id:"m2", name:"Paneer Butter Masala", price:260, emoji:"🧀", diet:"veg" },
+        { id:"m3", name:"Dal Tadka",            price:160, emoji:"🍲", diet:"veg" },
+        { id:"m4", name:"Chicken Biryani",      price:280, emoji:"🍚", diet:"nonveg" }
+      ],
+      "Breads & Rice": [
+        { id:"b1", name:"Butter Naan",          price:45,  emoji:"🫓", diet:"veg" },
+        { id:"b2", name:"Tandoori Roti",        price:25,  emoji:"🫓", diet:"veg" },
+        { id:"b3", name:"Jeera Rice",           price:120, emoji:"🍚", diet:"veg" }
+      ]
+    },
+    k2: {
+      "Biryani": [
+        { id:"k2a", name:"Dum Biryani (boneless)", price:280, emoji:"🍚", diet:"nonveg" },
+        { id:"k2b", name:"Mutton Dum Biryani",     price:360, emoji:"🍖", diet:"nonveg" },
+        { id:"k2c", name:"Veg Dum Biryani",        price:220, emoji:"🍚", diet:"veg" },
+        { id:"k2d", name:"Egg Biryani",            price:240, emoji:"🥚", diet:"egg" }
+      ],
+      "Kebabs": [
+        { id:"k2e", name:"Chicken Seekh Kebab",    price:260, emoji:"🍢", diet:"nonveg" },
+        { id:"k2f", name:"Paneer Tikka",           price:230, emoji:"🧀", diet:"veg" }
+      ],
+      "Sides": [
+        { id:"k2g", name:"Mirchi ka Salan",        price:70,  emoji:"🌶️", diet:"veg" },
+        { id:"k2h", name:"Raita",                  price:50,  emoji:"🥛", diet:"veg" }
+      ]
+    },
+    k3: {
+      "Noodles": [
+        { id:"k3a", name:"Burnt Garlic Hakka Noodles", price:210, emoji:"🍜", diet:"veg" },
+        { id:"k3b", name:"Chicken Chowmein",           price:250, emoji:"🍜", diet:"nonveg" },
+        { id:"k3c", name:"Schezwan Noodles",           price:220, emoji:"🌶️", diet:"veg" }
+      ],
+      "Momos & Starters": [
+        { id:"k3d", name:"Steamed Veg Momos (8)",      price:150, emoji:"🥟", diet:"veg" },
+        { id:"k3e", name:"Chicken Momos (8)",          price:180, emoji:"🥟", diet:"nonveg" },
+        { id:"k3f", name:"Paneer Chilli",              price:240, emoji:"🧀", diet:"veg" }
+      ],
+      "Rice": [
+        { id:"k3g", name:"Burnt Garlic Fried Rice",    price:200, emoji:"🍚", diet:"veg" },
+        { id:"k3h", name:"Chicken Fried Rice",         price:240, emoji:"🍚", diet:"nonveg" }
+      ]
+    },
+    k4: {
+      "Bowls": [
+        { id:"k4a", name:"Peanut Chicken Bowl",   price:290, emoji:"🥗", diet:"nonveg" },
+        { id:"k4b", name:"Falafel Hummus Bowl",   price:260, emoji:"🥙", diet:"veg" },
+        { id:"k4c", name:"Paneer Quinoa Bowl",    price:270, emoji:"🧀", diet:"veg" }
+      ],
+      "Salads": [
+        { id:"k4d", name:"Caesar Salad",          price:230, emoji:"🥬", diet:"veg" },
+        { id:"k4e", name:"Sprout & Corn Chaat",   price:170, emoji:"🌽", diet:"veg" }
+      ],
+      "Drinks": [
+        { id:"k4f", name:"Cold Pressed Orange",   price:120, emoji:"🍊", diet:"veg" },
+        { id:"k4g", name:"Buttermilk",            price:70,  emoji:"🥛", diet:"veg" }
+      ]
+    },
+    k5: {
+      "Thalis": [
+        { id:"k5a", name:"Unlimited Punjabi Thali", price:260, emoji:"🍛", diet:"veg" },
+        { id:"k5b", name:"Chole Bhature",           price:180, emoji:"🍜", diet:"veg" }
+      ],
+      "Main Course": [
+        { id:"k5c", name:"Shahi Paneer",            price:270, emoji:"🧀", diet:"veg" },
+        { id:"k5d", name:"Dal Makhani",             price:220, emoji:"🍲", diet:"veg" },
+        { id:"k5e", name:"Amritsari Kulcha",        price:120, emoji:"🫓", diet:"veg" }
+      ],
+      "Breads": [
+        { id:"k5f", name:"Tandoori Roti",           price:25,  emoji:"🫓", diet:"veg" },
+        { id:"k5g", name:"Butter Naan",             price:45,  emoji:"🫓", diet:"veg" }
+      ]
+    }
   };
-  var ALL = Object.keys(MENU).reduce(function (a, k) { return a.concat(MENU[k]); }, []);
+
+  function menuOf(kid)  { return MENUS[kid] || MENUS.k1; }
+  function allItems(kid) {
+    var m = menuOf(kid);
+    return Object.keys(m).reduce(function (a, k) { return a.concat(m[k]); }, []);
+  }
   function findItem(id) {
-    for (var i = 0; i < ALL.length; i++) if (ALL[i].id === id) return ALL[i];
+    var list = allItems(activeKitchenId);
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
     return null;
   }
 
   // ── State ──────────────────────────────────────────────────────────────────
-  var cart = {}, activeCat = Object.keys(MENU)[0];
+  var SESSION_KEY = "@selly_web_session";
+
+  var activeKitchenId = "k1";
+  var cart = {}, activeCat = Object.keys(menuOf("k1"))[0];
   var haveLocation = false, storeOpen = true, lastList = [];
   var flow  = { state: "idle" };            // idle | name | phone | address
   var guest = { name: "", phone: "", address: "", id: null };
   var myOrderIds = [];
   var seenOutbox = {};
+
+  // Identity has to survive a reload. It used to live only in memory, so
+  // refreshing the page silently stopped every kitchen update from arriving —
+  // pollOutbox had no id to match against and quietly returned.
+  function saveSession() {
+    try {
+      window.localStorage.setItem(SESSION_KEY, JSON.stringify({
+        guest: guest, myOrderIds: myOrderIds, haveLocation: haveLocation,
+      }));
+    } catch (e) { /* preview convenience only */ }
+  }
+  function loadSession() {
+    try {
+      var s = JSON.parse(window.localStorage.getItem(SESSION_KEY) || "null");
+      if (!s) return false;
+      guest        = s.guest || guest;
+      myOrderIds   = s.myOrderIds || [];
+      haveLocation = !!s.haveLocation;
+      return !!(guest && guest.id);
+    } catch (e) { return false; }
+  }
 
   var chat  = document.getElementById("chat");
   var chips = document.getElementById("chips");
@@ -371,7 +464,7 @@
     storeOpen = accepting && inHours;
     if (was && !storeOpen) {
       botPush(
-        "😔 *" + KITCHENS[0].name + " just stopped taking orders.*\n\n" +
+        "😔 *" + kitchenById(activeKitchenId).name + " just stopped taking orders.*\n\n" +
         ((cfg && cfg.closedMessage) ? cfg.closedMessage + "\n\n" : "") +
         "I'll let you know the moment they're back on.",
         ["Show me kitchens again"]
@@ -385,7 +478,9 @@
   function applyAvailability() {
     var byId = {};
     readJSON(CATALOG_KEY, []).forEach(function (p) { byId[p.id] = p; });
-    ALL.forEach(function (it) {
+    // Only the kitchen whose ids match the owner's catalog has a sold-out list;
+    // the others are separate kitchens and everything on them stays available.
+    allItems(activeKitchenId).forEach(function (it) {
       var p = byId[it.id];
       it.out = p ? p.inStock === false : false;
       if (it.out && cart[it.id]) delete cart[it.id];
@@ -401,17 +496,32 @@
   // ── Kitchen updates arriving in the thread ─────────────────────────────────
   // The owner advancing an order writes to the outbox. Rendering it here is what
   // makes this a two-way thread instead of a form with a receipt.
-  function pollOutbox() {
+  //
+  // Three delivery paths on purpose, because none of them is reliable alone:
+  //   • the storage event — instant, and fires even while this tab is hidden,
+  //     which is the normal case since the owner is working in the other tab;
+  //   • an interval — the fallback, but browsers throttle timers in background
+  //     tabs to roughly once a minute, which on its own reads as "not working";
+  //   • visibility/focus — catches anything missed while the tab was hidden.
+  function pollOutbox(opts) {
     if (!guest.id) return;
+    var silent = opts && opts.silent;
+    var fresh  = false;
     readJSON(OUTBOX_KEY, []).forEach(function (m) {
       if (seenOutbox[m.id]) return;
       if (String(m.customerId) !== String(guest.id)) return;
       seenOutbox[m.id] = true;
       addMsg(m.message, "in");
-      setChips(["🧾 Bill please", "Order again", "Show me kitchens"]);
+      fresh = true;
     });
+    if (fresh && !silent) setChips(["🧾 Bill please", "Order again", "Show me kitchens"]);
   }
+
   setInterval(pollOutbox, 2000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) pollOutbox();
+  });
+  window.addEventListener("focus", function () { pollOutbox(); });
 
   // ── Recommending kitchens ──────────────────────────────────────────────────
   function canonicalDish(text) {
@@ -441,8 +551,7 @@
       return medals[i] + " *" + k.name + "* · " + k.dist + " km · " + k.rating + "★\n" +
              "   " + k.signature + " " + k.price + "\n" +
              "   _" + k.why + "_\n" +
-             "   ⏱ about " + k.eta + " min" +
-             (k.onSelly ? "  ·  ✅ order here" : "  ·  📞 call direct");
+             "   ⏱ about " + k.eta + " min  ·  ✅ order here";
     }).join("\n\n");
   }
 
@@ -481,9 +590,10 @@
               ["Show me kitchens"]);
       return;
     }
-    document.getElementById("shopName").textContent = "🍲 " + KITCHENS[0].name;
+    var k = kitchenById(activeKitchenId);
+    document.getElementById("shopName").textContent = k.emoji + " " + k.name;
     document.getElementById("shopSub").textContent  =
-      KITCHENS[0].cuisine + " · " + KITCHENS[0].dist + " km · about " + KITCHENS[0].eta + " min";
+      k.cuisine + " · " + k.dist + " km · about " + k.eta + " min";
     sheet.classList.add("on");
     applyAvailability(); renderCats(); renderItems();
   }
@@ -492,7 +602,7 @@
 
   function renderCats() {
     var el = document.getElementById("cats"); el.innerHTML = "";
-    Object.keys(MENU).forEach(function (c) {
+    Object.keys(menuOf(activeKitchenId)).forEach(function (c) {
       var b = document.createElement("button");
       b.className = "cat" + (c === activeCat ? " on" : "");
       b.textContent = c;
@@ -505,14 +615,18 @@
     var el = document.getElementById("items");
     if (!el) return;
     el.innerHTML = "";
-    MENU[activeCat].forEach(function (it) {
+    var m = menuOf(activeKitchenId);
+    if (!m[activeCat]) activeCat = Object.keys(m)[0];
+    m[activeCat].forEach(function (it) {
       var q = cart[it.id] || 0;
       var row = document.createElement("div");
       row.className = "item" + (it.out ? " out" : "");
       row.innerHTML =
         '<div class="em">' + it.emoji + "</div>" +
         '<div class="nm"><b>' + esc(it.name) +
-        '<span style="font-size:10px;margin-left:5px">' + (it.diet === "nonveg" ? "🔴" : "🟢") + "</span></b>" +
+        // Egg is its own marker in India — showing it green is a real mislabel.
+        '<span style="font-size:10px;margin-left:5px">' +
+          (it.diet === "nonveg" ? "🔴" : it.diet === "egg" ? "🟡" : "🟢") + "</span></b>" +
         "<small>" + inr(it.price) + "</small></div>";
       var right = document.createElement("div");
       if (it.out) {
@@ -591,7 +705,7 @@
       return l.item.emoji + " " + l.item.name + " ×" + l.qty + " — " + inr(l.line);
     }).join("\n");
     botPush(
-      "🧺 *Your order from " + KITCHENS[0].name + ":*\n\n" + itemText +
+      "🧺 *Your order from " + kitchenById(activeKitchenId).name + ":*\n\n" + itemText +
       "\n\nSubtotal " + inr(subtotal()) +
       (deliveryFee(subtotal()) ? "\nDelivery " + inr(deliveryFee(subtotal())) : "\nDelivery FREE") +
       "\n*Total " + inr(subtotal() + deliveryFee(subtotal())) + "*\n\n" +
@@ -619,6 +733,7 @@
       });
       window.localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(list));
     }
+    saveSession();
   }
 
   function placeOrder() {
@@ -639,7 +754,8 @@
       status        : "confirmed", statusDates: {},
       trackingNumber: null, trackingUrl: null,
       source        : "web", channel: "web",
-      table_no      : null, order_kind: "standard", extra: {},
+      table_no      : null, order_kind: "standard",
+      extra         : { kitchen: kitchenById(activeKitchenId).name },
       createdAt     : Date.now(), updatedAt: Date.now()
     };
 
@@ -648,16 +764,17 @@
     window.localStorage.setItem(ORDERS_KEY, JSON.stringify(all));
     myOrderIds.push(order.id);
     cart = {};
+    saveSession();   // so a reload keeps receiving this order's updates
 
     botPush(
       "✅ *Order confirmed — #" + order.id.slice(-5) + "*\n\n" +
       "📍 " + guest.address + "\n" +
       "💰 " + inr(order.bill.total) + " · cash on delivery\n" +
-      "⏱ About " + KITCHENS[0].eta + " minutes\n\n" +
+      "⏱ About " + kitchenById(activeKitchenId).eta + " minutes\n\n" +
       "The kitchen has it now. I'll message you the moment they start cooking.",
       ["🧾 Bill please", "Show me kitchens"]
     );
-    toast("🍲 Order #" + order.id.slice(-5) + " sent to " + KITCHENS[0].name +
+    toast("🍲 Order #" + order.id.slice(-5) + " sent to " + kitchenById(activeKitchenId).name +
           ". Open the Selly app → Kitchen and advance it — the update lands back in this chat.");
   }
 
@@ -698,21 +815,18 @@
       return;
     }
 
-    // Picking a kitchen by name
+    // Picking a kitchen by name — switching kitchens empties the cart, since a
+    // basket of one kitchen's food makes no sense at another.
     for (var i = 0; i < KITCHENS.length; i++) {
       var k = KITCHENS[i];
       if (t.indexOf(k.name.toLowerCase()) !== -1) {
-        if (k.onSelly) {
-          botPush("🍲 *" + k.name + "* — " + k.cuisine + ", about " + k.eta + " min away.\n\n" +
-                  "Here's their menu, order right here:\n{{MENU}}", ["🧾 Bill please", "Show me kitchens"]);
-          setTimeout(openSheet, 850);
-        } else {
-          botPush("📞 *" + k.name + "*\n" + k.phone + "\n\n" +
-                  "They're not on Selly yet, so I can't take the order here — " +
-                  "call them direct and the kitchen keeps the full amount.\n\n" +
-                  "_I've noted that you asked for them._",
-                  ["Show me kitchens", "Order from Ghar Ka Khana"]);
-        }
+        if (activeKitchenId !== k.id) { cart = {}; activeKitchenId = k.id; }
+        activeCat = Object.keys(menuOf(k.id))[0];
+        botPush(k.emoji + " *" + k.name + "* — " + k.cuisine + ", " +
+                k.rating + "★, about " + k.eta + " min away.\n\n" +
+                "Here's their menu, order right here:\n{{MENU}}",
+                ["🧾 Bill please", "📞 Get number", "Show me kitchens"]);
+        setTimeout(openSheet, 850);
         return;
       }
     }
@@ -823,14 +937,27 @@
   document.getElementById("btnReset").onclick = function () {
     cart = {}; haveLocation = false; lastList = []; myOrderIds = [];
     flow = { state: "idle" }; guest = { name: "", phone: "", address: "", id: null };
+    seenOutbox = {}; activeKitchenId = "k1";
+    try { window.localStorage.removeItem(SESSION_KEY); } catch (e) {}
     chat.innerHTML = '<div class="day">Today · came from @punefoodie reel</div>';
     greet();
   };
 
   // ── Boot ───────────────────────────────────────────────────────────────────
+  var returning = loadSession();
   applyAvailability();
   refreshStoreOpen();
-  setTimeout(greet, 500);
+
+  if (returning) {
+    // Rebuild the thread instead of starting over. Without this a reload looked
+    // like a brand-new conversation and every kitchen update stopped arriving.
+    addMsg("👋 Welcome back, *" + (guest.name || "there") + "*. " +
+           "Here's where your order stands.", "in");
+    pollOutbox({ silent: true });
+    setChips(["🧾 Bill please", "Order again", "Show me kitchens"]);
+  } else {
+    setTimeout(greet, 500);
+  }
 })();
 </script>
 </body>
