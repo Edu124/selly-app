@@ -10,6 +10,9 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { friendlyError } from "../lib/errors";
 import { BUSINESS_TYPE_LIST } from "../lib/businessTypes";
+import {
+  loadStoreConfig, saveStoreConfig, storeOpenState, DAY_SHORT,
+} from "../lib/storeStatus";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -482,6 +485,9 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Trading hours & store status */}
+      <StoreHoursCard />
+
       {/* Industry picker */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>🏭 Business Industry</Text>
@@ -582,6 +588,164 @@ function InfoRow({ label, value }) {
     </View>
   );
 }
+
+// ── Trading hours ─────────────────────────────────────────────────────────────
+// Hours decide whether the ordering page accepts an order when the owner hasn't
+// manually paused. A day with no times is closed — that's how a kitchen says
+// "we don't trade Mondays" without having to remember to pause every week.
+function StoreHoursCard() {
+  const [cfg,     setCfg]     = useState(null);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+
+  useEffect(() => {
+    loadStoreConfig().then(({ config }) => setCfg(config)).catch(() => setCfg(null));
+  }, []);
+
+  if (!cfg) return null;
+
+  const setDay = (i, key, value) => {
+    setCfg(c => {
+      const hours = c.hours.map((h, idx) => {
+        if (idx !== i) return h;
+        return { ...(h || { open: "10:00", close: "23:00" }), [key]: value };
+      });
+      return { ...c, hours };
+    });
+    setSaved(false);
+  };
+
+  const toggleDay = (i) => {
+    setCfg(c => ({
+      ...c,
+      hours: c.hours.map((h, idx) => (idx === i ? (h ? null : { open: "10:00", close: "23:00" }) : h)),
+    }));
+    setSaved(false);
+  };
+
+  async function save() {
+    setSaving(true);
+    try {
+      await saveStoreConfig(cfg);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      Alert.alert("Couldn't save", friendlyError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const state = storeOpenState(cfg);
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>🕒 Trading Hours</Text>
+      <Text style={styles.cardDesc}>
+        When the ordering page accepts orders. Right now you are{" "}
+        <Text style={{ color: state.open ? Colors.green : Colors.red, fontWeight: "700" }}>
+          {state.open ? "open" : "closed"}
+        </Text>
+        {!state.open && state.reason === "manual" ? " (paused from the dashboard)" : ""}.
+      </Text>
+
+      {DAY_SHORT.map((d, i) => {
+        const h    = cfg.hours[i];
+        const shut = !h;
+        return (
+          <View key={d} style={hoursStyles.row}>
+            <TouchableOpacity style={hoursStyles.dayBtn} onPress={() => toggleDay(i)}>
+              <Text style={[hoursStyles.day, shut && { color: Colors.textMuted }]}>{d}</Text>
+            </TouchableOpacity>
+
+            {shut ? (
+              <TouchableOpacity style={{ flex: 1 }} onPress={() => toggleDay(i)}>
+                <Text style={hoursStyles.closed}>Closed — tap to open</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={hoursStyles.times}>
+                <TextInput
+                  style={hoursStyles.time}
+                  value={h.open}
+                  onChangeText={v => setDay(i, "open", v)}
+                  placeholder="10:00"
+                  placeholderTextColor={Colors.textMuted}
+                  maxLength={5}
+                />
+                <Text style={hoursStyles.dash}>–</Text>
+                <TextInput
+                  style={hoursStyles.time}
+                  value={h.close}
+                  onChangeText={v => setDay(i, "close", v)}
+                  placeholder="23:00"
+                  placeholderTextColor={Colors.textMuted}
+                  maxLength={5}
+                />
+                <TouchableOpacity onPress={() => toggleDay(i)}>
+                  <Text style={hoursStyles.shutLink}>Close</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+      })}
+
+      <Text style={styles.fieldHint}>
+        24-hour times. A closing time earlier than the opening time means past midnight —
+        18:00 to 02:00 keeps you open through the night.
+      </Text>
+
+      <Text style={styles.fieldLabel}>Delivery radius (km)</Text>
+      <TextInput
+        style={styles.input}
+        value={String(cfg.deliveryRadiusKm ?? "")}
+        onChangeText={v => { setCfg(c => ({ ...c, deliveryRadiusKm: v.replace(/[^0-9.]/g, "") })); setSaved(false); }}
+        keyboardType="numeric"
+        placeholder="5"
+        placeholderTextColor={Colors.textMuted}
+      />
+
+      <Text style={styles.fieldLabel}>Typical prep time (minutes)</Text>
+      <Text style={styles.fieldHint}>
+        Used for the "ready in about N minutes" line customers see, and to flag
+        overdue orders on the kitchen screen.
+      </Text>
+      <TextInput
+        style={styles.input}
+        value={String(cfg.defaultPrepMinutes ?? "")}
+        onChangeText={v => { setCfg(c => ({ ...c, defaultPrepMinutes: v.replace(/[^0-9]/g, "") })); setSaved(false); }}
+        keyboardType="numeric"
+        placeholder="30"
+        placeholderTextColor={Colors.textMuted}
+      />
+
+      <TouchableOpacity
+        style={[styles.saveBtn, saved && { backgroundColor: Colors.green }, saving && { opacity: 0.6 }]}
+        onPress={save}
+        disabled={saving}
+      >
+        {saving
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={styles.saveBtnText}>{saved ? "Saved ✓" : "Save Trading Hours"}</Text>}
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const hoursStyles = StyleSheet.create({
+  row     : { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 6 },
+  dayBtn  : { width: 42 },
+  day     : { color: Colors.textPrimary, fontSize: 13, fontWeight: "700" },
+  closed  : { color: Colors.textMuted, fontSize: 12.5, fontStyle: "italic" },
+  times   : { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  time    : {
+    backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7,
+    color: Colors.textPrimary, fontSize: 13, width: 72, textAlign: "center",
+  },
+  dash     : { color: Colors.textMuted, fontSize: 13 },
+  shutLink : { color: Colors.textMuted, fontSize: 11.5, marginLeft: 2 },
+});
 
 
 const styles = StyleSheet.create({

@@ -22,6 +22,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFixtures, FX_ORDERS } from "./devFixtures";
 
 export const DEV_ORDERS_KEY = "@selly_dev_orders";
+// Trading state, read by the guest ordering page so it can refuse politely when
+// the kitchen is shut.
+export const DEV_STORE_CONFIG_KEY = "@selly_dev_store_config";
 
 const isWeb = typeof window !== "undefined" && !!window.localStorage;
 
@@ -85,13 +88,33 @@ export async function resetDevOrders() {
  */
 export function subscribeDevOrders(cb) {
   if (!isWeb) return () => {};
-  const onStorage = (e) => { if (!e.key || e.key === DEV_ORDERS_KEY) cb(); };
+  const onStorage = (e) => {
+    if (!e.key || e.key === DEV_ORDERS_KEY || e.key === DEV_STORE_CONFIG_KEY) cb();
+  };
   window.addEventListener("storage", onStorage);
   window.addEventListener(SAME_TAB_EVENT, cb);
   return () => {
     window.removeEventListener("storage", onStorage);
     window.removeEventListener(SAME_TAB_EVENT, cb);
   };
+}
+
+// ── Store config (trading state) ──────────────────────────────────────────────
+// Kept alongside the orders so the guest page can read both from one origin.
+
+export async function getDevStoreConfig() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_STORE_CONFIG_KEY);
+    return raw == null ? null : JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export async function setDevStoreConfig(config) {
+  await AsyncStorage.setItem(DEV_STORE_CONFIG_KEY, JSON.stringify(config));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return { ok: true };
 }
 
 // ── Stats, matching the shape supabase_data._statsFrom produces ───────────────

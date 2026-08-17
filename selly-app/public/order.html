@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selly — Order for Delivery</title>
+<!--
+  DELIVERY ORDERING PAGE  (cloud kitchen)
+  =======================================
+  A cloud kitchen has no premises, no table and no walk-in. The link IS the
+  storefront, so this page is the whole customer-facing product — which is why
+  it captures a delivery address and phone number where the table-QR page
+  (customer.html) captures a table number.
+
+  It refuses orders when the kitchen is shut. That is the point of CK-1: without
+  it, an order placed at midnight gets promised to a customer with nobody there
+  to cook it, and they find out by waiting.
+
+  Served from Metro's public/ folder so it shares an origin — and therefore
+  localStorage — with the app. See devStore.js for why that matters.
+  In production this is a real page on a real domain, writing through a
+  place_order RPC rather than into localStorage.
+-->
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0a12;--card:#14141f;--elev:#1a1a28;--line:#242437;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
+    --wa:#25D366;--wa-dark:#128C7E;--violet:#7c5cff;--amber:#f5a524;--red:#ef4444;
+  }
+  body{
+    background:var(--bg);color:var(--tx);min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:18px 12px 36px;
+  }
+  .wrap{width:100%;max-width:430px}
+
+  .bar h1{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .bar p{font-size:12px;color:var(--tx2);margin-top:4px;line-height:1.55}
+
+  /* store status banner */
+  .status{display:flex;align-items:center;gap:9px;border-radius:11px;border:1px solid;
+          padding:10px 12px;margin:13px 0;font-size:12.5px;line-height:1.5}
+  .status.open{background:rgba(37,211,102,.08);border-color:rgba(37,211,102,.3)}
+  .status.shut{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.34)}
+  .status .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .status.open .dot{background:var(--wa)} .status.shut .dot{background:var(--red)}
+  .status b{display:block;font-size:13px;margin-bottom:1px}
+  .status.open b{color:var(--wa)} .status.shut b{color:var(--red)}
+  .status span{color:var(--tx2)}
+
+  .brand{display:flex;align-items:center;gap:11px;background:var(--card);
+         border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:12px}
+  .brand .logo{width:44px;height:44px;border-radius:11px;background:var(--wa-dark);
+               display:grid;place-items:center;font-size:21px}
+  .brand b{font-size:15px;display:block}
+  .brand small{color:var(--tx2);font-size:11.5px}
+
+  .cats{display:flex;gap:7px;overflow-x:auto;padding:2px 0 11px}
+  .cat{white-space:nowrap;background:var(--elev);border:1px solid var(--line);color:var(--tx2);
+       border-radius:16px;padding:6px 13px;font-size:12px;cursor:pointer;font-weight:600}
+  .cat.on{background:rgba(124,92,255,.18);border-color:var(--violet);color:#b7a5ff}
+
+  .items{background:var(--card);border:1px solid var(--line);border-radius:14px;
+         padding:4px 13px;margin-bottom:13px}
+  .item{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:none}
+  .item .em{font-size:22px;width:30px;text-align:center}
+  .item .nm{flex:1}
+  .item .nm b{display:block;font-size:13.5px;font-weight:600}
+  .item .nm small{color:var(--tx2);font-size:12px}
+  .item .nm .diet{font-size:10px;margin-left:5px}
+  .item.out{opacity:.45}
+  .item.out .nm b{text-decoration:line-through}
+  .soldout{font-size:11px;color:var(--red);font-weight:700}
+  .add{background:rgba(37,211,102,.14);border:1px solid rgba(37,211,102,.4);color:var(--wa);
+       border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer}
+  .add:disabled{background:var(--elev);border-color:var(--line);color:var(--tx3);cursor:not-allowed}
+  .qty{display:flex;align-items:center;gap:9px}
+  .qty button{width:26px;height:26px;border-radius:7px;background:var(--elev);
+              border:1px solid var(--line);color:var(--tx);font-size:15px;cursor:pointer}
+  .qty span{min-width:16px;text-align:center;font-weight:700;font-size:13px}
+
+  .form{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:14px;margin-bottom:13px}
+  .form h3{font-size:13px;font-weight:800;margin-bottom:3px}
+  .form p{font-size:11.5px;color:var(--tx2);margin-bottom:11px;line-height:1.5}
+  label{display:block;font-size:11.5px;color:var(--tx2);font-weight:600;margin:9px 0 5px}
+  input,textarea{width:100%;background:var(--elev);border:1px solid var(--line);border-radius:9px;
+                 padding:10px 12px;color:var(--tx);font-size:13.5px;outline:none;
+                 font-family:inherit;resize:vertical}
+  input:focus,textarea:focus{border-color:var(--violet)}
+  .err{color:var(--red);font-size:11.5px;margin-top:5px;display:none}
+  .err.on{display:block}
+
+  .bill{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .brow{display:flex;justify-content:space-between;font-size:12.5px;color:var(--tx2);
+        padding:4px 0}
+  .brow.tot{border-top:1px solid var(--line);margin-top:7px;padding-top:10px;
+            font-size:15px;color:var(--tx);font-weight:800}
+  .free{color:var(--wa);font-size:11.5px;margin-top:6px}
+  .place{width:100%;background:var(--wa);border:none;color:#fff;border-radius:11px;
+         padding:14px;font-size:14.5px;font-weight:700;cursor:pointer;margin-top:13px}
+  .place:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  /* confirmation */
+  .done{background:var(--card);border:1px solid rgba(37,211,102,.35);border-radius:14px;
+        padding:20px;text-align:center}
+  .done .tick{font-size:44px;margin-bottom:9px}
+  .done h2{font-size:17px;margin-bottom:7px}
+  .done p{font-size:13px;color:var(--tx2);line-height:1.65;margin-bottom:5px}
+  .done .num{color:var(--violet);font-weight:800}
+  .again{background:var(--elev);border:1px solid var(--line);color:var(--tx);border-radius:10px;
+         padding:11px 18px;font-size:13px;font-weight:600;cursor:pointer;margin-top:14px}
+
+  .note{margin-top:14px;background:var(--card);border:1px solid var(--line);
+        border-left:3px solid var(--violet);border-radius:10px;padding:11px 13px;
+        font-size:11.5px;color:var(--tx2);line-height:1.65}
+  .note b{color:var(--tx)} .note a{color:#9d87ff}
+  .note code{background:var(--elev);padding:1px 5px;border-radius:4px;font-size:10.5px;color:#b7a5ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <h1>🍳 Order for delivery</h1>
+    <p>This is the whole storefront for a cloud kitchen — no premises, no table.
+       Order direct and the kitchen keeps the aggregator's cut.</p>
+  </div>
+
+  <div id="status" class="status open">
+    <div class="dot"></div>
+    <div><b>Checking…</b><span id="statusSub"></span></div>
+  </div>
+
+  <div class="brand">
+    <div class="logo">🍳</div>
+    <div style="flex:1">
+      <b id="bizName">Kitchen</b>
+      <small id="bizSub">Delivery only · direct orders</small>
+    </div>
+  </div>
+
+  <div id="shop">
+    <div class="cats" id="cats"></div>
+    <div class="items" id="items"></div>
+
+    <div class="form">
+      <h3>Where should we deliver?</h3>
+      <p>We'll send order updates to this number on WhatsApp.</p>
+
+      <label for="nm">Your name</label>
+      <input id="nm" placeholder="e.g. Priya" autocomplete="name">
+      <div class="err" id="errNm">Please tell us your name.</div>
+
+      <label for="ph">Phone number</label>
+      <input id="ph" placeholder="10-digit mobile" inputmode="numeric" autocomplete="tel">
+      <div class="err" id="errPh">Enter a valid 10-digit mobile number.</div>
+
+      <label for="ad">Delivery address</label>
+      <textarea id="ad" rows="3" placeholder="Flat / building, street, landmark" autocomplete="street-address"></textarea>
+      <div class="err" id="errAd">We need an address to deliver to.</div>
+
+      <label for="nt">Note for the kitchen <span style="color:var(--tx3)">(optional)</span></label>
+      <input id="nt" placeholder="e.g. less spicy, no onion">
+    </div>
+
+    <div class="bill">
+      <div class="brow"><span>Subtotal</span><span id="sub">₹0</span></div>
+      <div class="brow"><span id="delLabel">Delivery</span><span id="del">₹0</span></div>
+      <div class="brow tot"><span>Total</span><span id="tot">₹0</span></div>
+      <div class="free" id="freeHint"></div>
+      <button class="place" id="place" disabled>Add something to order</button>
+    </div>
+  </div>
+
+  <div id="doneBox" style="display:none"></div>
+
+  <div class="note">
+    <b>How this is wired.</b> The order is written in the shape the app reads through
+    <code>fetchOrders()</code>, into <code>@selly_dev_orders</code>. Open
+    <a href="/" target="_blank">the Selly app</a> in another tab — it lands on
+    <b>Orders</b> and the <b>Kitchen</b> screen without a refresh. Trading state comes
+    from <code>@selly_dev_store_config</code>, so pausing orders on the dashboard
+    closes this page too.
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ORDERS_KEY = "@selly_dev_orders";
+  var CONFIG_KEY = "@selly_dev_store_config";
+
+  // Fees mirror the preview values in storeStatus.loadStoreConfig(). In
+  // production these come from business_settings via the store_public_status RPC.
+  var DELIVERY_FEE = 49;
+  var FREE_ABOVE   = 599;
+  var BIZ          = "Ghar Ka Khana";
+
+  document.getElementById("bizName").textContent = BIZ;
+
+  // ── Menu ───────────────────────────────────────────────────────────────────
+  // `out` marks sold out — the 86 list an owner sets from the app (CK-5).
+  var MENU = {
+    "Thalis": [
+      { id:"t1", name:"Veg Thali",           price:180, emoji:"🍛", diet:"veg" },
+      { id:"t2", name:"Non-veg Thali",       price:240, emoji:"🍗", diet:"nonveg" },
+      { id:"t3", name:"Mini Thali",          price:130, emoji:"🥗", diet:"veg" }
+    ],
+    "Main Course": [
+      { id:"m1", name:"Butter Chicken",      price:320, emoji:"🍗", diet:"nonveg" },
+      { id:"m2", name:"Paneer Butter Masala",price:260, emoji:"🧀", diet:"veg" },
+      { id:"m3", name:"Dal Tadka",           price:160, emoji:"🍲", diet:"veg" },
+      { id:"m4", name:"Chicken Biryani",     price:280, emoji:"🍚", diet:"nonveg" }
+    ],
+    "Breads & Rice": [
+      { id:"b1", name:"Butter Naan",         price:45,  emoji:"🫓", diet:"veg" },
+      { id:"b2", name:"Tandoori Roti",       price:25,  emoji:"🫓", diet:"veg" },
+      { id:"b3", name:"Jeera Rice",          price:120, emoji:"🍚", diet:"veg" }
+    ]
+  };
+
+  var ALL = Object.keys(MENU).reduce(function (a, k) { return a.concat(MENU[k]); }, []);
+  function findItem(id) {
+    for (var i = 0; i < ALL.length; i++) if (ALL[i].id === id) return ALL[i];
+    return null;
+  }
+
+  var cart = {};
+  var activeCat = Object.keys(MENU)[0];
+  var storeOpen = true;
+
+  function inr(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
+
+  // ── Trading state ──────────────────────────────────────────────────────────
+  // Mirrors storeStatus.storeOpenState(): the manual pause beats the schedule,
+  // and a closing time before the opening time means the session runs past
+  // midnight.
+  function readConfig() {
+    try {
+      var raw = window.localStorage.getItem(CONFIG_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  function toMin(s) {
+    var m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  }
+
+  function withinHours(hours, at) {
+    if (!Array.isArray(hours) || hours.length !== 7) return true;
+    var now = at.getHours() * 60 + at.getMinutes();
+
+    var today = hours[at.getDay()];
+    if (today) {
+      var o = toMin(today.open), c = toMin(today.close);
+      if (o != null && c != null) {
+        if (c > o) { if (now >= o && now < c) return true; }
+        else if (now >= o) return true;
+      }
+    }
+    var y = hours[(at.getDay() + 6) % 7];
+    if (y) {
+      var yo = toMin(y.open), yc = toMin(y.close);
+      if (yo != null && yc != null && yc <= yo && now < yc) return true;
+    }
+    return false;
+  }
+
+  function refreshStatus() {
+    var cfg = readConfig();
+    var el  = document.getElementById("status");
+    var sub = document.getElementById("statusSub");
+    var b   = el.querySelector("b");
+
+    var accepting = !cfg || cfg.acceptingOrders !== false;
+    var inHours   = !cfg || withinHours(cfg.hours, new Date());
+    storeOpen = accepting && inHours;
+
+    if (storeOpen) {
+      el.className = "status open";
+      b.textContent = "Open — taking orders";
+      var today = cfg && Array.isArray(cfg.hours) ? cfg.hours[new Date().getDay()] : null;
+      sub.textContent = today ? "Today " + today.open + " – " + today.close : "Delivering now";
+    } else {
+      el.className = "status shut";
+      b.textContent = accepting ? "Closed right now" : "Not taking orders";
+      sub.textContent = (cfg && cfg.closedMessage)
+        ? cfg.closedMessage
+        : accepting
+          ? "We're outside today's kitchen hours. Please check back later."
+          : "The kitchen has paused orders. Please check back shortly.";
+    }
+    // Re-render the rows too, not just the bill: the Add buttons carry their own
+    // disabled state, so skipping this leaves them tappable after a close.
+    renderItems();
+    renderBill();
+  }
+
+  // The app and this page share an origin, so pausing orders on the dashboard
+  // fires a storage event here and closes the shop live.
+  window.addEventListener("storage", function (e) {
+    if (!e.key || e.key === CONFIG_KEY) refreshStatus();
+  });
+
+  // ── Menu rendering ─────────────────────────────────────────────────────────
+  function renderCats() {
+    var el = document.getElementById("cats");
+    el.innerHTML = "";
+    Object.keys(MENU).forEach(function (c) {
+      var b = document.createElement("button");
+      b.className = "cat" + (c === activeCat ? " on" : "");
+      b.textContent = c;
+      b.onclick = function () { activeCat = c; renderCats(); renderItems(); };
+      el.appendChild(b);
+    });
+  }
+
+  function dietDot(d) {
+    return d === "nonveg" ? '<span class="diet">🔴</span>' : '<span class="diet">🟢</span>';
+  }
+
+  function renderItems() {
+    var el = document.getElementById("items");
+    el.innerHTML = "";
+    MENU[activeCat].forEach(function (it) {
+      var q   = cart[it.id] || 0;
+      var row = document.createElement("div");
+      row.className = "item" + (it.out ? " out" : "");
+      row.innerHTML =
+        '<div class="em">' + it.emoji + "</div>" +
+        '<div class="nm"><b>' + it.name + dietDot(it.diet) + "</b>" +
+        "<small>" + inr(it.price) + "</small></div>";
+
+      var right = document.createElement("div");
+      if (it.out) {
+        right.innerHTML = '<span class="soldout">Sold out</span>';
+      } else if (q > 0) {
+        right.className = "qty";
+        var minus = document.createElement("button"); minus.textContent = "−";
+        var span  = document.createElement("span");   span.textContent = q;
+        var plus  = document.createElement("button"); plus.textContent = "+";
+        minus.onclick = function () { setQty(it.id, q - 1); };
+        plus.onclick  = function () { setQty(it.id, q + 1); };
+        right.appendChild(minus); right.appendChild(span); right.appendChild(plus);
+      } else {
+        var add = document.createElement("button");
+        add.className = "add"; add.textContent = "Add";
+        add.disabled = !storeOpen;
+        add.onclick = function () { setQty(it.id, 1); };
+        right.appendChild(add);
+      }
+      row.appendChild(right);
+      el.appendChild(row);
+    });
+  }
+
+  function setQty(id, q) {
+    if (q <= 0) delete cart[id]; else cart[id] = q;
+    renderItems(); renderBill();
+  }
+
+  function lines() {
+    return Object.keys(cart).map(function (id) {
+      var it = findItem(id);
+      return { item: it, qty: cart[id], line: it.price * cart[id] };
+    });
+  }
+  function subtotal() {
+    return lines().reduce(function (s, l) { return s + l.line; }, 0);
+  }
+  function deliveryFee(sub) {
+    if (sub <= 0) return 0;
+    return (FREE_ABOVE > 0 && sub >= FREE_ABOVE) ? 0 : DELIVERY_FEE;
+  }
+
+  function renderBill() {
+    var sub  = subtotal();
+    var del  = deliveryFee(sub);
+    var n    = lines().reduce(function (s, l) { return s + l.qty; }, 0);
+
+    document.getElementById("sub").textContent = inr(sub);
+    document.getElementById("del").textContent = del === 0 && sub > 0 ? "FREE" : inr(del);
+    document.getElementById("tot").textContent = inr(sub + del);
+
+    var hint = document.getElementById("freeHint");
+    if (sub > 0 && FREE_ABOVE > 0 && sub < FREE_ABOVE) {
+      hint.textContent = "Add " + inr(FREE_ABOVE - sub) + " more for free delivery";
+    } else if (sub > 0 && del === 0) {
+      hint.textContent = "✓ Free delivery applied";
+    } else { hint.textContent = ""; }
+
+    var btn = document.getElementById("place");
+    if (!storeOpen) {
+      btn.disabled = true;
+      btn.textContent = "Kitchen is closed";
+    } else if (n === 0) {
+      btn.disabled = true;
+      btn.textContent = "Add something to order";
+    } else {
+      btn.disabled = false;
+      btn.textContent = "Place order · " + inr(sub + del);
+    }
+  }
+
+  // ── Placing the order ──────────────────────────────────────────────────────
+  function show(id, on) { document.getElementById(id).className = on ? "err on" : "err"; }
+
+  function validate() {
+    var nm = document.getElementById("nm").value.trim();
+    var ph = document.getElementById("ph").value.replace(/\D/g, "");
+    var ad = document.getElementById("ad").value.trim();
+    var ok = true;
+    show("errNm", false); show("errPh", false); show("errAd", false);
+    if (nm.length < 2)            { show("errNm", true); ok = false; }
+    if (ph.length !== 10)         { show("errPh", true); ok = false; }
+    if (ad.length < 10)           { show("errAd", true); ok = false; }
+    return ok ? { nm: nm, ph: ph, ad: ad } : null;
+  }
+
+  function readOrders() {
+    try {
+      var raw = window.localStorage.getItem(ORDERS_KEY);
+      var a = raw ? JSON.parse(raw) : [];
+      return Array.isArray(a) ? a : [];
+    } catch (e) { return []; }
+  }
+
+  document.getElementById("place").onclick = function () {
+    if (!storeOpen) return;
+    var who = validate();
+    if (!who) return;
+
+    var l    = lines();
+    var sub  = subtotal();
+    var del  = deliveryFee(sub);
+    var note = document.getElementById("nt").value.trim();
+
+    // Shape matches supabase_data._toOrder() so the app needs no special-casing.
+    var order = {
+      id            : String(Date.now()),
+      customerId    : null,
+      name          : who.nm,
+      cart          : l.map(function (x) {
+        return { name: x.item.name, productNumber: x.item.id, size: null,
+                 qty: x.qty, price: x.item.price };
+      }),
+      address       : who.ad,
+      mobile        : "+91" + who.ph,
+      bill          : { subtotal: sub, discount: 0, delivery: del, total: sub + del },
+      payLink       : null,
+      paymentMode   : "cod",
+      status        : "confirmed",
+      statusDates   : {},
+      trackingNumber: null,
+      trackingUrl   : null,
+      source        : "web",
+      table_no      : null,          // delivery: there is no table
+      order_kind    : "standard",
+      channel       : "web",
+      extra         : note ? { note: note } : {},
+      createdAt     : Date.now(),
+      updatedAt     : Date.now()
+    };
+
+    var all = readOrders();
+    all.push(order);
+    window.localStorage.setItem(ORDERS_KEY, JSON.stringify(all));
+
+    // Confirmation
+    document.getElementById("shop").style.display = "none";
+    var done = document.getElementById("doneBox");
+    done.style.display = "block";
+    done.innerHTML =
+      '<div class="done">' +
+        '<div class="tick">✅</div>' +
+        "<h2>Order placed, " + who.nm + "!</h2>" +
+        '<p>Order <span class="num">#' + order.id.slice(-5) + "</span> · " +
+          inr(order.bill.total) + " · cash on delivery</p>" +
+        "<p>We'll message you on <b>+91 " + who.ph + "</b> when the kitchen starts " +
+          "and again when it's on the way.</p>" +
+        '<button class="again" id="againBtn">Place another order</button>' +
+      "</div>";
+    document.getElementById("againBtn").onclick = function () {
+      cart = {};
+      done.style.display = "none";
+      document.getElementById("shop").style.display = "block";
+      document.getElementById("nt").value = "";
+      renderItems(); renderBill();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  renderCats();
+  renderItems();
+  refreshStatus();
+})();
+</script>
+</body>
+</html>

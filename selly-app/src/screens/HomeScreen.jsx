@@ -21,6 +21,7 @@ import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig, STATUS_LABELS } from "../lib/businessTypes";
 import { subscribeDevOrders } from "../lib/devStore";
+import StoreStatusBar from "../components/StoreStatusBar";
 import { fetchDashboard } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 
@@ -254,6 +255,9 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.hSub}>{profile?.business_name || "My Business"} · {today}</Text>
         </View>
       </View>
+
+      {/* Taking orders / paused. Loudest thing here when the store is shut. */}
+      <StoreStatusBar onOpenSettings={() => navigation.navigate("Settings")} />
 
       {!!error && (
         <View style={styles.errBanner}>

@@ -36,6 +36,7 @@ import OrdersScreen          from "../screens/OrdersScreen";
 import CatalogScreen         from "../screens/CatalogScreen";
 import CakeOrdersScreen      from "../screens/CakeOrdersScreen";
 import CakeMenuScreen        from "../screens/CakeMenuScreen";
+import PrepQueueScreen       from "../screens/PrepQueueScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
@@ -427,6 +428,7 @@ function MainDrawer({ industry }) {
   // types; only what the owner reads changes.
   const navMeta = React.useMemo(() => ({
     Home     : { label: "Home",              icon: "home"       },
+    Kitchen  : { label: "Kitchen",           icon: "flame"      },
     Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
     Catalog  : { label: cfg.catalog.label,   icon: cfg.catalog.icon   },
     Customers: { label: cfg.customers.label, icon: cfg.customers.icon },
@@ -458,6 +460,11 @@ function MainDrawer({ industry }) {
       }}
     >
       <Drawer.Screen name="Home"      component={HomeScreen}      options={{ title: "Dashboard" }} />
+      {/* The kitchen screen sits right after Home for a cloud kitchen — it's the
+          screen they'll have open all service, so it shouldn't be buried. */}
+      {cfg.hasPrepQueue && (
+        <Drawer.Screen name="Kitchen" component={PrepQueueScreen} options={{ title: "Kitchen" }} />
+      )}
       <Drawer.Screen name="Orders"    component={screens.orders}  options={{ title: cfg.orders.label }} />
       <Drawer.Screen name="Catalog"   component={screens.catalog} options={{ title: cfg.catalog.label }} />
       <Drawer.Screen name="Customers" component={CustomersScreen} options={{ title: cfg.customers.label }} />
