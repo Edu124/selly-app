@@ -13,6 +13,7 @@ import { BUSINESS_TYPE_LIST } from "../lib/businessTypes";
 import {
   loadStoreConfig, saveStoreConfig, storeOpenState, DAY_SHORT,
 } from "../lib/storeStatus";
+import { resetDevOrders, clearDevSideData } from "../lib/devStore";
 
 const DEFAULT_SETTINGS = {
   business_name: "", business_gst_no: "", business_address: "",
@@ -488,6 +489,9 @@ export default function SettingsScreen() {
       {/* Trading hours & store status */}
       <StoreHoursCard />
 
+      {/* Preview data controls — dev builds only */}
+      {__DEV__ && <DemoDataCard />}
+
       {/* Industry picker */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>🏭 Business Industry</Text>
@@ -585,6 +589,49 @@ function InfoRow({ label, value }) {
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+// ── Preview data ──────────────────────────────────────────────────────────────
+// Orders placed from the ordering page pile up alongside the seeded ones, and a
+// queue mixing both is confusing to demo from. This puts it back to a clean
+// state for the current business type.
+function DemoDataCard() {
+  const { industry } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function reset() {
+    setBusy(true);
+    try {
+      await resetDevOrders(industry);
+      await clearDevSideData();
+      setDone(true);
+      setTimeout(() => setDone(false), 2500);
+    } catch (e) {
+      Alert.alert("Couldn't reset", friendlyError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>🧪 Preview data</Text>
+      <Text style={styles.cardDesc}>
+        Resets orders, the sold-out list and sent messages back to the sample data
+        for your business type. Only affects this preview, never live data.
+      </Text>
+      <TouchableOpacity
+        style={[styles.saveBtn, done && { backgroundColor: Colors.green }, busy && { opacity: 0.6 }]}
+        onPress={reset}
+        disabled={busy}
+      >
+        {busy
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <Text style={styles.saveBtnText}>{done ? "Reset ✓" : "Reset sample data"}</Text>}
+      </TouchableOpacity>
     </View>
   );
 }

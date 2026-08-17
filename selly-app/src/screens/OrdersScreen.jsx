@@ -7,7 +7,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking, fetchCustomers } from "../lib/api";
-import { notifyOrderStatus } from "../lib/whatsapp";
+import { notifyOrderStatus, notifyTarget, canNotifyStatus } from "../lib/whatsapp";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 import OrderRow from "../components/OrderRow";
@@ -62,6 +62,7 @@ export default function OrdersScreen({ navigation, route }) {
   const [trackLoading, setTrackLoading] = useState(false);
   const [customers, setCustomers] = useState([]);    // needed to resolve a WhatsApp send
   const [notice,    setNotice]    = useState(null);  // result of the last status change
+  const [notifying, setNotifying] = useState(false);
 
   const load = async (reset = false) => {
     const p = reset ? 1 : page;
@@ -134,6 +135,28 @@ export default function OrdersScreen({ navigation, route }) {
     } finally {
       setTrackLoading(false);
     }
+  };
+
+  // Send the message for whatever status the order is on now — a deliberate
+  // action, separate from advancing, so a failed or mis-sent update can be retried
+  // and a customer who asks "any update?" can be answered.
+  const sendCurrentStatus = async () => {
+    if (!selected || notifying) return;
+    setNotifying(true);
+    setNotice(null);
+    const res = await notifyOrderStatus(selected.status, {
+      order       : selected,
+      customerName: selected.name,
+      tableNo     : selected.table_no,
+      address     : selected.address,
+      flavour     : selected.extra?.flavour,
+      cakeMsg     : selected.extra?.cakeMsg,
+      due         : selected.extra?.due,
+    }, customers);
+    setNotifying(false);
+    if (res.sent)         setNotice({ ok: true,  text: `Sent to ${res.to}`, body: res.text });
+    else if (res.skipped) setNotice({ ok: false, text: `Nothing to send at "${STATUS_LABELS[selected.status]}"` });
+    else                  setNotice({ ok: false, text: res.error, body: res.text });
   };
 
   const advanceStatus = async () => {
@@ -396,6 +419,51 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
+                {/* Customer updates — who a message reaches, and a deliberate
+                    way to send one. This used to happen only as a side effect of
+                    advancing the status, so there was no way to see where the
+                    message went, retry a failed one, or re-send on request. */}
+                {(() => {
+                  const target = notifyTarget(selected, customers);
+                  const sendable = canNotifyStatus(selected.status);
+                  return (
+                    <View style={styles.notifyBox}>
+                      <View style={styles.notifyHead}>
+                        <Ionicons
+                          name={target.ok ? "logo-whatsapp" : "alert-circle-outline"}
+                          size={14}
+                          color={target.ok ? Colors.green : Colors.yellow}
+                        />
+                        <Text style={styles.notifyLbl}>
+                          {target.ok
+                            ? `Updates go to ${target.customer.name || target.customer.mobile}`
+                            : target.reason}
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.notifyBtn,
+                          (!target.ok || !sendable || notifying) && styles.notifyBtnOff,
+                        ]}
+                        onPress={sendCurrentStatus}
+                        disabled={!target.ok || !sendable || notifying}
+                        activeOpacity={0.85}
+                      >
+                        {notifying
+                          ? <ActivityIndicator color={Colors.green} size="small" />
+                          : (
+                            <Text style={styles.notifyBtnText}>
+                              {sendable
+                                ? `Send "${STATUS_LABELS[selected.status]}" update on WhatsApp`
+                                : `Nothing to tell them at "${STATUS_LABELS[selected.status]}"`}
+                            </Text>
+                          )}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()}
+
                 {/* Did the customer get told? Shows the message that went out,
                     so the owner can see exactly what was said. */}
                 {!!notice && (
@@ -506,6 +574,14 @@ const styles = StyleSheet.create({
 
   noteBox : { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(245,165,36,0.09)", borderRadius: 10, padding: 10, marginTop: 9 },
   noteText: { flex: 1, color: Colors.yellow, fontSize: 12.5, lineHeight: 18 },
+
+  // Customer updates — target + deliberate send
+  notifyBox : { backgroundColor: Colors.bgCard, borderRadius: 11, borderWidth: 1, borderColor: Colors.border, padding: 11, marginTop: 14 },
+  notifyHead: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 9 },
+  notifyLbl : { flex: 1, color: Colors.textSecondary, fontSize: 12 },
+  notifyBtn : { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "rgba(34,197,94,0.13)", borderWidth: 1, borderColor: "rgba(34,197,94,0.34)", borderRadius: 9, paddingVertical: 10 },
+  notifyBtnOff : { backgroundColor: Colors.bgElevated, borderColor: Colors.border },
+  notifyBtnText: { color: Colors.green, fontSize: 12.5, fontWeight: "700" },
 
   // What the customer was told after the last status change
   notice     : { borderRadius: 11, borderWidth: 1, padding: 11, marginTop: 14 },

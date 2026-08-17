@@ -26,7 +26,7 @@ import { fetchOrders, updateOrderStatus, fetchCustomers, fetchCatalog } from "..
 import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
-import { orderTotal, inr, notifyOrderStatus } from "../lib/whatsapp";
+import { orderTotal, inr, notifyOrderStatus, notifyTarget } from "../lib/whatsapp";
 import SoldOutSheet from "../components/SoldOutSheet";
 
 // Orders the kitchen still has work to do on.
@@ -285,6 +285,27 @@ export default function PrepQueueScreen({ navigation }) {
                     {o.channel === "web" ? " · web" : o.channel === "instagram" ? " · Instagram" : ""}
                   </Text>
 
+                  {/* Who an update reaches, shown before you tap rather than
+                      discovered afterwards. Advancing the wrong order used to
+                      send a message to a customer you weren't looking at. */}
+                  {(() => {
+                    const target = notifyTarget(o, customers);
+                    return (
+                      <View style={styles.reachRow}>
+                        <Ionicons
+                          name={target.ok ? "logo-whatsapp" : "alert-circle-outline"}
+                          size={11}
+                          color={target.ok ? Colors.green : Colors.yellow}
+                        />
+                        <Text style={[styles.reachText, { color: target.ok ? Colors.green : Colors.yellow }]}>
+                          {target.ok
+                            ? `updates → ${target.customer.name || target.customer.mobile}`
+                            : target.reason}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+
                   {/* Items — the thing the cook reads */}
                   <View style={styles.itemBox}>
                     {(o.cart || []).map((i, idx) => (
@@ -406,6 +427,8 @@ const styles = StyleSheet.create({
   orderNo : { color: Colors.textPrimary, fontSize: 14.5, fontWeight: "800" },
   amount  : { color: Colors.textPrimary, fontSize: 14, fontWeight: "800" },
   who     : { color: Colors.textSecondary, fontSize: 12, marginTop: 5 },
+  reachRow : { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 },
+  reachText: { fontSize: 11, fontWeight: "600" },
 
   elapsed    : { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 14, paddingHorizontal: 8, paddingVertical: 3 },
   elapsedText: { fontSize: 11.5, fontWeight: "800" },

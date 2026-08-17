@@ -210,6 +210,19 @@ export async function getDevOutbox() {
   }
 }
 
+/**
+ * Clear everything that accumulates around the orders — the sold-out list, sent
+ * messages, web customers and the guest's chat session. Used by the preview reset
+ * so a demo starts from a known state instead of a mix of runs.
+ */
+export async function clearDevSideData() {
+  await AsyncStorage.multiRemove([
+    DEV_CATALOG_KEY, DEV_OUTBOX_KEY, DEV_CUSTOMERS_KEY, "@selly_web_session",
+  ]);
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return { ok: true };
+}
+
 export async function addDevOutbox(entry) {
   const list = await getDevOutbox();
   const row  = { id: String(Date.now()) + Math.random().toString(36).slice(2, 6), sentAt: Date.now(), ...entry };

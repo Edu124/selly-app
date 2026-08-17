@@ -307,6 +307,29 @@ export function messageForStatus(status, ctx = {}) {
   }
 }
 
+/** Does this status produce a customer message at all? */
+export function canNotifyStatus(status) {
+  return messageForStatus(status, { order: { id: "0" } }) !== null;
+}
+
+/**
+ * Who a status update would actually reach, so the owner can see it before
+ * tapping rather than discovering it failed afterwards.
+ * @returns {{ok: true, customer: object} | {ok: false, reason: string}}
+ */
+export function notifyTarget(order, customers = []) {
+  const cust = resolveCustomer(order, customers);
+  if (!cust) {
+    return {
+      ok: false,
+      reason: order?.mobile
+        ? "This number isn't in your customer list yet"
+        : "No phone number on this order",
+    };
+  }
+  return { ok: true, customer: cust };
+}
+
 /**
  * Send the status message for an order, if there is one.
  *
