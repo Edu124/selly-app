@@ -191,8 +191,9 @@
 (function () {
   "use strict";
 
-  var ORDERS_KEY = "@selly_dev_orders";
-  var CONFIG_KEY = "@selly_dev_store_config";
+  var ORDERS_KEY  = "@selly_dev_orders";
+  var CONFIG_KEY  = "@selly_dev_store_config";
+  var CATALOG_KEY = "@selly_dev_catalog";
 
   // Fees mirror the preview values in storeStatus.loadStoreConfig(). In
   // production these come from business_settings via the store_public_status RPC.
@@ -203,7 +204,9 @@
   document.getElementById("bizName").textContent = BIZ;
 
   // ── Menu ───────────────────────────────────────────────────────────────────
-  // `out` marks sold out — the 86 list an owner sets from the app (CK-5).
+  // `out` marks sold out. It is NOT hardcoded — applyAvailability() below reads
+  // the owner's 86 list from the catalog store, so marking the biryani off in the
+  // app genuinely hides it here. Item ids match FX_CATALOG.
   var MENU = {
     "Thalis": [
       { id:"t1", name:"Veg Thali",           price:180, emoji:"🍛", diet:"veg" },
@@ -234,6 +237,24 @@
   var storeOpen = true;
 
   function inr(n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); }
+
+  // ── Availability ───────────────────────────────────────────────────────────
+  // The owner's sold-out list lives in the catalog store. Reading it here is what
+  // makes "hidden from the ordering page" true rather than a claim.
+  function applyAvailability() {
+    var byId = {};
+    try {
+      var raw = window.localStorage.getItem(CATALOG_KEY);
+      (raw ? JSON.parse(raw) : []).forEach(function (p) { byId[p.id] = p; });
+    } catch (e) { /* no catalog yet — everything stays available */ }
+
+    ALL.forEach(function (it) {
+      var p = byId[it.id];
+      it.out = p ? p.inStock === false : false;
+      // An item that just went off shouldn't stay in someone's cart.
+      if (it.out && cart[it.id]) delete cart[it.id];
+    });
+  }
 
   // ── Trading state ──────────────────────────────────────────────────────────
   // Mirrors storeStatus.storeOpenState(): the manual pause beats the schedule,
@@ -304,7 +325,8 @@
   // The app and this page share an origin, so pausing orders on the dashboard
   // fires a storage event here and closes the shop live.
   window.addEventListener("storage", function (e) {
-    if (!e.key || e.key === CONFIG_KEY) refreshStatus();
+    if (!e.key || e.key === CONFIG_KEY)  refreshStatus();
+    if (!e.key || e.key === CATALOG_KEY) { applyAvailability(); renderItems(); renderBill(); }
   });
 
   // ── Menu rendering ─────────────────────────────────────────────────────────
@@ -497,6 +519,7 @@
   };
 
   // ── Boot ───────────────────────────────────────────────────────────────────
+  applyAvailability();
   renderCats();
   renderItems();
   refreshStatus();

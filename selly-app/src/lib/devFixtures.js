@@ -26,6 +26,26 @@ export function useFixtures() {
 const hoursAgo = h => Date.now() - h * 3600_000;
 const minsAgo  = m => Date.now() - m * 60_000;
 
+// ── Business settings ─────────────────────────────────────────────────────────
+// fetchBusinessSettings() hits Supabase, which throws with no session, so every
+// screen reading it saw {} — which is why the bill went out with no UPI line.
+
+export const FX_SETTINGS = {
+  business_name   : "Ghar Ka Khana",
+  business_slug   : "gharkakhana",
+  business_address: "Kitchen unit 4, Baner Industrial Estate, Pune",
+  business_gst_no : "27ABCDE1234F1Z5",
+  city            : "Pune",
+  upi_id          : "gharkakhana@upi",
+  delivery_charge : 49,
+  free_above      : 599,
+  cod_fee         : 0,
+  gst_enabled     : true,
+  gst_rate        : 5,
+  whatsapp_number : "+91 98765 43210",
+  payment_modes   : "both",
+};
+
 // ── Café ──────────────────────────────────────────────────────────────────────
 
 export const FX_CAFE_CONFIG = {
@@ -242,6 +262,51 @@ export const FX_OCCASIONS = (() => {
     },
   ];
 })();
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+// Mobiles match the order fixtures on purpose. sendMessageToCustomer takes a
+// bot_customers id, not a phone number, so an order only gets a WhatsApp update
+// if resolveCustomer() can match its mobile to a saved customer — the exact path
+// that has to work in production.
+
+export const FX_CUSTOMERS = [
+  // Delivery (cloud kitchen)
+  { id: "d1", name: "Priya Nair",      firstName: "Priya",   lastName: "Nair",      mobile: "+919820011223", source: "web",      totalOrders: 7,  totalSpend: 3480, tags: ["frequent"], referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  { id: "d2", name: "Arjun Mehta",     firstName: "Arjun",   lastName: "Mehta",     mobile: "+919820044556", source: "web",      totalOrders: 2,  totalSpend: 1180, tags: ["new"],      referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  { id: "d3", name: "Fatima Shaikh",   firstName: "Fatima",  lastName: "Shaikh",    mobile: "+919820077889", source: "whatsapp", totalOrders: 12, totalSpend: 6120, tags: ["frequent"], referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  { id: "d4", name: "Rohit Kulkarni",  firstName: "Rohit",   lastName: "Kulkarni",  mobile: "+919820022110", source: "web",      totalOrders: 4,  totalSpend: 1960, tags: [],           referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  // Dine-in (café) — mobiles match FX_ORDERS
+  { id: "c1", name: "Aarav",           firstName: "Aarav",   lastName: "",          mobile: "+919822011223", source: "whatsapp", totalOrders: 3,  totalSpend: 1620, tags: [],           referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  { id: "c3", name: "Ishita",          firstName: "Ishita",  lastName: "",          mobile: "+919822077889", source: "whatsapp", totalOrders: 1,  totalSpend: 540,  tags: ["new"],      referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+  { id: "c4", name: "Rohan",           firstName: "Rohan",   lastName: "",          mobile: "+919822022110", source: "whatsapp", totalOrders: 6,  totalSpend: 3180, tags: ["frequent"], referralCode: "", referralCount: 0, referralEarnings: 0, orderIds: [], firstSeenAt: null, lastActiveAt: null, occasionMonth: null, occasionDay: null },
+];
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+// Same items as public/order.html so the ordering page and the Menu screen agree.
+// `inStock: false` on one item seeds the sold-out state so the 86 list has
+// something to show on first look.
+
+const cat = (id, name, price, category, subCategory, diet, prepMinutes, inStock = true) => ({
+  id, name, price, category, subCategory,
+  isPremium: false, extraFields: { diet, prepMinutes },
+  colors: [], sizes: [], hasSizes: false, material: "", description: "",
+  imageUrl: "", imageUrls: [], instaPostUrl: "", rating: null,
+  inStock, tags: [], productNumber: id.toUpperCase(), stockCount: -1, videoUrl: "",
+  createdAt: Date.now(),
+});
+
+export const FX_CATALOG = [
+  cat("t1", "Veg Thali",            180, "Thalis",         "Veg Thali",       "Veg",     20),
+  cat("t2", "Non-veg Thali",        240, "Thalis",         "Non-veg Thali",   "Non-veg", 25),
+  cat("t3", "Mini Thali",           130, "Thalis",         "Mini Thali",      "Veg",     15),
+  cat("m1", "Butter Chicken",       320, "Main Course",    "Chicken",         "Non-veg", 25),
+  cat("m2", "Paneer Butter Masala", 260, "Main Course",    "Paneer",          "Veg",     20),
+  cat("m3", "Dal Tadka",            160, "Main Course",    "Dal",             "Veg",     15),
+  cat("m4", "Chicken Biryani",      280, "Rice & Biryani", "Chicken Biryani", "Non-veg", 30, false),
+  cat("b1", "Butter Naan",           45, "Breads",         "Butter Naan",     "Veg",      8),
+  cat("b2", "Tandoori Roti",         25, "Breads",         "Roti",            "Veg",      6),
+  cat("b3", "Jeera Rice",           120, "Rice & Biryani", "Jeera Rice",      "Veg",     12),
+];
 
 // ── Fun Zone ──────────────────────────────────────────────────────────────────
 // Weights make the odds explicit and budgetable. The demo spun a uniform

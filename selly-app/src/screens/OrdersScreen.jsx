@@ -4,8 +4,11 @@ import {
   TextInput, RefreshControl, ActivityIndicator, Modal, ScrollView,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
-import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking } from "../lib/api";
+import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking, fetchCustomers } from "../lib/api";
+import { notifyOrderStatus } from "../lib/whatsapp";
+import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 import OrderRow from "../components/OrderRow";
 import StatusPill from "../components/StatusPill";
@@ -57,6 +60,8 @@ export default function OrdersScreen({ navigation, route }) {
   const [orderOTPs, setOrderOTPs] = useState(null);  // OTP data for selected order
   const [tracking, setTracking]   = useState(null);  // live tracking data
   const [trackLoading, setTrackLoading] = useState(false);
+  const [customers, setCustomers] = useState([]);    // needed to resolve a WhatsApp send
+  const [notice,    setNotice]    = useState(null);  // result of the last status change
 
   const load = async (reset = false) => {
     const p = reset ? 1 : page;
@@ -81,6 +86,7 @@ export default function OrdersScreen({ navigation, route }) {
     // Reset filter to "all" when the business type changes and reload
     setFilter("all");
     load(true);
+    fetchCustomers().then(c => setCustomers(c.customers || [])).catch(() => {});
     // Live-update when the guest ordering page places an order in another tab.
     // No-op outside the dev bypass.
     return subscribeDevOrders(() => load(true));
@@ -110,6 +116,7 @@ export default function OrdersScreen({ navigation, route }) {
     setTrackUrl(order.trackingUrl || "");
     setOrderOTPs(null);
     setTracking(null);
+    setNotice(null);
     // Load OTPs for COD orders
     if (order.paymentMode === "cod") {
       fetchOrderOTPs(order.id).then(d => setOrderOTPs(d.otps || null)).catch(() => {});
@@ -136,6 +143,7 @@ export default function OrdersScreen({ navigation, route }) {
     const next = nextStatus(industry, selected.status);
     if (!next) return;
     setUpdating(true);
+    setNotice(null);
     try {
       const extra = next === "shipped"
         ? { trackingNumber: trackNum, trackingUrl: trackUrl }
@@ -143,8 +151,21 @@ export default function OrdersScreen({ navigation, route }) {
       const updated = await updateOrderStatus(selected.id, next, extra);
       setSelected(updated.order || { ...selected, status: next });
       setOrders(prev => prev.map(o => o.id === selected.id ? { ...o, status: next } : o));
+
+      // Notify after the status lands, and never let a failed message block it.
+      const res = await notifyOrderStatus(next, {
+        order       : selected,
+        customerName: selected.name,
+        tableNo     : selected.table_no,
+        address     : selected.address,
+        flavour     : selected.extra?.flavour,
+        cakeMsg     : selected.extra?.cakeMsg,
+        due         : selected.extra?.due,
+      }, customers);
+      if (res.sent)       setNotice({ ok: true,  text: `${res.to} notified on WhatsApp`, body: res.text });
+      else if (res.error) setNotice({ ok: false, text: `Customer not notified — ${res.error}`, body: res.text });
     } catch (e) {
-      console.warn("Update error:", e.message);
+      setNotice({ ok: false, text: friendlyError(e) });
     } finally {
       setUpdating(false);
     }
@@ -239,7 +260,26 @@ export default function OrdersScreen({ navigation, route }) {
                 <InfoRow label={cfg.personLabel} value={selected.name} />
                 <InfoRow label="Phone"           value={selected.mobile} />
                 {cfg.showTable && <InfoRow label="Table" value={selected.table_no ? `Table ${selected.table_no}` : null} />}
-                {cfg.showAddress && <InfoRow label="Address" value={selected.address} />}
+
+                {/* Delivery address as its own block, not a squeezed table row —
+                    it's what the rider reads, and it's usually two lines long. */}
+                {cfg.showAddress && !!selected.address && (
+                  <View style={styles.addrBox}>
+                    <Ionicons name="location" size={14} color={Colors.primaryLight} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.addrLbl}>Deliver to</Text>
+                      <Text style={styles.addrVal}>{selected.address}</Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Note for the kitchen, from the ordering page */}
+                {!!selected.extra?.note && (
+                  <View style={styles.noteBox}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.yellow} />
+                    <Text style={styles.noteText}>{selected.extra.note}</Text>
+                  </View>
+                )}
 
                 {/* Items */}
                 <Text style={styles.subTitle}>{cfg.cartLabel}</Text>
@@ -356,6 +396,24 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
+                {/* Did the customer get told? Shows the message that went out,
+                    so the owner can see exactly what was said. */}
+                {!!notice && (
+                  <View style={[styles.notice, notice.ok ? styles.noticeOk : styles.noticeWarn]}>
+                    <View style={styles.noticeHead}>
+                      <Ionicons
+                        name={notice.ok ? "logo-whatsapp" : "alert-circle-outline"}
+                        size={14}
+                        color={notice.ok ? Colors.green : Colors.yellow}
+                      />
+                      <Text style={[styles.noticeTitle, { color: notice.ok ? Colors.green : Colors.yellow }]}>
+                        {notice.text}
+                      </Text>
+                    </View>
+                    {!!notice.body && <Text style={styles.noticeBody}>{notice.body}</Text>}
+                  </View>
+                )}
+
                 {/* Advance to the next status in this business type's flow */}
                 {(() => {
                   const next = nextStatus(industry, selected.status);
@@ -440,6 +498,22 @@ const styles = StyleSheet.create({
   subTitle      : { color: Colors.textSecondary, fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1, marginTop: 16, marginBottom: 8 },
 
   infoRow       : { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
+
+  // Delivery address — its own block, since it's what the rider reads
+  addrBox: { flexDirection: "row", alignItems: "flex-start", gap: 9, backgroundColor: Colors.primarySoft, borderRadius: 11, padding: 11, marginTop: 10 },
+  addrLbl: { color: Colors.primaryLight, fontSize: 10.5, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },
+  addrVal: { color: Colors.textPrimary, fontSize: 13.5, marginTop: 3, lineHeight: 19 },
+
+  noteBox : { flexDirection: "row", alignItems: "flex-start", gap: 8, backgroundColor: "rgba(245,165,36,0.09)", borderRadius: 10, padding: 10, marginTop: 9 },
+  noteText: { flex: 1, color: Colors.yellow, fontSize: 12.5, lineHeight: 18 },
+
+  // What the customer was told after the last status change
+  notice     : { borderRadius: 11, borderWidth: 1, padding: 11, marginTop: 14 },
+  noticeOk   : { backgroundColor: "rgba(34,197,94,0.07)", borderColor: "rgba(34,197,94,0.28)" },
+  noticeWarn : { backgroundColor: "rgba(245,165,36,0.08)", borderColor: "rgba(245,165,36,0.3)" },
+  noticeHead : { flexDirection: "row", alignItems: "center", gap: 7 },
+  noticeTitle: { flex: 1, fontSize: 12.5, fontWeight: "700" },
+  noticeBody : { color: Colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border },
   infoLabel     : { color: Colors.textSecondary, fontSize: 13 },
   infoValue     : { color: Colors.textPrimary, fontSize: 13, fontWeight: "600", flex: 1, textAlign: "right" },
 

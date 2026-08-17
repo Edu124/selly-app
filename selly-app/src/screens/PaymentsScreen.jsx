@@ -87,7 +87,8 @@ export default function PaymentsScreen() {
 
   const buildBillText = (o) => tplBill({
     order       : o,
-    tableNo     : unitOf(o),
+    typeId      : type.id,
+    tableNo     : o.table_no,
     businessName: settings.business_name || profile?.business_name,
     upiId       : settings.upi_id,
   });

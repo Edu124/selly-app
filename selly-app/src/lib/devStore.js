@@ -19,7 +19,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFixtures, FX_ORDERS, FX_DELIVERY_ORDERS, FX_CAKE_ORDERS } from "./devFixtures";
+import {
+  useFixtures, FX_ORDERS, FX_DELIVERY_ORDERS, FX_CAKE_ORDERS,
+  FX_CUSTOMERS, FX_CATALOG, FX_SETTINGS,
+} from "./devFixtures";
 
 export const DEV_ORDERS_KEY = "@selly_dev_orders";
 // The chosen business type, persisted so a reload doesn't send you back through
@@ -123,6 +126,106 @@ export function subscribeDevOrders(cb) {
     window.removeEventListener("storage", onStorage);
     window.removeEventListener(SAME_TAB_EVENT, cb);
   };
+}
+
+// ── Catalog ───────────────────────────────────────────────────────────────────
+// Persisted so the sold-out state survives a reload — an owner who marks the
+// biryani off at 8pm expects it to still be off at 8:05.
+
+export const DEV_CATALOG_KEY = "@selly_dev_catalog";
+
+export async function getDevCatalog() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_CATALOG_KEY);
+    if (raw == null) {
+      await AsyncStorage.setItem(DEV_CATALOG_KEY, JSON.stringify(FX_CATALOG));
+      return [...FX_CATALOG];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [...FX_CATALOG];
+  } catch {
+    return [...FX_CATALOG];
+  }
+}
+
+async function writeCatalog(list) {
+  await AsyncStorage.setItem(DEV_CATALOG_KEY, JSON.stringify(list));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+}
+
+export async function patchDevProduct(id, changes) {
+  const list = await getDevCatalog();
+  const next = list.map(p => (String(p.id) === String(id) ? { ...p, ...changes } : p));
+  await writeCatalog(next);
+  return next.find(p => String(p.id) === String(id)) || null;
+}
+
+export async function addDevProduct(product) {
+  const list = await getDevCatalog();
+  const row  = { ...product, id: String(Date.now()), createdAt: Date.now() };
+  await writeCatalog([...list, row]);
+  return row;
+}
+
+export async function deleteDevProduct(id) {
+  const list = await getDevCatalog();
+  await writeCatalog(list.filter(p => String(p.id) !== String(id)));
+  return { ok: true };
+}
+
+// ── Customers ─────────────────────────────────────────────────────────────────
+
+export async function getDevCustomers() {
+  return [...FX_CUSTOMERS];
+}
+
+// ── Outbox ────────────────────────────────────────────────────────────────────
+// Every WhatsApp message the app would have sent. The Railway send path isn't
+// reachable from here, so rather than swallow the message this records it — which
+// also gives the owner a trail of what the customer was actually told.
+
+export const DEV_OUTBOX_KEY = "@selly_dev_outbox";
+
+export async function getDevOutbox() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_OUTBOX_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addDevOutbox(entry) {
+  const list = await getDevOutbox();
+  const row  = { id: String(Date.now()) + Math.random().toString(36).slice(2, 6), sentAt: Date.now(), ...entry };
+  const next = [...list, row].slice(-200);   // keep the log from growing forever
+  await AsyncStorage.setItem(DEV_OUTBOX_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return row;
+}
+
+// ── Business settings ─────────────────────────────────────────────────────────
+// Merged over the fixtures so a partial save (which is how every settings screen
+// writes) doesn't wipe the rest of the row.
+
+export const DEV_SETTINGS_KEY = "@selly_dev_settings";
+
+export async function getDevSettings() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_SETTINGS_KEY);
+    return { ...FX_SETTINGS, ...(raw ? JSON.parse(raw) : {}) };
+  } catch {
+    return { ...FX_SETTINGS };
+  }
+}
+
+export async function setDevSettings(patch) {
+  const current = await getDevSettings();
+  const next    = { ...current, ...patch };
+  await AsyncStorage.setItem(DEV_SETTINGS_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return { ok: true };
 }
 
 // ── Store config (trading state) ──────────────────────────────────────────────

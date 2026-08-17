@@ -7,7 +7,11 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // Dev-only order store, shared with the guest ordering page at /customer.html.
 // No-ops outside a dev build running the login bypass.
-import { useFixtures, devFetchOrders, devFetchDashboard, patchDevOrder } from "./devStore";
+import {
+  useFixtures, devFetchOrders, devFetchDashboard, patchDevOrder,
+  getDevCatalog, patchDevProduct, addDevProduct, deleteDevProduct,
+  getDevCustomers, addDevOutbox, getDevSettings, setDevSettings,
+} from "./devStore";
 // saveBusinessSettings routes through the server (supabaseAdmin) — no direct import needed
 
 const DEFAULT_URL = "https://instagram-bot-production-04ae.up.railway.app";
@@ -103,8 +107,40 @@ export async function updateOrderStatus(orderId, status, extra = {}) {
   return r.data;
 }
 
-// ── Catalog — Supabase direct ─────────────────────────────────────────────────
-export { fetchCatalog, addProduct, updateProduct, toggleStock, deleteProduct, uploadProductImage } from "./supabase_data";
+// ── Catalog — Supabase direct, with a dev-store branch ───────────────────────
+// These were plain re-exports, but a re-export can't be intercepted, and the
+// preview needs a working menu for the sold-out list to act on.
+export { uploadProductImage } from "./supabase_data";
+
+export async function fetchCatalog() {
+  if (useFixtures()) return { products: await getDevCatalog() };
+  const { fetchCatalog: f } = await import("./supabase_data");
+  return f();
+}
+
+export async function toggleStock(id, inStock) {
+  if (useFixtures()) return { ok: true, product: await patchDevProduct(id, { inStock }) };
+  const { toggleStock: f } = await import("./supabase_data");
+  return f(id, inStock);
+}
+
+export async function addProduct(product) {
+  if (useFixtures()) return { ok: true, product: await addDevProduct(product) };
+  const { addProduct: f } = await import("./supabase_data");
+  return f(product);
+}
+
+export async function updateProduct(id, changes) {
+  if (useFixtures()) return { ok: true, product: await patchDevProduct(id, changes) };
+  const { updateProduct: f } = await import("./supabase_data");
+  return f(id, changes);
+}
+
+export async function deleteProduct(id) {
+  if (useFixtures()) return deleteDevProduct(id);
+  const { deleteProduct: f } = await import("./supabase_data");
+  return f(id);
+}
 
 export async function fetchInstaPost(url) {
   const c = await client();
@@ -113,7 +149,24 @@ export async function fetchInstaPost(url) {
 }
 
 // ── Customers — Supabase direct ───────────────────────────────────────────────
-export { fetchCustomers, fetchCustomer, updateCustomerTags, deleteCustomer } from "./supabase_data";
+export { fetchCustomer, updateCustomerTags, deleteCustomer } from "./supabase_data";
+
+export async function fetchCustomers() {
+  if (useFixtures()) {
+    const customers = await getDevCustomers();
+    return {
+      customers,
+      total: customers.length,
+      stats: {
+        total   : customers.length,
+        vip     : customers.filter(c => c.tags.includes("vip")).length,
+        frequent: customers.filter(c => c.tags.includes("frequent")).length,
+      },
+    };
+  }
+  const { fetchCustomers: f } = await import("./supabase_data");
+  return f();
+}
 
 // ── Promotions ────────────────────────────────────────────────────────────────
 export async function sendFlashSale(payload) {
@@ -271,7 +324,15 @@ export async function importContacts(contacts) {
 }
 
 // ── Send a custom WhatsApp message to one customer ────────────────────────────
+// The only per-customer send path the backend exposes. Text only — there is no
+// media endpoint (see SERVER_CONTRACT).
 export async function sendMessageToCustomer(customerId, message) {
+  if (useFixtures()) {
+    // Record it rather than swallow it: the message is the deliverable, and this
+    // gives the owner a trail of what the customer was actually told.
+    await addDevOutbox({ customerId, message });
+    return { ok: true, dev: true };
+  }
   const c = await client();
   const r = await c.post(`/api/customers/${customerId}/message`, { message });
   return r.data;
@@ -282,9 +343,17 @@ export async function sendMessageToCustomer(customerId, message) {
 // saveBusinessSettings writes to Supabase AND immediately busts the Railway
 // server's in-memory settings cache so the bot picks up the new values right away
 // (otherwise the server cache would hold stale data for up to 3 minutes).
-export { fetchBusinessSettings } from "./supabase_data";
+export async function fetchBusinessSettings() {
+  if (useFixtures()) {
+    const stored = await getDevSettings();
+    return { settings: { business_id: "dev-preview-business", ...stored } };
+  }
+  const { fetchBusinessSettings: f } = await import("./supabase_data");
+  return f();
+}
 
 export async function saveBusinessSettings(payload) {
+  if (useFixtures()) return setDevSettings(payload);
   // Route through the server which uses supabaseAdmin (bypasses RLS) and
   // automatically busts its own in-memory settings cache in the same request.
   const c = await client();

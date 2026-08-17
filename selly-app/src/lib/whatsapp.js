@@ -117,25 +117,46 @@ export function tplOrderServed({ tableNo }) {
 
 /**
  * The itemised bill.
- * @param coupon  optional {code, prizeLabel, discount} — pass the *computed*
- *                rupee discount, not the coupon's raw kind/value.
+ *
+ * The closing line has to match the business. Telling a delivery customer to
+ * "tell your server" is nonsense — they're at home — and a café guest has no
+ * delivery fee. So the wording is per type rather than one café-shaped default.
+ *
+ * @param typeId  "cafe" | "bakery" | "cloudkitchen"
+ * @param coupon  optional {code, discount} — pass the *computed* rupee discount,
+ *                not the coupon's raw kind/value.
  */
-export function tplBill({ order, tableNo, businessName, upiId, coupon = null }) {
+export function tplBill({ order, tableNo, businessName, upiId, typeId = "cafe", coupon = null }) {
   const subtotal = cartTotal(order?.cart) || orderTotal(order);
+  const delivery = Number(order?.bill?.delivery || 0);
   const discount = Number(coupon?.discount || 0);
-  const total    = Math.max(0, subtotal - discount);
+  const total    = Math.max(0, subtotal + delivery - discount);
+
+  // How this bill identifies itself
+  const heading =
+    typeId === "cafe"   && tableNo        ? `Table ${tableNo}\n` :
+    typeId === "bakery" && order?.extra?.due ? `Pickup: ${order.extra.due}\n` :
+    order?.id                             ? `Order #${String(order.id).slice(-5)}\n` : "";
+
+  // How to pay
+  const closing =
+    typeId === "cloudkitchen"
+      ? `Pay on delivery, or by UPI above to skip the change.\n\n_Thanks for ordering direct._ 🙏`
+      : typeId === "bakery"
+        ? `Pay when you collect, or by UPI above.\n\n_See you soon._ 🎂`
+        : `Or just tell your server — they've been notified.\n\n_No waiting, no waving._ 🙂`;
 
   return (
     `🧾 *Your bill from ${businessName || "our kitchen"}*\n\n` +
-    (tableNo ? `Table ${tableNo}\n` : "") +
+    heading +
     `${cartLines(order?.cart)}\n` +
     `──────────────\n` +
     `Subtotal: ${inr(subtotal)}\n` +
+    (delivery > 0 ? `Delivery: ${inr(delivery)}\n` : "") +
     (discount > 0 ? `Coupon ${coupon.code}: −${inr(discount)}\n` : "") +
     `*Total: ${inr(total)}*\n\n` +
     (upiId ? `💳 Pay by UPI: *${upiId}*\n` : "") +
-    `Or just tell your server — they've been notified.\n\n` +
-    `_No waiting, no waving._ 🙂`
+    closing
   );
 }
 
@@ -207,6 +228,104 @@ export function tplBirthdayReminder({ personName, whenText, lastCake = {}, disco
     `\n\nWant us to bake it again? *${discountPct}% off* for returning customers 💝\n\n` +
     `Reply *YES* to repeat last year's cake, or *NEW* to create a different one.`
   );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// CLOUD KITCHEN TEMPLATES
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Kitchen has started. A delivery customer can't see the kitchen, so say so. */
+export function tplKitchenStarted({ order, prepMinutes = 30 }) {
+  return (
+    `👨‍🍳 *We've started cooking — order ${shortId(order?.id)}*\n\n` +
+    `Your food is being made fresh right now. ` +
+    `Expect it in about ${prepMinutes} minutes 🍲`
+  );
+}
+
+/** Left the kitchen. The address matters here — it's the last chance to fix it. */
+export function tplOutForDelivery({ order, address, etaMinutes = 20 }) {
+  return (
+    `🛵 *On the way!*\n\n` +
+    `Order ${shortId(order?.id)} has left our kitchen and should reach you in about ${etaMinutes} minutes.\n\n` +
+    (address ? `📍 Delivering to: ${address}\n\n` : "") +
+    `_Please keep your phone handy — our rider may call._`
+  );
+}
+
+/** Delivered. Asks for a rating, which is the cheapest review you'll ever get. */
+export function tplDelivered({ name, order }) {
+  return (
+    `✅ *Delivered — enjoy${name ? `, ${name}` : ""}!*\n\n` +
+    `That's order ${shortId(order?.id)} with you. ` +
+    `Thank you for ordering direct from us 🙏\n\n` +
+    `How was it? Reply *1–5* ⭐`
+  );
+}
+
+/**
+ * The message that belongs to a status change, or null when a status shouldn't
+ * generate one. Keeping this in one place is what stops a café template going
+ * out to a delivery customer.
+ *
+ * @param status  the status being moved *to*
+ * @param ctx     { order, customerName, tableNo, address, businessName,
+ *                  prepMinutes, flavour, due, photoUrl, deliveryFee }
+ * @returns {string|null}
+ */
+export function messageForStatus(status, ctx = {}) {
+  const { order } = ctx;
+  switch (status) {
+    // Café
+    case "preparing":
+      return ctx.tableNo
+        ? tplOrderPreparing({ order, tableNo: ctx.tableNo, prepMinutes: ctx.prepMinutes })
+        : tplKitchenStarted({ order, prepMinutes: ctx.prepMinutes });
+    case "served":
+      return tplOrderServed({ tableNo: ctx.tableNo });
+
+    // Bakery
+    case "baking":
+      return tplCakeBaking({ order, flavour: ctx.flavour, due: ctx.due });
+    case "ready":
+      return tplCakeReady({
+        name: ctx.customerName, cakeMsg: ctx.cakeMsg, due: ctx.due,
+        businessName: ctx.businessName, deliveryFee: ctx.deliveryFee, photoUrl: ctx.photoUrl,
+      });
+
+    // Cloud kitchen
+    case "out_for_delivery":
+      return tplOutForDelivery({ order, address: ctx.address });
+    case "delivered":
+      return tplDelivered({ name: ctx.customerName, order });
+
+    // Money reaching the till is the owner's business, not news for the customer.
+    case "paid":
+    case "confirmed":
+    default:
+      return null;
+  }
+}
+
+/**
+ * Send the status message for an order, if there is one.
+ *
+ * Deliberately never throws: the kitchen has to be able to advance an order even
+ * when the notification can't go out. Callers advance first, then call this, and
+ * surface whatever comes back without blocking.
+ *
+ * @returns {{sent: boolean, skipped?: boolean, text?: string, to?: string, error?: string}}
+ */
+export async function notifyOrderStatus(status, ctx, customers = []) {
+  const text = messageForStatus(status, ctx);
+  if (!text) return { sent: false, skipped: true };
+
+  try {
+    const cust = await sendToOrderCustomer(ctx.order, customers, text);
+    return { sent: true, text, to: cust?.name || cust?.mobile || "the customer" };
+  } catch (e) {
+    return { sent: false, text, error: e?.message || "Couldn't send the message." };
+  }
 }
 
 /** Confirmation after an order is placed, used by both café and bakery. */

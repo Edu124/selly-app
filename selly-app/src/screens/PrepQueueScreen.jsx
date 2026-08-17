@@ -22,11 +22,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig, STATUS_LABELS, ADVANCE_LABELS, nextStatus } from "../lib/businessTypes";
-import { fetchOrders, updateOrderStatus } from "../lib/api";
+import { fetchOrders, updateOrderStatus, fetchCustomers, fetchCatalog } from "../lib/api";
 import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
-import { orderTotal, inr } from "../lib/whatsapp";
+import { orderTotal, inr, notifyOrderStatus } from "../lib/whatsapp";
+import SoldOutSheet from "../components/SoldOutSheet";
 
 // Orders the kitchen still has work to do on.
 const ACTIVE = ["pending_payment", "confirmed", "preparing", "baking", "ready"];
@@ -64,11 +65,15 @@ export default function PrepQueueScreen({ navigation }) {
   const twoCol = width >= 900;
 
   const [orders,     setOrders]     = useState([]);
+  const [customers,  setCustomers]  = useState([]);
+  const [catalog,    setCatalog]    = useState([]);
   const [prepMins,   setPrepMins]   = useState(30);
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error,      setError]      = useState(null);
+  const [notice,     setNotice]     = useState(null);
   const [busyId,     setBusyId]     = useState(null);
+  const [soldOutOpen, setSoldOutOpen] = useState(false);
   // Re-render once a minute so the elapsed timers keep counting without a fetch.
   const [, setTick]  = useState(0);
 
@@ -76,11 +81,15 @@ export default function PrepQueueScreen({ navigation }) {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      const [o, s] = await Promise.all([
+      const [o, s, c, k] = await Promise.all([
         fetchOrders({ page: 1, limit: 100 }),
         loadStoreConfig().catch(() => null),
+        fetchCustomers().catch(() => ({ customers: [] })),
+        fetchCatalog().catch(() => ({ products: [] })),
       ]);
       setOrders((o.orders || []).filter(x => ACTIVE.includes(x.status)));
+      setCustomers(c.customers || []);
+      setCatalog(k.products || []);
       if (s?.config?.defaultPrepMinutes) setPrepMins(Number(s.config.defaultPrepMinutes));
     } catch (e) {
       setError(friendlyError(e));
@@ -112,6 +121,18 @@ export default function PrepQueueScreen({ navigation }) {
     );
     try {
       await updateOrderStatus(order.id, next);
+      // Notify after the status lands, never before, and never blocking: the
+      // kitchen has to be able to move an order even when the message can't go.
+      const res = await notifyOrderStatus(next, {
+        order,
+        customerName: order.name,
+        tableNo     : order.table_no,
+        address     : order.address,
+        prepMinutes : prepMins,
+      }, customers);
+      if (res.sent)              setNotice({ ok: true,  text: `${STATUS_LABELS[next]} · ${res.to} notified on WhatsApp` });
+      else if (res.error)        setNotice({ ok: false, text: `${STATUS_LABELS[next]} — but the customer wasn't notified: ${res.error}` });
+      else                       setNotice(null);
     } catch (e) {
       setError(friendlyError(e));
       load(true);   // put the truth back
@@ -136,7 +157,8 @@ export default function PrepQueueScreen({ navigation }) {
       .sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name));
   })();
 
-  const lateCount = orders.filter(o => minutesSince(o.createdAt) >= prepMins).length;
+  const lateCount    = orders.filter(o => minutesSince(o.createdAt) >= prepMins).length;
+  const soldOutCount = catalog.filter(p => p.inStock === false).length;
 
   if (loading && !orders.length) {
     return (
@@ -171,7 +193,40 @@ export default function PrepQueueScreen({ navigation }) {
             <Text style={styles.lateBadgeText}>{lateCount} late</Text>
           </View>
         )}
+        {/* The 86 list. Reachable in one tap from the screen the kitchen is
+            already on — running out is routine, not an exception. */}
+        <TouchableOpacity
+          style={[styles.soldOutBtn, soldOutCount > 0 && styles.soldOutBtnOn]}
+          onPress={() => setSoldOutOpen(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={soldOutCount > 0 ? "eye-off" : "eye-off-outline"}
+            size={13}
+            color={soldOutCount > 0 ? Colors.red : Colors.textSecondary}
+          />
+          <Text style={[styles.soldOutBtnText, soldOutCount > 0 && { color: Colors.red }]}>
+            {soldOutCount > 0 ? `${soldOutCount} sold out` : "Sold out"}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Result of the last status change — did the customer actually get told? */}
+      {!!notice && (
+        <View style={[styles.notice, notice.ok ? styles.noticeOk : styles.noticeWarn]}>
+          <Ionicons
+            name={notice.ok ? "checkmark-circle" : "alert-circle-outline"}
+            size={15}
+            color={notice.ok ? Colors.green : Colors.yellow}
+          />
+          <Text style={[styles.noticeText, { color: notice.ok ? Colors.green : Colors.yellow }]}>
+            {notice.text}
+          </Text>
+          <TouchableOpacity onPress={() => setNotice(null)}>
+            <Ionicons name="close" size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {!!error && (
         <View style={styles.errBanner}>
@@ -289,6 +344,13 @@ export default function PrepQueueScreen({ navigation }) {
       <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate("Orders")}>
         <Text style={styles.linkText}>See every order, including finished →</Text>
       </TouchableOpacity>
+
+      <SoldOutSheet
+        visible={soldOutOpen}
+        onClose={() => setSoldOutOpen(false)}
+        products={catalog}
+        onChanged={() => load(true)}
+      />
     </ScrollView>
   );
 }
@@ -308,6 +370,19 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5,
   },
   lateBadgeText: { color: "#f87171", fontSize: 12, fontWeight: "800" },
+
+  soldOutBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5, marginLeft: 8,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 20, paddingHorizontal: 11, paddingVertical: 5,
+  },
+  soldOutBtnOn  : { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.32)" },
+  soldOutBtnText: { color: Colors.textSecondary, fontSize: 12, fontWeight: "700" },
+
+  notice    : { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 10, borderWidth: 1, padding: 10, marginBottom: 12 },
+  noticeOk  : { backgroundColor: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.28)" },
+  noticeWarn: { backgroundColor: "rgba(245,165,36,0.08)", borderColor: "rgba(245,165,36,0.3)" },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
 
   errBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.yellow, borderRadius: 10, padding: 10, marginBottom: 12 },
   errText  : { flex: 1, color: Colors.textSecondary, fontSize: 12 },
