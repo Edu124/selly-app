@@ -59,3 +59,8 @@ list_repos.ps1
 # Python bytecode (asset generator)
 __pycache__/
 *.pyc
+
+# Pitch deck build artifacts
+pitch/node_modules/
+pitch/slide-*.png
+pitch/*.pdf
