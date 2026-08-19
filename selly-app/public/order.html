@@ -185,7 +185,19 @@
   var CONFIG_KEY    = "@selly_dev_store_config";
   var CATALOG_KEY   = "@selly_dev_catalog";
   var CUSTOMERS_KEY = "@selly_dev_customers";
-  var OUTBOX_KEY    = "@selly_dev_outbox";
+  var OUTBOX_KEY     = "@selly_dev_outbox";
+  var COMPLAINTS_KEY = "@selly_dev_complaints";
+
+  // Food complaints, not returns. Nobody sends a biryani back — these are the
+  // things that actually go wrong with a delivered meal.
+  var COMPLAINT_REASONS = [
+    "Food arrived cold",
+    "Wrong item delivered",
+    "Something was missing",
+    "Quality was poor",
+    "Arrived far too late",
+    "Something else"
+  ];
 
   var AREA = "Baner";
 
@@ -778,6 +790,56 @@
           ". Open the Selly app → Kitchen and advance it — the update lands back in this chat.");
   }
 
+  // ── Complaints ─────────────────────────────────────────────────────────────
+  // Raised here, in the thread, seconds after the food arrived — not on a form
+  // the customer has to go and find. It writes the record the app's Complaints
+  // screen reads, with the order attached so the owner sees what went wrong.
+
+  function latestOrder() {
+    var mine = readJSON(ORDERS_KEY, []).filter(function (o) {
+      return myOrderIds.indexOf(o.id) !== -1;
+    });
+    return mine.length ? mine[mine.length - 1] : null;
+  }
+
+  function startComplaint() {
+    var o = latestOrder();
+    flow = { state: "complaint_reason", orderId: o ? o.id : null };
+    botPush("😕 Sorry to hear that — let us put it right.\n\n" +
+            "What went wrong with order *#" + (o ? o.id.slice(-5) : "") + "*?",
+            COMPLAINT_REASONS);
+  }
+
+  function submitComplaint(reason, detail) {
+    var o = latestOrder();
+    var list = readJSON(COMPLAINTS_KEY, []);
+    list.push({
+      id            : String(Date.now()) + Math.random().toString(36).slice(2, 5),
+      order_id      : o ? o.id : null,
+      customer_id   : guest.id,
+      customer_name : guest.name || (o && o.name) || "Customer",
+      customer_email: "",
+      mobile        : o ? o.mobile : "",
+      reason        : reason,
+      description   : detail,
+      order_total   : o ? o.bill.total : 0,
+      kitchen       : o && o.extra ? o.extra.kitchen : "",
+      status        : "pending",
+      resolution    : null,
+      owner_note    : "",
+      created_at    : new Date().toISOString()
+    });
+    window.localStorage.setItem(COMPLAINTS_KEY, JSON.stringify(list));
+
+    botPush("🙏 *Sorry — that is not what we wanted for you.*\n\n" +
+            "We have logged it against order *#" + (o ? o.id.slice(-5) : "") + "*:\n" +
+            "_" + reason + "_" + (detail ? "\n\n“" + detail + "”" : "") + "\n\n" +
+            "The kitchen is looking at it now and will come back to you here shortly.",
+            ["Show me kitchens"]);
+
+    toast("⚠️ Complaint sent to the kitchen. Open the Selly app → More → Returns to resolve it.");
+  }
+
   // ── Router ─────────────────────────────────────────────────────────────────
   function userSend(text) {
     var t = String(text || "").trim();
@@ -807,6 +869,26 @@
       botPush("Got it. And where should they deliver? _Flat / building, street, landmark._");
       return;
     }
+    // Complaint: reason, then optional detail. Kept short on purpose — someone
+    // whose dinner is wrong will not fill in a form.
+    if (flow.state === "complaint_reason") {
+      var picked = null;
+      for (var ci = 0; ci < COMPLAINT_REASONS.length; ci++) {
+        if (t.indexOf(COMPLAINT_REASONS[ci].toLowerCase().slice(0, 12)) !== -1) picked = COMPLAINT_REASONS[ci];
+      }
+      flow.reason = picked || raw.trim().slice(0, 80);
+      flow.state  = "complaint_detail";
+      botPush("Got it — *" + flow.reason + "*.\n\nAnything you want to add? " +
+              "_Send it in a line, or tap Skip._", ["Skip"]);
+      return;
+    }
+    if (flow.state === "complaint_detail") {
+      var detail = /^skip$/i.test(raw.trim()) ? "" : raw.trim().slice(0, 300);
+      submitComplaint(flow.reason, detail);
+      flow.state = "idle";
+      return;
+    }
+
     if (flow.state === "address") {
       if (raw.trim().length < 10) { botPush("Could you give me a bit more of the address? A landmark helps the rider."); return; }
       guest.address = raw.trim().slice(0, 160);
@@ -845,6 +927,30 @@
     if (/^yes\b/.test(t) && !haveLocation) {
       botPush("🙌 You're on the list — I'll message you the day I cover it.",
               ["Show me " + AREA]);
+      return;
+    }
+
+    // A rating reply. 4-5 is a thank you; 1-2 opens a complaint without making
+    // them find a form. This is the whole point of asking in the chat.
+    var rating = /^([1-5])\s*$/.exec(t);
+    if (rating && latestOrder()) {
+      var n = Number(rating[1]);
+      if (n >= 4) {
+        botPush((n === 5 ? "🥹 " : "🙂 ") + "Thank you — I have passed that straight to the kitchen.\n\n" +
+                "_They see every rating._", ["Order again", "Show me kitchens"]);
+      } else {
+        startComplaint();
+      }
+      return;
+    }
+
+    if (/complaint|complain|problem|issue|refund|wrong order|cold|missing|stale|late/.test(t)) {
+      if (!latestOrder()) {
+        botPush("I cannot see an order from you yet. If you ordered from another number, " +
+                "tell me the order number and I will look it up.", ["Show me kitchens"]);
+        return;
+      }
+      startComplaint();
       return;
     }
 

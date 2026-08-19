@@ -307,6 +307,57 @@ export function messageForStatus(status, ctx = {}) {
   }
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// COMPLAINTS
+// ═════════════════════════════════════════════════════════════════════════════
+// Food complaints are not returns. Nobody sends a biryani back, and asking them
+// to is the fastest way to lose the customer for good. What matters is that
+// somebody answers quickly and the outcome is money, a credit, or the food again.
+
+/** Sent the moment a complaint is raised, so nobody is left wondering. */
+export function tplComplaintAck({ order, reason }) {
+  return (
+    `🙏 *Sorry — that is not what we wanted for you.*
+
+` +
+    `We have logged it against order ${shortId(order?.id)}:
+` +
+    `_${reason}_
+
+` +
+    `The kitchen is looking at it now and will come back to you here shortly.`
+  );
+}
+
+/** The owner's decision, sent back into the same thread. */
+export function tplComplaintResolved({ order, resolution, note, amount }) {
+  const head = {
+    refund : `💸 *Refund on the way*
+
+We are refunding ${amount ? inr(amount) : "your order"} for ${shortId(order?.id)}. It should reach you in 3–5 working days.`,
+    credit : `🎁 *Credit added*
+
+We have put ${amount ? inr(amount) : "the amount"} aside for your next order. Just mention it when you order and it comes off the bill.`,
+    remake : `👨‍🍳 *We are making it again*
+
+A fresh one is going on now for order ${shortId(order?.id)} — no charge. We will tell you the moment it leaves.`,
+    decline: `🙏 *About order ${shortId(order?.id)}*
+
+We looked into this one and are not able to refund it.`,
+  }[resolution] || `About order ${shortId(order?.id)}:`;
+
+  return head + (note ? `
+
+${note}` : "") +
+    (resolution === "decline"
+      ? `
+
+_If you think we have this wrong, reply here and a person will read it._`
+      : `
+
+_Thank you for telling us — it is the only way we get better._`);
+}
+
 /** Does this status produce a customer message at all? */
 export function canNotifyStatus(status) {
   return messageForStatus(status, { order: { id: "0" } }) !== null;

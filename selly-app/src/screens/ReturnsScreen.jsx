@@ -1,6 +1,7 @@
-// ── Returns Screen ─────────────────────────────────────────────────────────────
-// Shows customer return / refund / complaint requests.
-// Owner can approve or reject each request with an optional note.
+// ── Complaints Screen ─────────────────────────────────────────────────────────
+// Complaints raised by customers, mostly from the WhatsApp thread right after
+// delivery. Resolving one records the outcome AND messages the customer back in
+// the same thread — that second half is what decides whether they order again.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useCallback } from "react";
@@ -11,7 +12,8 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchReturns, updateReturn } from "../lib/api";
+import { fetchReturns, updateReturn, sendMessageToCustomer } from "../lib/api";
+import { tplComplaintResolved, inr } from "../lib/whatsapp";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig } from "../lib/businessTypes";
@@ -22,6 +24,19 @@ const RETURN_LABEL = {
   bakery      : "Complaints & Refunds",
   cloudkitchen: "Complaints & Refunds",
 };
+
+// You cannot return a biryani. The outcomes that mean something for food are
+// money back, credit against the next order, or cooking it again.
+const RESOLUTIONS = [
+  { key: "refund",  status: "approved", label: "Refund",  hint: "Money back",
+    doneTitle: "Refund recorded", doneBody: "Marked for refund." },
+  { key: "credit",  status: "approved", label: "Credit",  hint: "Off next order",
+    doneTitle: "Credit recorded", doneBody: "Credit added for their next order." },
+  { key: "remake",  status: "approved", label: "Remake",  hint: "Cook it again",
+    doneTitle: "Remake recorded", doneBody: "Marked to cook again, no charge." },
+  { key: "decline", status: "rejected", label: "Decline", hint: "With a reason",
+    doneTitle: "Declined",        doneBody: "Declined and your note saved." },
+];
 
 const STATUS_STYLE = {
   pending  : { bg: "rgba(245,158,11,0.12)",  text: "#f59e0b",  label: "Pending"  },
@@ -73,21 +88,41 @@ export default function ReturnsScreen() {
     setOwnerNote(item.owner_note || "");
   };
 
-  const handleDecision = async (status) => {
+  // Resolving a complaint does two things: it records the outcome, and it tells
+  // the customer in the thread they complained in. The second half is the part
+  // that decides whether they order again, so a failure to send is surfaced
+  // rather than swallowed behind a cheerful "they have been notified".
+  const handleDecision = async (res) => {
     if (!selected) return;
     setSaving(true);
+    const note = ownerNote.trim();
     try {
-      await updateReturn(selected.id, status, ownerNote.trim());
+      await updateReturn(selected.id, res.status, note, res.key);
       setReturns(prev => prev.map(r =>
-        r.id === selected.id ? { ...r, status, owner_note: ownerNote.trim() } : r
+        r.id === selected.id
+          ? { ...r, status: res.status, owner_note: note, resolution: res.key }
+          : r
       ));
+
+      let told = "";
+      if (selected.customer_id) {
+        try {
+          await sendMessageToCustomer(selected.customer_id, tplComplaintResolved({
+            order     : { id: selected.order_id },
+            resolution: res.key,
+            note,
+            amount    : selected.order_total,
+          }));
+          told = `\n\n${selected.customer_name || "The customer"} has been told on WhatsApp.`;
+        } catch (e) {
+          told = `\n\nSaved — but the message did not send: ${friendlyError(e)}`;
+        }
+      } else {
+        told = "\n\nNo WhatsApp number on this complaint, so nothing was sent.";
+      }
+
       setSelected(null);
-      Alert.alert(
-        status === "approved" ? "Approved ✓" : "Rejected",
-        status === "approved"
-          ? "Return approved. The customer will be notified."
-          : "Return rejected. Your note has been saved."
-      );
+      Alert.alert(res.doneTitle, res.doneBody + told);
     } catch (e) {
       Alert.alert("Error", friendlyError(e));
     } finally {
@@ -108,19 +143,22 @@ export default function ReturnsScreen() {
       <TouchableOpacity style={styles.card} onPress={() => openDetail(item)} activeOpacity={0.8}>
         <View style={styles.cardTop}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.orderId}>Order #{item.order_id}</Text>
+            <Text style={styles.orderId}>Order #{String(item.order_id || "").slice(-5)}</Text>
             <Text style={styles.customerName}>{item.customer_name || "Customer"}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
             <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
           </View>
         </View>
-        <Text style={styles.reason}>{item.reason}</Text>
+        <Text style={styles.reason}>
+          {item.reason}
+          {item.resolution ? <Text style={styles.resTag}>{"  ·  " + item.resolution}</Text> : null}
+        </Text>
         {item.description ? (
           <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
         ) : null}
         <View style={styles.cardBottom}>
-          <Text style={styles.meta}>{item.customer_email || "no email"}</Text>
+          <Text style={styles.meta}>{item.mobile || item.customer_email || "no contact"}</Text>
           <Text style={styles.meta}>{ago(item.created_at)}</Text>
         </View>
       </TouchableOpacity>
@@ -204,11 +242,15 @@ export default function ReturnsScreen() {
 
                     {/* Info rows */}
                     {[
-                      ["Order ID",  `#${selected.order_id}`],
+                      ["Order",     selected.order_id ? `#${String(selected.order_id).slice(-5)}` : "—"],
                       ["Customer",  selected.customer_name || "—"],
-                      ["Email",     selected.customer_email || "—"],
+                      ["Phone",     selected.mobile || selected.customer_email || "—"],
+                      // What the order was worth decides what a refund costs.
+                      ["Order value", selected.order_total ? inr(selected.order_total) : "—"],
+                      ["Kitchen",   selected.kitchen || "—"],
                       ["Reason",    selected.reason],
-                      ["Submitted", ago(selected.created_at)],
+                      ["Raised",    ago(selected.created_at)],
+                      ...(selected.resolution ? [["Outcome", selected.resolution]] : []),
                     ].map(([label, val]) => (
                       <View key={label} style={styles.infoRow}>
                         <Text style={styles.infoLabel}>{label}</Text>
@@ -242,27 +284,35 @@ export default function ReturnsScreen() {
                       />
                     </View>
 
-                    {/* Approve / Reject buttons (only for pending) */}
+                    {/* How this gets put right. Each one sends a different
+                        message to the customer, so the choice is the reply. */}
                     {selected.status === "pending" && (
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.approveBtn]}
-                          onPress={() => handleDecision("approved")}
-                          disabled={saving}
-                        >
-                          <Text style={styles.approveBtnText}>
-                            {saving ? "..." : "✓ Approve"}
+                      <View>
+                        <Text style={[styles.infoLabel, { marginBottom: 8 }]}>
+                          Put it right
+                        </Text>
+                        <View style={styles.resGrid}>
+                          {RESOLUTIONS.map(r => (
+                            <TouchableOpacity
+                              key={r.key}
+                              style={[styles.resBtn, r.key === "decline" && styles.resBtnDecline]}
+                              onPress={() => handleDecision(r)}
+                              disabled={saving}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={[styles.resLabel, r.key === "decline" && { color: Colors.red }]}>
+                                {saving ? "…" : r.label}
+                              </Text>
+                              <Text style={styles.resHint}>{r.hint}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        {!selected.customer_id && (
+                          <Text style={styles.noWaWarn}>
+                            No WhatsApp number on this one — the outcome will be
+                            recorded, but nothing will be sent to the customer.
                           </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.actionBtn, styles.rejectBtn]}
-                          onPress={() => handleDecision("rejected")}
-                          disabled={saving}
-                        >
-                          <Text style={styles.rejectBtnText}>
-                            {saving ? "..." : "✕ Reject"}
-                          </Text>
-                        </TouchableOpacity>
+                        )}
                       </View>
                     )}
 
@@ -322,12 +372,15 @@ const styles = StyleSheet.create({
 
   noteInput    : { backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 12, color: Colors.textPrimary, fontSize: 14, lineHeight: 20, textAlignVertical: "top" },
 
-  actionRow    : { flexDirection: "row", gap: 12, marginTop: 4 },
-  actionBtn    : { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center", borderWidth: 1.5 },
-  approveBtn   : { backgroundColor: "rgba(34,197,94,0.1)", borderColor: "#22c55e" },
-  rejectBtn    : { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "#ef4444" },
-  approveBtnText: { color: "#22c55e", fontSize: 15, fontWeight: "700" },
-  rejectBtnText : { color: "#ef4444", fontSize: 15, fontWeight: "700" },
+  // Four outcomes, two up — thumb-sized, since this gets used mid-service.
+  resGrid      : { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  resBtn       : { flexBasis: "47%", flexGrow: 1, paddingVertical: 13, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.green, backgroundColor: "rgba(34,197,94,0.10)" },
+  resBtnDecline: { borderColor: Colors.red, backgroundColor: "rgba(239,68,68,0.09)" },
+  resLabel     : { color: Colors.green, fontSize: 15, fontWeight: "800" },
+  resHint      : { color: Colors.textMuted, fontSize: 11.5, marginTop: 2 },
+  noWaWarn     : { color: Colors.yellow, fontSize: 11.5, lineHeight: 16, marginTop: 10 },
+
+  resTag       : { color: Colors.primaryLight, fontWeight: "700" },
 
   savedNote    : { backgroundColor: Colors.bgCard, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.border },
   savedNoteLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: "600", marginBottom: 4, textTransform: "uppercase" },

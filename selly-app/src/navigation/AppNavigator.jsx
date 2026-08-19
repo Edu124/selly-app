@@ -96,7 +96,7 @@ function MoreStack({ industry }) {
       <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}          options={{ title: "Query Inbox" }} />
       <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen}      options={{ title: "Photo Inquiries" }} />
       <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}             options={{ title: "Customer Reviews" }} />
-      <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Returns & Refunds" }} />
+      <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Complaints & Refunds" }} />
 
       {/* Finance */}
       <MoreStack_.Screen name="Accounting"   component={AccountingScreen}   options={{ title: "Accounting & Reports" }} />
@@ -132,7 +132,7 @@ function MoreHubScreen() {
         { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",              screen: "QueryInbox"     },
         { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",                     screen: "PhotoInquiries" },
         { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",               screen: "Reviews"        },
-        { icon: "↩",  label: "Returns",         desc: "Return, refund & complaint requests",                screen: "Returns"        },
+        { icon: "⚠️", label: "Complaints",      desc: "Problems with an order — refund, credit or remake",  screen: "Returns"        },
       ],
     },
     {

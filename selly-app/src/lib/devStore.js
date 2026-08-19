@@ -193,6 +193,51 @@ export async function getDevCustomers() {
   }
 }
 
+// ── Complaints ────────────────────────────────────────────────────────────────
+// Raised from the WhatsApp thread, handled on the app's Complaints screen. The
+// record shape matches what /api/returns returns, so the screen needs no special
+// casing and this can be swapped for the real endpoint later.
+//
+// Food complaints are not returns. Nobody sends a biryani back — the outcomes
+// that matter are a refund, a credit, or remaking it.
+
+export const DEV_COMPLAINTS_KEY = "@selly_dev_complaints";
+
+export async function getDevComplaints() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_COMPLAINTS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr)
+      ? [...arr].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addDevComplaint(entry) {
+  const list = await getDevComplaints();
+  const row  = {
+    id        : String(Date.now()) + Math.random().toString(36).slice(2, 5),
+    status    : "pending",
+    created_at: new Date().toISOString(),
+    owner_note: "",
+    resolution: null,
+    ...entry,
+  };
+  await AsyncStorage.setItem(DEV_COMPLAINTS_KEY, JSON.stringify([...list, row]));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return row;
+}
+
+export async function patchDevComplaint(id, changes) {
+  const list = await getDevComplaints();
+  const next = list.map(c => (String(c.id) === String(id) ? { ...c, ...changes } : c));
+  await AsyncStorage.setItem(DEV_COMPLAINTS_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return next.find(c => String(c.id) === String(id)) || null;
+}
+
 // ── Outbox ────────────────────────────────────────────────────────────────────
 // Every WhatsApp message the app would have sent. The Railway send path isn't
 // reachable from here, so rather than swallow the message this records it — which
@@ -217,7 +262,7 @@ export async function getDevOutbox() {
  */
 export async function clearDevSideData() {
   await AsyncStorage.multiRemove([
-    DEV_CATALOG_KEY, DEV_OUTBOX_KEY, DEV_CUSTOMERS_KEY, "@selly_web_session",
+    DEV_CATALOG_KEY, DEV_OUTBOX_KEY, DEV_CUSTOMERS_KEY, DEV_COMPLAINTS_KEY, "@selly_web_session",
   ]);
   if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
   return { ok: true };

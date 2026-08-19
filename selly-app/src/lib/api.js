@@ -11,6 +11,7 @@ import {
   useFixtures, devFetchOrders, devFetchDashboard, patchDevOrder,
   getDevCatalog, patchDevProduct, addDevProduct, deleteDevProduct,
   getDevCustomers, addDevOutbox, getDevSettings, setDevSettings,
+  getDevComplaints, patchDevComplaint,
 } from "./devStore";
 // saveBusinessSettings routes through the server (supabaseAdmin) — no direct import needed
 
@@ -376,16 +377,34 @@ export async function replyToQuery(queryId, reply) {
 }
 
 
-// ── Returns / Refunds ─────────────────────────────────────────────────────────
+// ── Complaints / Refunds ──────────────────────────────────────────────────────
+// The endpoint is still called "returns" server-side; for food the same record is
+// a complaint. `resolution` (refund | credit | remake | decline) rides alongside
+// the status so the customer message can say what actually happens next.
 export async function fetchReturns(status = null) {
+  if (useFixtures()) {
+    const all = await getDevComplaints();
+    return { returns: status ? all.filter(r => r.status === status) : all };
+  }
   const c = await client();
   const r = await c.get("/api/returns", { params: status ? { status } : {} });
   return r.data;
 }
 
-export async function updateReturn(returnId, status, ownerNote = "") {
+export async function updateReturn(returnId, status, ownerNote = "", resolution = null) {
+  if (useFixtures()) {
+    const row = await patchDevComplaint(returnId, {
+      status,
+      owner_note : ownerNote,
+      ...(resolution ? { resolution } : {}),
+      resolved_at: new Date().toISOString(),
+    });
+    return { ok: true, return: row };
+  }
   const c = await client();
-  const r = await c.patch(`/api/returns/${returnId}`, { status, owner_note: ownerNote });
+  const r = await c.patch(`/api/returns/${returnId}`, {
+    status, owner_note: ownerNote, ...(resolution ? { resolution } : {}),
+  });
   return r.data;
 }
 
