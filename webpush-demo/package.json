@@ -1,0 +1,14 @@
+{
+  "name": "selly-webpush-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Proves order updates reach a customer with the tab closed, with no WhatsApp involved.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "web-push": "^3.6.7"
+  }
+}

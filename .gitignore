@@ -68,3 +68,7 @@ pitch/*.pdf
 # Cloned separately — was a broken submodule pointer that failed Pages builds
 selly-website/
 instagram-bot/
+
+# web-push demo
+webpush-demo/node_modules/
+webpush-demo/.vapid.json

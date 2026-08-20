@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="/icon.png">
+<title>Kitchen — Selly demo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#0a0a12;--card:#14141f;--elev:#1a1a28;--line:#242437;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;--violet:#7c5cff;--green:#22c55e;--amber:#f5a524;--red:#ef4444}
+  body{background:var(--bg);color:var(--tx);min-height:100vh;padding:20px 16px 40px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-size:21px;font-weight:800;letter-spacing:-.3px}
+  .sub{color:var(--tx2);font-size:12.5px;margin-top:4px}
+
+  .bar{display:flex;gap:9px;align-items:center;background:var(--card);border:1px solid var(--line);
+    border-radius:11px;padding:11px 13px;margin:14px 0;font-size:12.5px;color:var(--tx2);line-height:1.6}
+  .bar b{color:var(--tx)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:11px}
+  .top{display:flex;align-items:center;gap:10px}
+  .no{font-size:15px;font-weight:800}
+  .amt{margin-left:auto;font-size:15px;font-weight:800}
+  .who{color:var(--tx2);font-size:12px;margin-top:5px}
+  .addr{color:var(--tx2);font-size:11.5px;margin-top:6px;line-height:1.5}
+  .items{background:var(--bg);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:5px}
+  .li{display:flex;gap:9px;font-size:13.5px}
+  .li b{color:#b7a5ff;min-width:26px}
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+  .pill{border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:800}
+  .adv{background:var(--violet);border:none;color:#fff;border-radius:10px;padding:9px 16px;
+    font-size:12.5px;font-weight:700;cursor:pointer}
+  .adv:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+  .sent{font-size:11.5px;margin-top:9px}
+  .sent.ok{color:var(--green)} .sent.no{color:var(--amber)}
+  .empty{text-align:center;padding:50px 20px;color:var(--tx2)}
+  .empty a{color:#9d87ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍳 Kitchen</h1>
+  <p class="sub">Ghar Ka Khana · Baner</p>
+
+  <div class="bar">
+    <div>
+      <b>This is the half that sends.</b> Pressing an advance button below makes the
+      server send a real Web Push. The customer's tab does not need to be open —
+      the browser hands it to their service worker.
+      <br>Customer page: <a href="/" target="_blank" style="color:#9d87ff">open it here</a>
+    </div>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var STATUS = {
+    confirmed       : { label: "Confirmed",        next: "Start preparing",      bg: "rgba(34,197,94,.13)",  fg: "#4ade80" },
+    preparing       : { label: "Preparing",        next: "Send out for delivery", bg: "rgba(59,130,246,.15)", fg: "#7cb0ff" },
+    out_for_delivery: { label: "Out for delivery", next: "Mark delivered",       bg: "rgba(255,107,157,.15)",fg: "#ff8fb8" },
+    delivered       : { label: "Delivered",        next: null,                   bg: "rgba(45,212,191,.15)", fg: "#5eead4" },
+  };
+  var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+  var lastSent = {};
+
+  function render(orders) {
+    var el = document.getElementById("list");
+    if (!orders.length) {
+      el.innerHTML = '<div class="empty">No orders yet.<br><br>' +
+        'Place one on the <a href="/" target="_blank">customer page</a> first.</div>';
+      return;
+    }
+    el.innerHTML = "";
+    orders.forEach(function (o) {
+      var st = STATUS[o.status] || STATUS.confirmed;
+      var card = document.createElement("div"); card.className = "card";
+      card.innerHTML =
+        '<div class="top"><span class="no">#' + o.id + '</span>' +
+          '<span class="amt">' + inr(o.total) + '</span></div>' +
+        '<div class="who">' + (o.name || "Guest") + '</div>' +
+        (o.address ? '<div class="addr">📍 ' + o.address + '</div>' : "") +
+        '<div class="items">' + o.cart.map(function (i) {
+          return '<div class="li"><b>' + i.qty + '×</b><span>' + i.name + '</span></div>';
+        }).join("") + '</div>';
+
+      var foot = document.createElement("div"); foot.className = "foot";
+      var pill = document.createElement("span");
+      pill.className = "pill"; pill.textContent = st.label;
+      pill.style.background = st.bg; pill.style.color = st.fg;
+      foot.appendChild(pill);
+
+      if (st.next) {
+        var b = document.createElement("button");
+        b.className = "adv"; b.textContent = st.next + " →";
+        b.onclick = function () { advance(o.id, b); };
+        foot.appendChild(b);
+      }
+      card.appendChild(foot);
+
+      if (lastSent[o.id]) {
+        var s = document.createElement("div");
+        s.className = "sent " + (lastSent[o.id].sent ? "ok" : "no");
+        s.textContent = lastSent[o.id].sent
+          ? "🔔 Pushed to " + lastSent[o.id].sent + " device(s) — their tab did not need to be open."
+          : "⚠️ Nobody to push to. Turn on notifications on the customer page first.";
+        card.appendChild(s);
+      }
+      el.appendChild(card);
+    });
+  }
+
+  function advance(id, btn) {
+    btn.disabled = true; btn.textContent = "sending…";
+    fetch("/api/orders/" + id + "/status", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) { lastSent[id] = { sent: d.sent }; load(); })
+      .catch(function () { btn.disabled = false; });
+  }
+
+  function load() {
+    fetch("/api/orders").then(function (r) { return r.json(); }).then(function (d) { render(d.orders); });
+  }
+
+  load();
+  setInterval(load, 3000);
+})();
+</script>
+</body>
+</html>

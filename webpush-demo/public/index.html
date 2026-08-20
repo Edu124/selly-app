@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a12">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.png">
+<title>Selly — Order food</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0a12;--card:#14141f;--elev:#1a1a28;--line:#242437;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
+    --wa:#25D366;--violet:#7c5cff;--amber:#f5a524;--red:#ef4444;
+  }
+  body{background:var(--bg);color:var(--tx);min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:16px 12px 30px}
+  .wrap{width:100%;max-width:430px}
+  h1{font-size:16px;font-weight:800}
+  .sub{font-size:11.5px;color:var(--tx2);margin-top:4px;line-height:1.55}
+
+  .notice{display:flex;gap:9px;align-items:flex-start;border-radius:11px;border:1px solid;
+    padding:11px 12px;margin:13px 0;font-size:12.5px;line-height:1.55}
+  .notice.off{background:rgba(245,165,36,.09);border-color:rgba(245,165,36,.34)}
+  .notice.on {background:rgba(37,211,102,.08);border-color:rgba(37,211,102,.3)}
+  .notice b{display:block;margin-bottom:2px}
+  .notice.off b{color:var(--amber)} .notice.on b{color:var(--wa)}
+  .notice span{color:var(--tx2)}
+  .notice button{margin-top:8px;background:var(--violet);border:none;color:#fff;
+    border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+
+  .phone{background:var(--card);border:1px solid var(--line);border-radius:18px;
+    overflow:hidden;display:flex;flex-direction:column;height:520px}
+  .hd{display:flex;align-items:center;gap:10px;background:#1f2c34;padding:10px 12px}
+  .av{width:36px;height:36px;border-radius:50%;background:#128C7E;display:grid;place-items:center;font-size:17px}
+  .hd b{font-size:14px;display:block}
+  .hd small{font-size:11px;color:#8fa3ad}
+  .chat{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px;background:#0b141a}
+  .msg{max-width:84%;padding:8px 11px;border-radius:9px;font-size:13.5px;line-height:1.55;white-space:pre-wrap}
+  .in{align-self:flex-start;background:#202c33;border-top-left-radius:2px}
+  .out{align-self:flex-end;background:#005c4b;border-top-right-radius:2px}
+  .msg .t{font-size:10px;color:#8fa3ad;float:right;margin:6px 0 0 8px}
+  .msg b{font-weight:700}
+  .lnk{color:#53bdeb;text-decoration:underline;cursor:pointer}
+  .chips{display:flex;gap:6px;padding:8px 10px;background:#111b21;overflow-x:auto;border-top:1px solid #1f2c34}
+  .chip{white-space:nowrap;background:#202c33;color:#53bdeb;border:1px solid #2a3942;
+    border-radius:16px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600}
+  .bottom{display:flex;gap:8px;padding:9px 10px;background:#111b21}
+  .bottom input{flex:1;background:#202c33;border:none;border-radius:20px;padding:10px 14px;
+    color:var(--tx);font-size:13.5px;outline:none}
+  .send{width:38px;height:38px;border-radius:50%;background:var(--wa);border:none;color:#fff;font-size:16px;cursor:pointer}
+
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:flex-end;justify-content:center;z-index:40}
+  .sheet.on{display:flex}
+  .sheetIn{width:100%;max-width:430px;background:var(--card);border-radius:18px 18px 0 0;max-height:86vh;
+    display:flex;flex-direction:column;border:1px solid var(--line)}
+  .sheetHd{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .x{background:none;border:none;color:var(--tx3);font-size:20px;cursor:pointer}
+  .items{flex:1;overflow-y:auto;padding:4px 16px}
+  .item{display:flex;align-items:center;gap:11px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:none}
+  .item .em{font-size:21px;width:28px;text-align:center}
+  .item .nm{flex:1} .item .nm b{display:block;font-size:13.5px} .item .nm small{color:var(--tx2);font-size:12px}
+  .add{background:rgba(37,211,102,.14);border:1px solid rgba(37,211,102,.4);color:var(--wa);
+    border-radius:8px;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer}
+  .qty{display:flex;align-items:center;gap:9px}
+  .qty button{width:26px;height:26px;border-radius:7px;background:var(--elev);border:1px solid var(--line);color:var(--tx);font-size:15px;cursor:pointer}
+  .foot{padding:13px 16px;border-top:1px solid var(--line);background:var(--elev)}
+  .foot .row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px}
+  .confirm{width:100%;background:var(--wa);border:none;color:#fff;border-radius:11px;padding:13px;font-size:14px;font-weight:700;cursor:pointer}
+  .confirm:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  .note{margin-top:13px;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--violet);
+    border-radius:10px;padding:11px 13px;font-size:11.5px;color:var(--tx2);line-height:1.7}
+  .note b{color:var(--tx)} .note a{color:#9d87ff} .note kbd{background:var(--elev);padding:1px 6px;border-radius:4px;color:#b7a5ff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍽️ Selly — order food</h1>
+  <p class="sub">No WhatsApp. No app store. This is a web page that can still reach
+     you after you close it.</p>
+
+  <div id="pushBox" class="notice off">
+    <div style="flex:1">
+      <b id="pushTitle">Notifications are off</b>
+      <span id="pushBody">Turn them on and the kitchen can reach you even with this tab closed.</span>
+      <button id="pushBtn">Turn on notifications</button>
+    </div>
+  </div>
+
+  <div class="phone">
+    <div class="hd">
+      <div class="av">🍽️</div>
+      <div style="flex:1">
+        <b>Selly</b>
+        <small id="status">Ghar Ka Khana · Baner</small>
+      </div>
+    </div>
+    <div class="chat" id="chat"></div>
+    <div class="chips" id="chips"></div>
+    <div class="bottom">
+      <input id="inp" placeholder="Type a message" autocomplete="off">
+      <button class="send" id="sendBtn">➤</button>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>How to prove it works.</b> Place an order, then <b>close this tab completely</b>.
+    Open <a href="/kitchen.html" target="_blank">the kitchen screen</a> and press
+    <kbd>Start preparing</kbd>. The notification arrives with this page shut — the
+    browser delivers it to a service worker, not to the page.
+    <br><br>
+    On a phone, use <b>Add to Home Screen</b> first — that is what makes it work on iOS.
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheetIn">
+    <div class="sheetHd">
+      <div><b>🍲 Ghar Ka Khana</b><br><small style="color:var(--tx2);font-size:11.5px">Home-style · about 30 min</small></div>
+      <button class="x" id="closeSheet">✕</button>
+    </div>
+    <div class="items" id="items"></div>
+    <div class="foot">
+      <div class="row"><span id="cartCount">0 items</span><b id="cartTotal">₹0</b></div>
+      <button class="confirm" id="confirmBtn" disabled>Add something to order</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // A stable id for this browser, so the server knows which subscription belongs
+  // to which customer across reloads. A real build would use the phone number.
+  var customerId = localStorage.getItem("selly_demo_cid");
+  if (!customerId) {
+    customerId = "web-" + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem("selly_demo_cid", customerId);
+  }
+
+  var MENU = [], cart = {}, flow = { state: "idle" };
+  var guest = { name: "", address: "" };
+  var myOrders = JSON.parse(localStorage.getItem("selly_demo_orders") || "[]");
+
+  var chat = document.getElementById("chat"), chips = document.getElementById("chips");
+  var inr  = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+  var now  = function () { return new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }); };
+  var esc  = function (s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+
+  function fmt(s) {
+    return esc(s).replace(/\*([^*\n]+)\*/g, "<b>$1</b>")
+                 .replace(/\{\{MENU\}\}/g, '<span class="lnk" data-menu="1">selly.app/order/gharkakhana</span>');
+  }
+  function addMsg(text, dir) {
+    var d = document.createElement("div");
+    d.className = "msg " + (dir === "out" ? "out" : "in");
+    d.innerHTML = fmt(text) + '<span class="t">' + now() + "</span>";
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
+  }
+  function botPush(text, newChips) {
+    setTimeout(function () { addMsg(text, "in"); if (newChips) setChips(newChips); }, 700);
+  }
+  function setChips(list) {
+    chips.innerHTML = "";
+    list.forEach(function (c) {
+      var b = document.createElement("button");
+      b.className = "chip"; b.textContent = c;
+      b.onclick = function () { userSend(c); };
+      chips.appendChild(b);
+    });
+  }
+  chat.addEventListener("click", function (e) {
+    if (e.target && e.target.dataset && e.target.dataset.menu) openSheet();
+  });
+
+  // ── Push ───────────────────────────────────────────────────────────────────
+  // This is the whole point of the demo, so it is worth being precise: the page
+  // asks the browser for a push subscription, hands it to our server, and the
+  // server later sends through the browser vendor's push service. The page does
+  // not need to be open for that last step — the service worker receives it.
+  var pushBox = document.getElementById("pushBox");
+  var pushT   = document.getElementById("pushTitle");
+  var pushB   = document.getElementById("pushBody");
+  var pushBtn = document.getElementById("pushBtn");
+
+  function urlB64ToUint8Array(base64String) {
+    var padding = "=".repeat((4 - base64String.length % 4) % 4);
+    var base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var raw     = atob(base64);
+    var out     = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  function pushState(on, title, body, showBtn) {
+    pushBox.className = "notice " + (on ? "on" : "off");
+    pushT.textContent = title;
+    pushB.textContent = body;
+    pushBtn.style.display = showBtn ? "" : "none";
+  }
+
+  async function initPush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      pushState(false, "This browser can't do web push",
+        "Ordering still works — only the background updates need a modern browser.", false);
+      return null;
+    }
+    var reg = await navigator.serviceWorker.register("/sw.js");
+    await navigator.serviceWorker.ready;
+
+    var existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await sendSub(existing);
+      pushState(true, "Notifications are on",
+        "You can close this tab — order updates will still reach you.", false);
+      return reg;
+    }
+    if (Notification.permission === "denied") {
+      pushState(false, "Notifications are blocked",
+        "You blocked them for this site. Allow them in the browser's site settings to test this.", false);
+      return reg;
+    }
+    pushState(false, "Notifications are off",
+      "Turn them on and the kitchen can reach you even with this tab closed.", true);
+    return reg;
+  }
+
+  async function sendSub(sub) {
+    await fetch("/api/subscribe", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId: customerId, subscription: sub }),
+    });
+  }
+
+  pushBtn.onclick = async function () {
+    try {
+      var perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        pushState(false, "Not allowed",
+          "Without permission the kitchen can only reach you while this tab is open.", false);
+        return;
+      }
+      var reg  = await navigator.serviceWorker.ready;
+      var keys = await (await fetch("/api/vapid")).json();
+      var sub  = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(keys.publicKey),
+      });
+      await sendSub(sub);
+      pushState(true, "Notifications are on",
+        "You can close this tab — order updates will still reach you.", false);
+      addMsg("🔔 Notifications are on. You can close this tab and I will still reach you.", "in");
+    } catch (e) {
+      pushState(false, "Could not turn them on", String(e.message || e), true);
+    }
+  };
+
+  // ── Menu ───────────────────────────────────────────────────────────────────
+  var sheet = document.getElementById("sheet");
+  function openSheet() { sheet.classList.add("on"); renderItems(); }
+  document.getElementById("closeSheet").onclick = function () { sheet.classList.remove("on"); };
+
+  function renderItems() {
+    var el = document.getElementById("items"); el.innerHTML = "";
+    MENU.forEach(function (it) {
+      var q = cart[it.id] || 0;
+      var row = document.createElement("div"); row.className = "item";
+      row.innerHTML = '<div class="em">' + it.emoji + '</div>' +
+        '<div class="nm"><b>' + esc(it.name) + '</b><small>' + inr(it.price) + '</small></div>';
+      var right = document.createElement("div");
+      if (q > 0) {
+        right.className = "qty";
+        var m = document.createElement("button"); m.textContent = "−";
+        var s = document.createElement("span");   s.textContent = q; s.style.fontWeight = "700";
+        var p = document.createElement("button"); p.textContent = "+";
+        m.onclick = function () { setQty(it.id, q - 1); };
+        p.onclick = function () { setQty(it.id, q + 1); };
+        right.appendChild(m); right.appendChild(s); right.appendChild(p);
+      } else {
+        var a = document.createElement("button");
+        a.className = "add"; a.textContent = "Add";
+        a.onclick = function () { setQty(it.id, 1); };
+        right.appendChild(a);
+      }
+      row.appendChild(right); el.appendChild(row);
+    });
+    renderCart();
+  }
+  function setQty(id, q) { if (q <= 0) delete cart[id]; else cart[id] = q; renderItems(); }
+  function lines() {
+    return Object.keys(cart).map(function (id) {
+      var it = MENU.find(function (m) { return m.id === id; });
+      return { id: id, name: it.name, price: it.price, qty: cart[id] };
+    });
+  }
+  function total() { return lines().reduce(function (s, l) { return s + l.price * l.qty; }, 0); }
+  function renderCart() {
+    var n = lines().reduce(function (s, l) { return s + l.qty; }, 0);
+    document.getElementById("cartCount").textContent = n + (n === 1 ? " item" : " items");
+    document.getElementById("cartTotal").textContent = inr(total());
+    var b = document.getElementById("confirmBtn");
+    b.disabled = n === 0;
+    b.textContent = n === 0 ? "Add something to order" : "Confirm order · " + inr(total());
+  }
+
+  document.getElementById("confirmBtn").onclick = function () {
+    if (!lines().length) return;
+    sheet.classList.remove("on");
+    botPush("🧺 *Your order:*\n\n" +
+      lines().map(function (l) { return "• " + l.name + " ×" + l.qty + " — " + inr(l.price * l.qty); }).join("\n") +
+      "\n\n*Total " + inr(total()) + "*\n\nWhat is your name?");
+    flow = { state: "name" };
+    setChips([]);
+  };
+
+  async function placeOrder() {
+    var r = await fetch("/api/orders", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customerId: customerId, name: guest.name, address: guest.address, cart: lines() }),
+    });
+    var d = await r.json();
+    if (d.error) { botPush("Something went wrong: " + d.error); return; }
+    myOrders.push(d.order.id);
+    localStorage.setItem("selly_demo_orders", JSON.stringify(myOrders));
+    cart = {};
+    botPush("✅ *Order confirmed — #" + d.order.id + "*\n\n" +
+      "📍 " + guest.address + "\n💰 " + inr(d.order.total) + " · cash on delivery\n" +
+      "⏱ About 30 minutes\n\n" +
+      (Notification.permission === "granted"
+        ? "Now *close this tab*, open the kitchen screen and press Start preparing. The update will still reach you."
+        : "Turn on notifications above, then close this tab and advance the order on the kitchen screen."),
+      ["Where is my order?"]);
+  }
+
+  // ── Router ─────────────────────────────────────────────────────────────────
+  function userSend(text) {
+    var t = String(text || "").trim();
+    if (!t) return;
+    addMsg(t, "out");
+    document.getElementById("inp").value = "";
+    setTimeout(function () { reply(t); }, 350);
+  }
+
+  function reply(raw) {
+    var t = raw.toLowerCase();
+
+    if (flow.state === "name") {
+      guest.name = raw.replace(/[^a-zA-Z\s]/g, "").trim().slice(0, 24) || "Guest";
+      flow.state = "address";
+      botPush("Thanks *" + guest.name + "*! Where should we deliver?");
+      return;
+    }
+    if (flow.state === "address") {
+      if (raw.trim().length < 8) { botPush("A bit more of the address please — a landmark helps."); return; }
+      guest.address = raw.trim().slice(0, 120);
+      flow.state = "idle";
+      placeOrder();
+      return;
+    }
+
+    if (/where|status|order/.test(t) && myOrders.length) {
+      fetch("/api/orders").then(function (r) { return r.json(); }).then(function (d) {
+        var mine = d.orders.filter(function (o) { return myOrders.indexOf(o.id) !== -1; });
+        if (!mine.length) { botPush("I cannot find your order."); return; }
+        var o = mine[0];
+        var label = { confirmed: "with the kitchen", preparing: "being cooked now",
+                      out_for_delivery: "on its way to you", delivered: "delivered" }[o.status];
+        botPush("📦 Order *#" + o.id + "* is *" + label + "*.", ["Where is my order?"]);
+      });
+      return;
+    }
+
+    if (/menu|order|eat|hungry|food/.test(t)) {
+      botPush("📖 Here is the menu — order right here:\n\n{{MENU}}", ["Where is my order?"]);
+      setTimeout(openSheet, 800);
+      return;
+    }
+
+    botPush("🤖 Say *menu* to see the food, or ask *where is my order*.", ["📖 Menu"]);
+  }
+
+  document.getElementById("sendBtn").onclick = function () { userSend(document.getElementById("inp").value); };
+  document.getElementById("inp").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") userSend(this.value);
+  });
+
+  // While the page IS open, a push also arrives here — show it in the thread so
+  // the conversation stays complete either way.
+  navigator.serviceWorker && navigator.serviceWorker.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "push") addMsg(e.data.title + "\n\n" + e.data.body, "in");
+  });
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  fetch("/api/menu").then(function (r) { return r.json(); }).then(function (d) {
+    MENU = d.menu;
+    botPush("👋 Hi! I am *Selly*. Order from *Ghar Ka Khana* right here — " +
+            "no app, no signup.\n\n📖 Our menu:\n{{MENU}}", ["📖 Menu", "Where is my order?"]);
+  });
+  initPush();
+})();
+</script>
+</body>
+</html>
