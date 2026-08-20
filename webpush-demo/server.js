@@ -143,6 +143,36 @@ app.post("/api/orders/:id/status", async (req, res) => {
   res.json({ ok: true, order, sent, devices: list.length });
 });
 
+/**
+ * Fire a push straight at a customer, no order involved. When someone asks "where
+ * do I see it", the useful thing is to isolate the notification from everything
+ * else that could be wrong.
+ */
+app.post("/api/test-push", async (req, res) => {
+  const { customerId } = req.body || {};
+  const list = subs.get(customerId) || [];
+  if (!list.length) return res.json({ ok: false, sent: 0, error: "no subscription for " + customerId });
+
+  let sent = 0;
+  const stale = [];
+  await Promise.all(list.map(async sub => {
+    try {
+      await webpush.sendNotification(sub, JSON.stringify({
+        title: "🔔 Selly test notification",
+        body : "If you can see this, the kitchen can reach you with the tab closed.",
+        url  : "/",
+      }));
+      sent++;
+    } catch (e) {
+      if (e.statusCode === 404 || e.statusCode === 410) stale.push(sub.endpoint);
+      console.warn(`[test-push] failed (${e.statusCode || "?"})`);
+    }
+  }));
+  if (stale.length) subs.set(customerId, list.filter(s => !stale.includes(s.endpoint)));
+  console.log(`[test-push] ${customerId} → ${sent} device(s)`);
+  res.json({ ok: sent > 0, sent });
+});
+
 app.get("/api/state", (_req, res) => {
   res.json({
     orders: orders.length,

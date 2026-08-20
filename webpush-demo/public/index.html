@@ -88,6 +88,7 @@
       <b id="pushTitle">Notifications are off</b>
       <span id="pushBody">Turn them on and the kitchen can reach you even with this tab closed.</span>
       <button id="pushBtn">Turn on notifications</button>
+      <button id="testBtn" style="display:none;background:var(--elev);border:1px solid var(--line);color:var(--tx)">Send me a test notification</button>
     </div>
   </div>
 
@@ -202,6 +203,9 @@
     pushT.textContent = title;
     pushB.textContent = body;
     pushBtn.style.display = showBtn ? "" : "none";
+    // Once subscribed, offer a way to fire one immediately. "Where do I see it"
+    // is much easier to answer when you are not also placing an order.
+    document.getElementById("testBtn").style.display = on ? "" : "none";
   }
 
   async function initPush() {
@@ -258,6 +262,19 @@
     } catch (e) {
       pushState(false, "Could not turn them on", String(e.message || e), true);
     }
+  };
+
+  document.getElementById("testBtn").onclick = async function () {
+    var b = this;
+    b.disabled = true; b.textContent = "sending…";
+    try {
+      var d = await (await fetch("/api/test-push", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId: customerId }),
+      })).json();
+      b.textContent = d.sent ? "Sent to " + d.sent + " device — check your taskbar" : "Nothing to send to";
+    } catch (e) { b.textContent = "Failed: " + e.message; }
+    setTimeout(function () { b.disabled = false; b.textContent = "Send me a test notification"; }, 4000);
   };
 
   // ── Menu ───────────────────────────────────────────────────────────────────
