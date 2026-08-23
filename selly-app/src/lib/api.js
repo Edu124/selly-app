@@ -827,3 +827,18 @@ export async function saveCustomerAddress(mobile, entry) {
   const { saveCustomerAddress: f } = await import("./supabase_data");
   return f(mobile, entry);
 }
+
+// ── Marking an order paid ─────────────────────────────────────────────────────
+
+export async function markOrderPaid(orderId, opts = {}) {
+  if (useFixtures()) {
+    const { patchDevOrder } = await import("./devStore");
+    const order = await patchDevOrder(orderId, {
+      paid_at    : opts.paid === false ? null : new Date().toISOString(),
+      payment_ref: opts.paid === false ? null : (opts.ref || null),
+    });
+    return order;
+  }
+  const { markOrderPaid: f } = await import("./supabase_data");
+  return f(orderId, opts);
+}

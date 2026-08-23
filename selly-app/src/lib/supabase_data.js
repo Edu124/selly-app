@@ -64,6 +64,10 @@ function _toOrder(row) {
     bill           : row.bill           || {},
     payLink        : row.pay_link       || null,
     paymentMode    : row.payment_mode   || "cod",
+    // Payment is its own fact, not something inferred from delivery. Null
+    // paid_at means unpaid, whatever the delivery status says.
+    paid_at        : row.paid_at        || null,
+    payment_ref    : row.payment_ref    || null,
     status         : row.status         || "pending_payment",
     statusDates    : row.status_dates   || {},
     trackingNumber : row.tracking_number || null,
@@ -581,6 +585,9 @@ export async function createOrder(input) {
     },
     address      : input.address || "",
     payment_mode : input.paymentMode || "cod",
+    // Only "already paid" starts settled. Everything else has to be confirmed
+    // by somebody seeing the money.
+    paid_at      : input.paymentMode === "paid" ? new Date().toISOString() : null,
     // A kitchen typing in an order it already agreed on the phone is not waiting
     // for a payment decision — it starts confirmed, not pending.
     status       : input.status || "confirmed",
@@ -832,4 +839,25 @@ export async function saveCustomerAddress(mobile, { label, address, name }) {
     .upsert(row, { onConflict: "business_id,mobile" });
   if (error) throw new Error(error.message);
   return next;
+}
+
+// ── Marking an order paid ─────────────────────────────────────────────────────
+// Separate from delivery on purpose. `ref` is the UTR or note the kitchen
+// matched it against, so a disputed payment can be traced later.
+
+export async function markOrderPaid(orderId, { ref, paid = true } = {}) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({
+      paid_at    : paid ? new Date().toISOString() : null,
+      payment_ref: paid ? (ref || null) : null,
+      updated_at : new Date().toISOString(),
+    })
+    .eq("id", String(orderId))
+    .eq("business_id", bid)
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? _toOrder(data) : null;
 }

@@ -23,7 +23,7 @@ import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig, STATUS_LABELS, ADVANCE_LABELS, nextStatus } from "../lib/businessTypes";
 import { fetchOrders, updateOrderStatus, fetchCatalog,
-         fetchCustomerContacts, logMessage } from "../lib/api";
+         fetchCustomerContacts, logMessage, markOrderPaid } from "../lib/api";
 import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
@@ -126,6 +126,14 @@ export default function PrepQueueScreen({ navigation }) {
     );
     try {
       await updateOrderStatus(order.id, next);
+
+      // Cash on delivery settles at the door -- the rider taking the money IS
+      // the payment, and asking the kitchen to confirm it separately would be
+      // busywork on the common case. Every other mode still waits for somebody
+      // to see the money arrive.
+      if (next === "delivered" && (order.paymentMode || "cod") === "cod" && !order.paid_at) {
+        markOrderPaid(order.id, { ref: "Cash collected on delivery" }).catch(() => {});
+      }
       // Notify after the status lands, never before, and never blocking: the
       // kitchen has to be able to move an order even when the message can't go.
       const res = await notifyStatus(next, {

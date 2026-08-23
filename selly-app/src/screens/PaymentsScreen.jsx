@@ -27,14 +27,17 @@ import { typeConfig } from "../lib/businessTypes";
 import { inr, orderTotal, resolveCustomer, tplBill } from "../lib/whatsapp";
 import { deliver, isReachable, tenDigit, DEFAULT_CHANNEL } from "../lib/messaging";
 import { upiLink, orderRef, payabilityOf } from "../lib/payments";
+import { isPaid, isOwed } from "../lib/billing";
+import { markOrderPaid } from "../lib/api";
 
 export default function PaymentsScreen() {
   const { industry, profile } = useAuth();
   const type     = typeConfig(industry);
   const unitWord = type.unitWord;          // Table / Slot / Order
   // Which statuses still owe money is a property of the business type's flow.
-  const UNPAID   = type.unpaid;
-  const SETTLED  = type.settled;
+  // Was type.unpaid / type.settled -- lists of DELIVERY statuses standing in for
+  // payment. An order can be delivered and still unpaid, which is the case that
+  // costs a kitchen money, and the old split could not represent it.
 
   const [orders,     setOrders]     = useState([]);
   const [customers,  setCustomers]  = useState([]);
@@ -46,6 +49,7 @@ export default function PaymentsScreen() {
   const [sheet,   setSheet]   = useState(null);   // order being billed
   const [sending, setSending]  = useState(false);
   const [sentIds, setSentIds]  = useState({});    // orderId -> true
+  const [paying,  setPaying]   = useState(null);  // orderId being settled
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -144,9 +148,29 @@ export default function PaymentsScreen() {
     }
   };
 
+  /**
+   * Record that the money arrived.
+   *
+   * Its own action rather than a side effect of delivery: an order can be
+   * delivered and unpaid, and that is precisely the case a kitchen needs to be
+   * able to see and chase.
+   */
+  const settle = async (o) => {
+    if (paying) return;
+    setPaying(o.id);
+    try {
+      await markOrderPaid(o.id, { ref: "Marked paid by owner" });
+      await load(true);
+    } catch (e) {
+      Alert.alert("Couldn't mark it paid", friendlyError(e));
+    } finally {
+      setPaying(null);
+    }
+  };
+
   /* ── derived ──────────────────────────────────────────────────────────── */
-  const open      = orders.filter(o => UNPAID.includes(o.status));
-  const settled   = orders.filter(o => SETTLED.includes(o.status));
+  const open      = orders.filter(isOwed);
+  const settled   = orders.filter(isPaid);
   const pendingRs = open.reduce((s, o) => s + totalOf(o), 0);
   const gotRs     = settled.reduce((s, o) => s + totalOf(o), 0);
 
@@ -244,20 +268,36 @@ export default function PaymentsScreen() {
                 <Text style={styles.amount}>{inr(totalOf(o))}</Text>
               </View>
 
-              <TouchableOpacity
-                style={[styles.payBtn, sent && styles.payBtnSent]}
-                onPress={() => setSheet(o)}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name={sent ? "checkmark-circle" : "logo-whatsapp"}
-                  size={15}
-                  color={sent ? Colors.green : "#fff"}
-                />
-                <Text style={[styles.payBtnText, sent && { color: Colors.green }]}>
-                  {sent ? "Bill sent · send again" : "Send payment request"}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.billBtnRow}>
+                <TouchableOpacity
+                  style={[styles.payBtn, sent && styles.payBtnSent, { flex: 1 }]}
+                  onPress={() => setSheet(o)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons
+                    name={sent ? "checkmark-circle" : "paper-plane"}
+                    size={15}
+                    color={sent ? Colors.green : "#fff"}
+                  />
+                  <Text style={[styles.payBtnText, sent && { color: Colors.green }]}>
+                    {sent ? "Reminder sent · again" : "Send a reminder"}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* The money arriving is a separate fact from the food arriving,
+                    and this is where somebody says so. */}
+                <TouchableOpacity
+                  style={styles.gotItBtn}
+                  onPress={() => settle(o)}
+                  disabled={paying === o.id}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="cash-outline" size={15} color={Colors.green} />
+                  <Text style={styles.gotItText}>
+                    {paying === o.id ? "…" : "Got paid"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
           );
         })}
@@ -358,4 +398,12 @@ const styles = StyleSheet.create({
   upiWarn   : { color: Colors.yellow, fontSize: 11, marginTop: 10, lineHeight: 16 },
   sendBtn   : { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#25D366", borderRadius: 12, paddingVertical: 13, marginTop: 16 },
   sendBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  billBtnRow : { flexDirection: "row", gap: 8, marginTop: 10 },
+  gotItBtn   : {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    backgroundColor: "rgba(34,197,94,0.12)", borderWidth: 1,
+    borderColor: "rgba(34,197,94,0.32)", borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 11,
+  },
+  gotItText  : { color: Colors.green, fontSize: 13.5, fontWeight: "800" },
 });

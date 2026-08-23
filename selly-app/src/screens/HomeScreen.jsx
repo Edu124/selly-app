@@ -20,6 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig, STATUS_LABELS } from "../lib/businessTypes";
+import { isPaid, isOwed } from "../lib/billing";
 import { subscribeDevOrders } from "../lib/devStore";
 import StoreStatusBar from "../components/StoreStatusBar";
 import { fetchDashboard } from "../lib/api";
@@ -216,8 +217,10 @@ export default function HomeScreen({ navigation }) {
   const recent   = data?.recent || [];
   // Open vs settled is a property of this business type's status flow — a café
   // order is settled at "paid", a bakery order at "delivered".
-  const openOrd  = recent.filter(o => type.unpaid.includes(o.status));
-  const paidOrd  = recent.filter(o => type.settled.includes(o.status));
+  // Payment, not delivery. A delivered order that nobody has paid for belongs
+  // in the money-still-out column, not the collected one.
+  const openOrd  = recent.filter(isOwed);
+  const paidOrd  = recent.filter(isPaid);
   // Money actually in the till, not lifetime revenue.
   const settledRs = paidOrd.reduce((sum, o) => sum + (o.bill?.total || 0), 0);
   const today    = new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });

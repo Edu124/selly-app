@@ -153,3 +153,25 @@ export function normalizeBilling(row) {
     status          : r.status || "active",
   };
 }
+
+
+// ── Has this order been paid for? ────────────────────────────────────────────
+// Deliberately not derived from delivery status. An order can be delivered and
+// unpaid -- a rider who came back without the cash, or a customer who said they
+// would transfer and did not -- and that is exactly the case a kitchen needs to
+// see.
+
+export function isPaid(order) {
+  return !!(order && (order.paid_at || order.paidAt));
+}
+
+/** Owed to the kitchen: not paid, and not cancelled or rejected. */
+export function isOwed(order) {
+  if (!order || isPaid(order)) return false;
+  return !["cancelled", "rejected", "refunded"].includes(order.status);
+}
+
+export function amountOwed(orders) {
+  return (orders || []).filter(isOwed)
+    .reduce((s, o) => s + Number((o.bill && o.bill.total) || 0), 0);
+}
