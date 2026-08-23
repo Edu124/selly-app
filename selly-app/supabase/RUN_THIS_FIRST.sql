@@ -650,15 +650,24 @@ set search_path = public
 as $fn$
 declare
   v_order  public.orders%rowtype;
+  v_caller uuid := auth.uid();
   v_token  text;
   v_otp    text;
   v_member boolean;
   n        int;
 begin
+  -- Checked first, and separately from ownership. For an anonymous caller
+  -- auth.uid() is NULL, and `business_id <> NULL` is NULL rather than true --
+  -- which Postgres treats as false, so an ownership test alone let a stranger
+  -- straight through to a token and the customer's OTP.
+  if v_caller is null then
+    raise exception 'you must be signed in';
+  end if;
+
   select * into v_order from public.orders where id = p_order limit 1;
   if not found then raise exception 'no such order'; end if;
 
-  if v_order.business_id <> auth.uid() then
+  if v_order.business_id is distinct from v_caller then
     raise exception 'not your order';
   end if;
 
@@ -710,7 +719,10 @@ begin
 end;
 $fn$;
 
+-- Supabase's default privileges also grant execute to anon on new public
+-- functions, so revoking from PUBLIC alone is not enough. Name anon.
 revoke all on function public.assign_delivery_token(text) from public;
+revoke all on function public.assign_delivery_token(text) from anon;
 grant execute on function public.assign_delivery_token(text) to authenticated;
 
 
