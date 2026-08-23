@@ -126,7 +126,7 @@ export function tplOrderServed({ tableNo }) {
  * @param coupon  optional {code, discount} — pass the *computed* rupee discount,
  *                not the coupon's raw kind/value.
  */
-export function tplBill({ order, tableNo, businessName, upiId, typeId = "cafe", coupon = null }) {
+export function tplBill({ order, tableNo, businessName, upiId, typeId = "cafe", coupon = null, payLink = null }) {
   const subtotal = cartTotal(order?.cart) || orderTotal(order);
   const delivery = Number(order?.bill?.delivery || 0);
   const discount = Number(coupon?.discount || 0);
@@ -137,6 +137,13 @@ export function tplBill({ order, tableNo, businessName, upiId, typeId = "cafe", 
     typeId === "cafe"   && tableNo        ? `Table ${tableNo}\n` :
     typeId === "bakery" && order?.extra?.due ? `Pickup: ${order.extra.due}\n` :
     order?.id                             ? `Order #${String(order.id).slice(-5)}\n` : "";
+
+  // A tappable link beats a UPI id the customer has to retype into their bank
+  // app while the food goes cold. Falls back to the plain id when the kitchen
+  // has not set a valid one.
+  const payLine = payLink
+    ? `\n\n💳 *Pay now:* ${payLink}`
+    : (upiId ? `\n\n💳 UPI: ${upiId}` : "");
 
   // How to pay
   const closing =
@@ -154,8 +161,8 @@ export function tplBill({ order, tableNo, businessName, upiId, typeId = "cafe", 
     `Subtotal: ${inr(subtotal)}\n` +
     (delivery > 0 ? `Delivery: ${inr(delivery)}\n` : "") +
     (discount > 0 ? `Coupon ${coupon.code}: −${inr(discount)}\n` : "") +
-    `*Total: ${inr(total)}*\n\n` +
-    (upiId ? `💳 Pay by UPI: *${upiId}*\n` : "") +
+    `*Total: ${inr(total)}*\n` +
+    payLine + "\n\n" +
     closing
   );
 }

@@ -145,6 +145,7 @@ export function billingHistory(orders, months = 6, at = new Date()) {
 export function normalizeBilling(row) {
   const r = row || {};
   return {
+    businessId      : r.business_id || null,
     onboardingPaid  : !!r.onboarding_paid,
     onboardingPaidAt: r.onboarding_paid_at ? new Date(r.onboarding_paid_at) : null,
     perOrderFee     : Number(r.per_order_fee ?? PER_ORDER_FEE),

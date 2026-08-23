@@ -26,6 +26,7 @@ import { friendlyError } from "../lib/errors";
 import { typeConfig } from "../lib/businessTypes";
 import { inr, orderTotal, resolveCustomer, tplBill } from "../lib/whatsapp";
 import { deliver, isReachable, tenDigit, DEFAULT_CHANNEL } from "../lib/messaging";
+import { upiLink, orderRef, payabilityOf } from "../lib/payments";
 
 export default function PaymentsScreen() {
   const { industry, profile } = useAuth();
@@ -86,12 +87,24 @@ export default function PaymentsScreen() {
 
   const customerFor = (o) => resolveCustomer(o, customers);
 
+  // Whether this kitchen can take an online payment at all. A missing UPI id is
+  // the commonest reason a bill goes out with nothing to tap, and it is a field
+  // in Settings nobody thinks to fill in until it matters.
+  const payable = payabilityOf(settings);
+
   const buildBillText = (o) => tplBill({
     order       : o,
     typeId      : type.id,
     tableNo     : o.table_no,
     businessName: settings.business_name || profile?.business_name,
     upiId       : settings.upi_id,
+    payLink     : payable.ok ? upiLink({
+      vpa   : payable.vpa,
+      name  : settings.business_name || profile?.business_name,
+      amount: totalOf(o),
+      note  : `Order ${String(o.id).slice(-5)}`,
+      ref   : orderRef(o.id),
+    }) : null,
   });
 
   const sendBill = async () => {
@@ -158,8 +171,16 @@ export default function PaymentsScreen() {
       >
         <Text style={styles.title}>Collect Payment</Text>
         <Text style={styles.sub}>
-          Send the bill and UPI details straight to the customer.
+          Send the bill straight to the customer, with a link that opens their
+          UPI app with the amount already filled in.
         </Text>
+
+        {!payable.ok && (
+          <View style={styles.errBanner}>
+            <Ionicons name="card-outline" size={15} color={Colors.yellow} />
+            <Text style={styles.errText}>{payable.reason}</Text>
+          </View>
+        )}
 
         {!!error && (
           <View style={styles.errBanner}>

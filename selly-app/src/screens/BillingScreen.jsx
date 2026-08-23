@@ -29,6 +29,7 @@ import {
   billForPeriod, billingHistory, aggregatorComparison, normalizeBilling,
   PER_ORDER_FEE, ONBOARDING_FEE,
 } from "../lib/billing";
+import { sellyInvoiceLink, sellyPayable, billRef } from "../lib/payments";
 
 const SUPPORT_WA = "https://wa.me/919370499351?text=" +
   encodeURIComponent("Hi Selly, I'd like to settle my bill.");
@@ -190,12 +191,34 @@ export default function BillingScreen() {
       )}
 
       {/* ── settle ── */}
-      {bill.totalDue > 0 && (
-        <TouchableOpacity style={styles.payBtn} onPress={() => Linking.openURL(SUPPORT_WA)}>
-          <Ionicons name="logo-whatsapp" size={16} color="#fff" />
-          <Text style={styles.payBtnText}>Settle {inr(bill.totalDue)}</Text>
-        </TouchableOpacity>
-      )}
+      {bill.totalDue > 0 && (() => {
+        const link = sellyInvoiceLink({
+          amount    : bill.totalDue,
+          period    : bill.period,
+          businessId: terms.businessId,
+        });
+
+        // A UPI link when one can be built, a conversation when it cannot.
+        // Never a dead button: a kitchen that wants to pay us and finds nothing
+        // happens is the worst possible moment to look unfinished.
+        return link ? (
+          <>
+            <TouchableOpacity style={styles.payBtn} onPress={() => Linking.openURL(link)}>
+              <Ionicons name="card" size={16} color="#fff" />
+              <Text style={styles.payBtnText}>Pay {inr(bill.totalDue)} by UPI</Text>
+            </TouchableOpacity>
+            <Text style={styles.payRef}>
+              Reference {billRef(terms.businessId, bill.period)} — it appears on your
+              statement, so you can match it later.
+            </Text>
+          </>
+        ) : (
+          <TouchableOpacity style={styles.payBtn} onPress={() => Linking.openURL(SUPPORT_WA)}>
+            <Ionicons name="chatbubble-ellipses" size={16} color="#fff" />
+            <Text style={styles.payBtnText}>Settle {inr(bill.totalDue)}</Text>
+          </TouchableOpacity>
+        );
+      })()}
 
       {/* ── history ── */}
       {past.length > 0 && (
@@ -306,6 +329,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: 12, padding: 15, marginBottom: 6,
   },
   payBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  payRef    : { color: Colors.textMuted, fontSize: 11, textAlign: "center",
+                marginTop: 8, lineHeight: 16, paddingHorizontal: 10 },
 
   sectionLabel: {
     color: Colors.textMuted, fontSize: 9.5, fontWeight: "800",
