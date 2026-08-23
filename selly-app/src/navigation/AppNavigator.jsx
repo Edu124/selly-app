@@ -48,7 +48,6 @@ import BillingScreen         from "../screens/BillingScreen";
 import SettingsScreen        from "../screens/SettingsScreen";
 import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
 import QueryInboxScreen      from "../screens/QueryInboxScreen";
-import ReviewsScreen         from "../screens/ReviewsScreen";
 import ReturnsScreen         from "../screens/ReturnsScreen";
 import AdminScreen           from "../screens/AdminScreen";
 import BusinessTypeSetupScreen from "../screens/BusinessTypeSetupScreen";
@@ -100,7 +99,6 @@ function MoreStack({ industry }) {
       <MoreStack_.Screen name="Promotions"     component={PromotionsScreen}          options={{ title: "Promotions" }} />
       <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}          options={{ title: "Query Inbox" }} />
       <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen}      options={{ title: "Photo Inquiries" }} />
-      <MoreStack_.Screen name="Reviews"        component={ReviewsScreen}             options={{ title: "Customer Reviews" }} />
       <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Complaints & Refunds" }} />
 
       {/* Finance */}

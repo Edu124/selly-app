@@ -6,7 +6,7 @@
 // Uses existing endpoints only:
 //   fetchOrders()            → open bills
 //   fetchCustomers()         → resolve the customer id from the order's mobile
-//   sendMessageToCustomer()  → POST /api/customers/:id/message
+//   deliver()                → opens the bill in WhatsApp or SMS on this phone
 //   fetchBusinessSettings()  → UPI id / business name for the bill text
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -20,11 +20,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import {
-  fetchOrders, fetchCustomers, sendMessageToCustomer, fetchBusinessSettings,
+  fetchOrders, fetchCustomers, fetchBusinessSettings,
 } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import { typeConfig } from "../lib/businessTypes";
 import { inr, orderTotal, resolveCustomer, tplBill } from "../lib/whatsapp";
+import { deliver, isReachable, tenDigit } from "../lib/messaging";
 
 export default function PaymentsScreen() {
   const { industry, profile } = useAuth();
@@ -97,21 +98,34 @@ export default function PaymentsScreen() {
     const o = sheet;
     if (!o) return;
     const cust = customerFor(o);
-    if (!cust) {
+    // The order carries the mobile number, which is all that is needed. The old
+    // check demanded a bot_customers row that a manually-entered order never
+    // has, so every typed-in bill was unsendable.
+    if (!isReachable(o)) {
       Alert.alert(
-        "Can't send yet",
-        "This order isn't linked to a saved customer, so there's no WhatsApp number to send to. Add the customer first, or collect at the counter."
+        "No mobile number",
+        "This order has no mobile number on it, so there's nobody to send the bill to."
       );
       return;
     }
     setSending(true);
     try {
-      await sendMessageToCustomer(cust.id, buildBillText(o));
+      const out = await deliver({
+        mobile : o.mobile,
+        channel: (cust && cust.preferred_channel) || "whatsapp",
+        text   : buildBillText(o),
+      });
+      if (!out.ok) throw new Error(out.error);
       setSentIds(p => ({ ...p, [o.id]: true }));
       setSheet(null);
-      Alert.alert("Bill sent", `Payment details sent to ${cust.name || o.name || "the customer"} on WhatsApp.`);
+      // "Ready to send", not "sent" -- their phone opened the chat with the text
+      // in it. Whether they pressed send is not something we can know.
+      Alert.alert(
+        "Bill ready to send",
+        `The message to ${(cust && cust.name) || o.name || "the customer"} is open with the payment details filled in.`
+      );
     } catch (e) {
-      Alert.alert("Couldn't send", friendlyError(e));
+      Alert.alert("Couldn't open the message", friendlyError(e));
     } finally {
       setSending(false);
     }

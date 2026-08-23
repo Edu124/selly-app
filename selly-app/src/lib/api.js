@@ -103,9 +103,13 @@ export async function updateOrderStatus(orderId, status, extra = {}) {
     const order = await patchDevOrder(orderId, { status, ...extra });
     return { ok: true, order };
   }
-  const c = await client();
-  const r = await c.post(`/api/orders/${orderId}/status`, { status, ...extra });
-  return r.data;
+  // Straight to Supabase. This used to POST to Railway with no fallback, so
+  // advancing an order failed with "can't reach our servers" the moment that
+  // host stopped resolving -- and advancing an order is the single most-used
+  // write in the product. fetchOrders had a fallback; this never did.
+  const { updateOrderStatus: f } = await import("./supabase_data");
+  const order = await f(orderId, status, extra);
+  return { ok: true, order };
 }
 
 // ── Catalog — Supabase direct, with a dev-store branch ───────────────────────
@@ -337,12 +341,15 @@ export async function fetchBusinessSettings() {
 
 export async function saveBusinessSettings(payload) {
   if (useFixtures()) return setDevSettings(payload);
-  // Route through the server which uses supabaseAdmin (bypasses RLS) and
-  // automatically busts its own in-memory settings cache in the same request.
-  const c = await client();
-  const r = await c.post("/api/settings", payload);
-  if (r.data?.error) throw new Error(r.data.error);
-  return { ok: true };
+  // Straight to Supabase, same reason as updateOrderStatus. The server route
+  // existed to bust an in-memory cache on a host that is no longer part of this
+  // product; going direct meant trading hours, prep time, scheduling rules and
+  // the package price all silently failed to save.
+  //
+  // RLS is not a problem here: the row is keyed on business_id = auth.uid(),
+  // which is exactly the row the owner is allowed to write.
+  const { saveBusinessSettings: f } = await import("./supabase_data");
+  return f(payload);
 }
 
 // ── Query Inbox ───────────────────────────────────────────────────────────────
