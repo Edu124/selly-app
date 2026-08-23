@@ -7,50 +7,82 @@
 <title>Kitchen — Selly demo</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  :root{--bg:#0a0a12;--card:#14141f;--elev:#1a1a28;--line:#242437;
-    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;--violet:#7c5cff;--green:#22c55e;--amber:#f5a524;--red:#ef4444}
-  body{background:var(--bg);color:var(--tx);min-height:100vh;padding:20px 16px 40px;
+  :root{
+    --bg:#0a0a12;--card:#14141f;--elev:#1a1a28;--line:#242437;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
+    --violet:#7c5cff;--violet-d:#6a4ae8;--green:#22c55e;--amber:#f5a524;--red:#ef4444;
+  }
+  html,body{background:var(--bg);color:var(--tx);overflow-x:clip}
+  body{min-height:100vh;padding:22px 16px 60px;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
   .wrap{max-width:760px;margin:0 auto}
+
   h1{font-size:21px;font-weight:800;letter-spacing:-.3px}
   .sub{color:var(--tx2);font-size:12.5px;margin-top:4px}
 
-  .bar{display:flex;gap:9px;align-items:center;background:var(--card);border:1px solid var(--line);
-    border-radius:11px;padding:11px 13px;margin:14px 0;font-size:12.5px;color:var(--tx2);line-height:1.6}
+  .bar{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin:15px 0;font-size:12.5px;color:var(--tx2);line-height:1.65}
   .bar b{color:var(--tx)}
+  .bar a{color:#9d87ff;text-decoration:none}
 
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:11px}
+  .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:15px}
+  .st{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .st .v{font-size:19px;font-weight:800;letter-spacing:-.4px}
+  .st .l{font-size:10px;color:var(--tx3);margin-top:3px}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:15px;margin-bottom:12px}
   .top{display:flex;align-items:center;gap:10px}
-  .no{font-size:15px;font-weight:800}
-  .amt{margin-left:auto;font-size:15px;font-weight:800}
-  .who{color:var(--tx2);font-size:12px;margin-top:5px}
-  .addr{color:var(--tx2);font-size:11.5px;margin-top:6px;line-height:1.5}
-  .items{background:var(--bg);border-radius:10px;padding:10px;margin-top:10px;display:flex;flex-direction:column;gap:5px}
+  .no{font-size:15.5px;font-weight:800}
+  .amt{margin-left:auto;font-size:15.5px;font-weight:800}
+  .who{color:var(--tx2);font-size:12px;margin-top:6px}
+  .addr{color:var(--tx2);font-size:11.5px;margin-top:5px;line-height:1.5}
+  .items{background:var(--bg);border-radius:11px;padding:11px;margin-top:11px;
+    display:flex;flex-direction:column;gap:5px}
   .li{display:flex;gap:9px;font-size:13.5px}
   .li b{color:#b7a5ff;min-width:26px}
-  .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:13px;flex-wrap:wrap}
   .pill{border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:800}
-  .adv{background:var(--violet);border:none;color:#fff;border-radius:10px;padding:9px 16px;
-    font-size:12.5px;font-weight:700;cursor:pointer}
+  .adv{background:var(--violet);border:none;color:#fff;border-radius:10px;padding:10px 17px;
+    font-size:12.5px;font-weight:800;cursor:pointer}
+  .adv:hover{background:var(--violet-d)}
   .adv:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
-  .sent{font-size:11.5px;margin-top:9px}
-  .sent.ok{color:var(--green)} .sent.no{color:var(--amber)}
-  .empty{text-align:center;padding:50px 20px;color:var(--tx2)}
+
+  /* what the send actually did */
+  .sent{margin-top:12px;border-radius:11px;padding:11px 12px;font-size:11.5px;line-height:1.65}
+  .sent .hd{display:flex;align-items:center;gap:8px;margin-bottom:5px;flex-wrap:wrap}
+  .ch{font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 7px;border-radius:20px}
+  .sent.push{background:rgba(124,92,255,.10);border:1px solid rgba(124,92,255,.30)}
+  .sent.push .ch{background:rgba(124,92,255,.22);color:#b7a5ff}
+  .sent.whatsapp{background:rgba(37,211,102,.09);border:1px solid rgba(37,211,102,.28)}
+  .sent.whatsapp .ch{background:rgba(37,211,102,.20);color:#4ade80}
+  .sent.sms{background:rgba(245,165,36,.09);border:1px solid rgba(245,165,36,.28)}
+  .sent.sms .ch{background:rgba(245,165,36,.20);color:#fbbf24}
+  .sent .tx{color:var(--tx2);white-space:pre-wrap;word-break:break-word}
+  .sent .mt{color:var(--tx3);font-size:10.5px;margin-top:6px}
+  .free{color:#4ade80;font-weight:800} .paid{color:#fbbf24;font-weight:800}
+
+  .empty{text-align:center;padding:56px 22px;color:var(--tx2);font-size:13px;line-height:1.8}
   .empty a{color:#9d87ff}
 </style>
 </head>
 <body>
 <div class="wrap">
+
   <h1>🍳 Kitchen</h1>
-  <p class="sub">Ghar Ka Khana · Baner</p>
+  <p class="sub">Ghar Ka Khana · Baner, Pune</p>
 
   <div class="bar">
-    <div>
-      <b>This is the half that sends.</b> Pressing an advance button below makes the
-      server send a real Web Push. The customer's tab does not need to be open —
-      the browser hands it to their service worker.
-      <br>Customer page: <a href="/" target="_blank" style="color:#9d87ff">open it here</a>
-    </div>
+    <b>This is the half that sends.</b> Advancing an order routes one message to that
+    customer — and the router picks the channel per person, at send time.
+    <br>See it land on the <a href="/phone.html" target="_blank">phone</a>,
+    or place a new order on the <a href="/" target="_blank">customer page</a>.
+  </div>
+
+  <div class="strip">
+    <div class="st"><div class="v" id="sOrders">0</div><div class="l">orders</div></div>
+    <div class="st"><div class="v" id="sMsgs">0</div><div class="l">messages sent</div></div>
+    <div class="st"><div class="v paid" id="sSpend">₹0.00</div><div class="l">messaging spend</div></div>
   </div>
 
   <div id="list"></div>
@@ -59,71 +91,112 @@
 <script>
 (function () {
   "use strict";
-  var STATUS = {
-    confirmed       : { label: "Confirmed",        next: "Start preparing",      bg: "rgba(34,197,94,.13)",  fg: "#4ade80" },
-    preparing       : { label: "Preparing",        next: "Send out for delivery", bg: "rgba(59,130,246,.15)", fg: "#7cb0ff" },
-    out_for_delivery: { label: "Out for delivery", next: "Mark delivered",       bg: "rgba(255,107,157,.15)",fg: "#ff8fb8" },
-    delivered       : { label: "Delivered",        next: null,                   bg: "rgba(45,212,191,.15)", fg: "#5eead4" },
-  };
+
+  var $   = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
   var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
-  var lastSent = {};
+  var rup = function (p) { return "₹" + (Number(p || 0) / 100).toFixed(2); };
+
+  var STATUS = {
+    confirmed       : { label: "Confirmed",        next: "Start preparing",       bg: "rgba(34,197,94,.13)",  fg: "#4ade80" },
+    preparing       : { label: "Preparing",        next: "Send out for delivery", bg: "rgba(59,130,246,.15)", fg: "#7cb0ff" },
+    out_for_delivery: { label: "Out for delivery", next: "Mark delivered",        bg: "rgba(255,107,157,.15)",fg: "#ff8fb8" },
+    delivered       : { label: "Delivered",        next: null,                   bg: "rgba(45,212,191,.15)", fg: "#5eead4" }
+  };
+  var LABEL = { sms: "SMS", whatsapp: "WHATSAPP", push: "NOTIFICATION" };
+
+  var lastSent = {};   // orderId -> the message record the server returned
+
+  function sentBlock(m) {
+    if (!m || m.skipped) return "";
+    var head = '<div class="hd"><span class="ch">' + (LABEL[m.channel] || m.channel) + '</span>' +
+      (m.costPaise ? '<span class="paid">' + rup(m.costPaise) + '</span>'
+                   : '<span class="free">free</span>') +
+      (m.delivery === "real"
+        ? '<span style="color:var(--tx3)">delivered for real · ' + (m.devices || 0) + ' device(s)</span>'
+        : '<span style="color:var(--tx3)">simulated</span>') +
+      '</div>';
+
+    var body = '<div class="tx">' +
+      (m.title ? esc(m.title) + "\n" : "") + esc(m.text || "") + '</div>';
+
+    var meta = "";
+    if (m.channel === "sms" && m.segments) {
+      meta = '<div class="mt">DLT ' + esc(m.templateId) + ' · ' + esc(m.encoding) + ' · ' +
+             m.chars + '/' + m.perSegment + ' chars · ' + m.segments +
+             ' segment' + (m.segments > 1 ? "s" : "") + '</div>';
+    }
+    return '<div class="sent ' + m.channel + '">' + head + body + meta + '</div>';
+  }
 
   function render(orders) {
-    var el = document.getElementById("list");
+    var el = $("list");
     if (!orders.length) {
       el.innerHTML = '<div class="empty">No orders yet.<br><br>' +
         'Place one on the <a href="/" target="_blank">customer page</a> first.</div>';
       return;
     }
     el.innerHTML = "";
+
     orders.forEach(function (o) {
-      var st = STATUS[o.status] || STATUS.confirmed;
-      var card = document.createElement("div"); card.className = "card";
+      var st   = STATUS[o.status] || STATUS.confirmed;
+      var card = document.createElement("div");
+      card.className = "card";
       card.innerHTML =
         '<div class="top"><span class="no">#' + o.id + '</span>' +
           '<span class="amt">' + inr(o.total) + '</span></div>' +
-        '<div class="who">' + (o.name || "Guest") + '</div>' +
-        (o.address ? '<div class="addr">📍 ' + o.address + '</div>' : "") +
+        '<div class="who">' + esc(o.name) + ' · +91 ' + esc(o.phone) + '</div>' +
+        (o.address ? '<div class="addr">📍 ' + esc(o.address) + '</div>' : "") +
         '<div class="items">' + o.cart.map(function (i) {
-          return '<div class="li"><b>' + i.qty + '×</b><span>' + i.name + '</span></div>';
+          return '<div class="li"><b>' + i.qty + '×</b><span>' + esc(i.name) + '</span></div>';
         }).join("") + '</div>';
 
-      var foot = document.createElement("div"); foot.className = "foot";
+      var foot = document.createElement("div");
+      foot.className = "foot";
+
       var pill = document.createElement("span");
-      pill.className = "pill"; pill.textContent = st.label;
-      pill.style.background = st.bg; pill.style.color = st.fg;
+      pill.className = "pill";
+      pill.textContent = st.label;
+      pill.style.background = st.bg;
+      pill.style.color = st.fg;
       foot.appendChild(pill);
 
       if (st.next) {
         var b = document.createElement("button");
-        b.className = "adv"; b.textContent = st.next + " →";
+        b.className = "adv";
+        b.textContent = st.next + " →";
         b.onclick = function () { advance(o.id, b); };
         foot.appendChild(b);
       }
       card.appendChild(foot);
 
       if (lastSent[o.id]) {
-        var s = document.createElement("div");
-        s.className = "sent " + (lastSent[o.id].sent ? "ok" : "no");
-        s.textContent = lastSent[o.id].sent
-          ? "🔔 Pushed to " + lastSent[o.id].sent + " device(s) — their tab did not need to be open."
-          : "⚠️ Nobody to push to. Turn on notifications on the customer page first.";
-        card.appendChild(s);
+        var wrap = document.createElement("div");
+        wrap.innerHTML = sentBlock(lastSent[o.id]);
+        if (wrap.firstChild) card.appendChild(wrap.firstChild);
       }
       el.appendChild(card);
     });
   }
 
   function advance(id, btn) {
-    btn.disabled = true; btn.textContent = "sending…";
+    btn.disabled = true;
+    btn.textContent = "sending…";
     fetch("/api/orders/" + id + "/status", { method: "POST" })
       .then(function (r) { return r.json(); })
-      .then(function (d) { lastSent[id] = { sent: d.sent }; load(); })
+      .then(function (d) { if (d.message) lastSent[id] = d.message; load(); })
       .catch(function () { btn.disabled = false; });
   }
 
   function load() {
-    fetch("/api/orders").then(function (r) { return r.json(); }).then(function (d) { render(d.orders); });
+    fetch("/api/orders").then(function (r) { return r.json(); })
+      .then(function (d) { render(d.orders); });
+    fetch("/api/state").then(function (r) { return r.json(); })
+      .then(function (s) {
+        $("sOrders").textContent = s.orders;
+        $("sMsgs").textContent   = s.messages;
+        $("sSpend").textContent  = "₹" + s.spendRupees;
+      });
   }
 
   load();
