@@ -208,6 +208,35 @@ function MenuItemForm({ form, set, cfg }) {
         <>
           <Text style={styles.fieldLabel}>Portions / Sizes</Text>
           <ChipRow items={sizeOpts} selected={form.sizes || []} onSelect={toggleSize} color={cfg.color} />
+
+          {/* Selecting a portion used to do nothing but tag the dish. A half
+              plate costs less than a full one, so each selected portion gets its
+              own price -- otherwise the kitchen can offer a half and still only
+              be able to charge the full price for it. */}
+          {(form.sizes || []).length > 0 && (
+            <View style={styles.portionBox}>
+              <Text style={styles.portionHint}>
+                Price each portion. Leave one blank to charge the main price above.
+              </Text>
+              {(form.sizes || []).map(sz => (
+                <View key={sz} style={styles.portionRow}>
+                  <Text style={styles.portionName}>{sz}</Text>
+                  <Text style={styles.portionRupee}>₹</Text>
+                  <TextInput
+                    style={styles.portionInput}
+                    value={String((form.portionPrices || {})[sz] ?? "")}
+                    onChangeText={v => set("portionPrices", {
+                      ...(form.portionPrices || {}),
+                      [sz]: v.replace(/[^0-9]/g, ""),
+                    })}
+                    keyboardType="numeric"
+                    placeholder={String(form.price || "0")}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
         </>
       )}
 
@@ -269,7 +298,7 @@ function MenuItemForm({ form, set, cfg }) {
 const BLANK = {
   name:"", price:"", category:"", subCategory:"", description:"",
   imageUrl:"", imageUrls:[],
-  sizes:[], isPremium:false, inStock:true,
+  sizes:[], portionPrices:{}, isPremium:false, inStock:true,
   diet:"", prepMinutes:"",
   productNumber:"",
   stockCount: "",
@@ -286,6 +315,7 @@ function toForm(p) {
     imageUrl:     p.imageUrl    || "",
     imageUrls:    p.imageUrls   || (p.imageUrl ? [p.imageUrl] : []),
     sizes:        p.sizes       || [],
+    portionPrices: ef.portionPrices || {},
     isPremium:    p.isPremium   || false,
     inStock:      p.inStock !== false,
     diet:         ef.diet        || "",
@@ -340,6 +370,16 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
     const extraFields = {};
     if (form.diet)        extraFields.diet        = form.diet;
     if (form.prepMinutes) extraFields.prepMinutes = Number(form.prepMinutes) || 0;
+
+    // Keyed by portion name rather than positional, so reordering the chips
+    // cannot silently reassign prices. Blank entries are dropped so a portion
+    // with no price of its own falls back to the dish price.
+    const portions = {};
+    (form.sizes || []).forEach(sz => {
+      const v = Number((form.portionPrices || {})[sz]);
+      if (v > 0) portions[sz] = v;
+    });
+    if (Object.keys(portions).length) extraFields.portionPrices = portions;
 
     const imageUrls = form.imageUrls && form.imageUrls.length > 0
       ? form.imageUrls
@@ -458,7 +498,12 @@ function ProductCard({ product: p, industry, onToggle, onDelete, onEdit }) {
 
         <Text style={styles.productMeta} numberOfLines={1}>
           {[p.category, p.subCategory].filter(Boolean).join(" › ")}
-          {p.sizes?.length   ? `  ·  ${p.sizes.slice(0, 3).join(", ")}` : ""}
+          {p.sizes?.length
+            ? "  ·  " + p.sizes.slice(0, 3).map(sz => {
+                const pp = p.extraFields?.portionPrices?.[sz];
+                return pp ? `${sz} \u20b9${pp}` : sz;
+              }).join(", ")
+            : ""}
           {ef.diet           ? `  ·  ${ef.diet === "Veg" ? "🟢" : ef.diet === "Non-veg" ? "🔴" : "🟡"} ${ef.diet}` : ""}
           {ef.prepMinutes    ? `  ·  ⏱ ${ef.prepMinutes} min` : ""}
         </Text>
@@ -646,6 +691,16 @@ export default function CatalogScreen() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  portionBox  : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, marginTop: 8 },
+  portionHint : { color: Colors.textMuted, fontSize: 11, marginBottom: 10, lineHeight: 16 },
+  portionRow  : { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+  portionName : { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "600", flex: 1 },
+  portionRupee: { color: Colors.textMuted, fontSize: 13 },
+  portionInput: {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
+    color: Colors.textPrimary, fontSize: 14, width: 92, textAlign: "center",
+  },
   container  : { flex: 1, backgroundColor: Colors.bg },
   center     : { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   topBar     : { flexDirection: "row", alignItems: "center", padding: 16, gap: 10 },

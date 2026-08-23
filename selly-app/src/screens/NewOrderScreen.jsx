@@ -85,10 +85,38 @@ export default function NewOrderScreen({ navigation }) {
     }
   }, [sched]);
 
-  const lines = useMemo(() => Object.keys(cart).map(id => {
+  // A dish with priced portions is several orderable things, not one. The cart
+  // is keyed on dish+portion so a half and a full plate of the same dish are
+  // separate lines with separate prices -- which is the whole point.
+  const variantsOf = (it) => {
+    const pp = (it.extraFields && it.extraFields.portionPrices) || {};
+    const named = (it.sizes || []).filter(sz => pp[sz] > 0);
+    if (!named.length) {
+      return [{ key: String(it.id), label: null, price: Number(it.price) || 0 }];
+    }
+    return named.map(sz => ({
+      key  : `${it.id}::${sz}`,
+      label: sz,
+      price: Number(pp[sz]),
+    }));
+  };
+
+  const lines = useMemo(() => Object.keys(cart).map(key => {
+    const [id, label] = key.split("::");
     const it = menu.find(m => String(m.id) === String(id));
-    return it ? { id, name: it.name, price: Number(it.price), qty: cart[id],
-                  productNumber: it.productNumber || "" } : null;
+    if (!it) return null;
+    const v = variantsOf(it).find(x => x.key === key);
+    if (!v) return null;
+    return {
+      id: key,
+      // The portion rides in the name so it survives onto the kitchen ticket,
+      // the customer's message and the rider's screen without any of them
+      // needing to know portions exist.
+      name : label ? `${it.name} (${label})` : it.name,
+      price: v.price,
+      qty  : cart[key],
+      productNumber: it.productNumber || "",
+    };
   }).filter(Boolean), [cart, menu]);
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
@@ -190,28 +218,53 @@ export default function NewOrderScreen({ navigation }) {
         ) : (
           <View style={styles.menuCard}>
             {menu.map(it => {
-              const q = cart[it.id] || 0;
-              return (
-                <View key={it.id} style={[styles.dish, q > 0 && styles.dishOn]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dishName}>{it.name}</Text>
-                    <Text style={styles.dishPrice}>{inr(it.price)}</Text>
-                  </View>
-                  {q === 0 ? (
-                    <TouchableOpacity style={styles.addBtn} onPress={() => setQty(it.id, 1)}>
-                      <Text style={styles.addBtnText}>ADD</Text>
+              const variants = variantsOf(it);
+              const anyOn = variants.some(v => (cart[v.key] || 0) > 0);
+
+              const control = (v) => {
+                const q = cart[v.key] || 0;
+                return q === 0 ? (
+                  <TouchableOpacity style={styles.addBtn} onPress={() => setQty(v.key, 1)}>
+                    <Text style={styles.addBtnText}>ADD</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.stepper}>
+                    <TouchableOpacity style={styles.stepBtn} onPress={() => setQty(v.key, q - 1)}>
+                      <Text style={styles.stepText}>−</Text>
                     </TouchableOpacity>
-                  ) : (
-                    <View style={styles.stepper}>
-                      <TouchableOpacity style={styles.stepBtn} onPress={() => setQty(it.id, q - 1)}>
-                        <Text style={styles.stepText}>−</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.stepQty}>{q}</Text>
-                      <TouchableOpacity style={styles.stepBtn} onPress={() => setQty(it.id, q + 1)}>
-                        <Text style={styles.stepText}>+</Text>
-                      </TouchableOpacity>
+                    <Text style={styles.stepQty}>{q}</Text>
+                    <TouchableOpacity style={styles.stepBtn} onPress={() => setQty(v.key, q + 1)}>
+                      <Text style={styles.stepText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              };
+
+              // One portion: the dish is the row. Several: the dish is a heading
+              // and each portion gets its own line, so nobody has to work out
+              // which price they just tapped.
+              if (variants.length === 1) {
+                return (
+                  <View key={it.id} style={[styles.dish, anyOn && styles.dishOn]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.dishName}>{it.name}</Text>
+                      <Text style={styles.dishPrice}>{inr(variants[0].price)}</Text>
                     </View>
-                  )}
+                    {control(variants[0])}
+                  </View>
+                );
+              }
+
+              return (
+                <View key={it.id} style={[styles.dishGroup, anyOn && styles.dishOn]}>
+                  <Text style={styles.dishName}>{it.name}</Text>
+                  {variants.map(v => (
+                    <View key={v.key} style={styles.portionLine}>
+                      <Text style={styles.portionLabel}>{v.label}</Text>
+                      <Text style={styles.portionPrice}>{inr(v.price)}</Text>
+                      {control(v)}
+                    </View>
+                  ))}
                 </View>
               );
             })}
@@ -431,6 +484,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   dishOn   : { borderBottomColor: "rgba(124,92,255,0.25)" },
+  dishGroup: { paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  portionLine : {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    paddingTop: 9, paddingLeft: 2,
+  },
+  portionLabel: { color: Colors.textSecondary, fontSize: 13, flex: 1 },
+  portionPrice: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "700" },
   dishName : { color: Colors.textPrimary, fontSize: 14, fontWeight: "600" },
   dishPrice: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
 
