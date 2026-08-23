@@ -41,6 +41,7 @@ import ScheduledScreen       from "../screens/ScheduledScreen";
 import PackagesScreen        from "../screens/PackagesScreen";
 import NewOrderScreen        from "../screens/NewOrderScreen";
 import RatingsScreen         from "../screens/RatingsScreen";
+import DeliveryScreen        from "../screens/DeliveryScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
@@ -436,6 +437,7 @@ function MainDrawer({ industry }) {
     Kitchen  : { label: "Kitchen",           icon: "flame"      },
     Scheduled: { label: "Scheduled",         icon: "calendar"   },
     Members  : { label: "Members",           icon: "star"       },
+    Delivery : { label: "Delivery",          icon: "bicycle"    },
     Ratings  : { label: "Ratings",           icon: "happy"      },
     Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
     Catalog  : { label: cfg.catalog.label,   icon: cfg.catalog.icon   },
@@ -489,6 +491,9 @@ function MainDrawer({ industry }) {
       )}
       {/* Ratings sits in the drawer rather than under More: an unhappy customer
           is time-sensitive, and a screen nobody opens is where they get lost. */}
+      {cfg.hasPrepQueue && (
+        <Drawer.Screen name="Delivery" component={DeliveryScreen} options={{ title: "Delivery" }} />
+      )}
       {cfg.hasPrepQueue && (
         <Drawer.Screen name="Ratings" component={RatingsScreen} options={{ title: "Ratings" }} />
       )}

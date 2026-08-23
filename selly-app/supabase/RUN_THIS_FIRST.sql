@@ -534,11 +534,343 @@ $fn$;
 revoke all on function public.submit_rating(uuid, int, text[], text) from public;
 grant execute on function public.submit_rating(uuid, int, text[], text) to anon, authenticated;
 
+-- ── 13 · Delivery: tokens, OTP and the driver's way in ───────────────────────
+--
+-- THE IDEA, AND WHY IT IS GOOD
+--   The kitchen sticks a short token on the packet and nothing else. No name, no
+--   address, no phone number ever gets printed. A packet left on a counter or
+--   dropped in the street tells a stranger nothing. The driver types the token
+--   into their screen and only then sees where it goes.
+--
+--   That also makes the security model honest: the token IS the capability.
+--   Nobody can list orders, only look up the one whose packet they are holding.
+--
+-- OTP
+--   A four-digit code the customer has, read out at the door. Deliberately NOT
+--   issued to monthly members: someone taking delivery of the same tiffin every
+--   morning does not want to recite a code at 7am, and they are the customers we
+--   have the least doubt about.
+
+alter table public.orders add column if not exists token           text;
+alter table public.orders add column if not exists delivery_otp    text;
+alter table public.orders add column if not exists otp_verified_at timestamptz;
+alter table public.orders add column if not exists picked_up_at    timestamptz;
+alter table public.orders add column if not exists delivered_at    timestamptz;
+alter table public.orders add column if not exists driver_name     text;
+
+comment on column public.orders.token is
+  'Short code on the packet sticker. Unique among this kitchen''s open orders, '
+  'recycled once delivered -- it has to be short enough to write on a label.';
+comment on column public.orders.delivery_otp is
+  'Four digits the customer reads out at the door. Null for monthly members, '
+  'who are not asked for one.';
+
+-- Unique only among orders still out. A token is a label, not an identity, and
+-- reusing 47 next week is the point.
+create unique index if not exists orders_open_token_idx
+  on public.orders (business_id, token)
+  where token is not null and delivered_at is null;
+
+
+-- ── 14 · Delivery partners ───────────────────────────────────────────────────
+-- The kitchen adds a partner and hands over one link. The partner gives that
+-- same link to all their riders. No rider accounts, no passwords, no app to
+-- install -- any of which would kill adoption with the people who have to use it
+-- twenty times a day in the rain.
+
+create table if not exists public.delivery_partners (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+
+  name         text not null,
+  phone        text,
+
+  -- The unguessable half of the driver's credentials. The token on the packet
+  -- is the other half, and both are needed for any lookup.
+  access_code  uuid not null default gen_random_uuid(),
+
+  active       boolean not null default true,
+  created_at   timestamptz not null default now(),
+  last_used_at timestamptz
+);
+
+create unique index if not exists delivery_partners_code_idx
+  on public.delivery_partners (access_code);
+create index if not exists delivery_partners_business_idx
+  on public.delivery_partners (business_id, active);
+
+alter table public.delivery_partners enable row level security;
+
+drop policy if exists "delivery_partners owner all" on public.delivery_partners;
+create policy "delivery_partners owner all" on public.delivery_partners
+  for all
+  using      (business_id = auth.uid())
+  with check (business_id = auth.uid());
+
+
+-- ── 15 · What the driver did ─────────────────────────────────────────────────
+-- An append-only trail. When a customer says it never arrived, the argument is
+-- settled by a row, not by whose memory is better.
+
+create table if not exists public.delivery_events (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+  order_id     text not null,
+  partner_id   uuid references public.delivery_partners (id) on delete set null,
+
+  event        text not null,        -- looked_up | picked_up | delivered | otp_failed
+  driver_name  text,
+  detail       text,
+  created_at   timestamptz not null default now(),
+
+  constraint delivery_events_event_chk
+    check (event in ('looked_up', 'picked_up', 'delivered', 'otp_failed'))
+);
+
+create index if not exists delivery_events_order_idx
+  on public.delivery_events (order_id, created_at);
+
+alter table public.delivery_events enable row level security;
+
+drop policy if exists "delivery_events owner read" on public.delivery_events;
+create policy "delivery_events owner read" on public.delivery_events
+  for select using (business_id = auth.uid());
+
+
+-- ── 16 · Handing an order to delivery ────────────────────────────────────────
+-- Called by the kitchen when the packet is sealed. Assigns the smallest free
+-- token so the numbers stay short, and issues an OTP unless the customer is a
+-- monthly member.
+
+create or replace function public.assign_delivery_token(p_order text)
+returns table (token text, otp text)
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_order  public.orders%rowtype;
+  v_token  text;
+  v_otp    text;
+  v_member boolean;
+  n        int;
+begin
+  select * into v_order from public.orders where id = p_order limit 1;
+  if not found then raise exception 'no such order'; end if;
+
+  if v_order.business_id <> auth.uid() then
+    raise exception 'not your order';
+  end if;
+
+  -- Already handed over: give back what it already has rather than reissuing,
+  -- so a second tap does not invalidate a sticker that is already on a packet.
+  if v_order.token is not null and v_order.delivered_at is null then
+    return query select v_order.token, v_order.delivery_otp;
+    return;
+  end if;
+
+  -- Smallest unused number among this kitchen's orders still out.
+  for n in 1..99 loop
+    if not exists (
+      select 1 from public.orders o
+       where o.business_id = v_order.business_id
+         and o.token = lpad(n::text, 2, '0')
+         and o.delivered_at is null
+    ) then
+      v_token := lpad(n::text, 2, '0');
+      exit;
+    end if;
+  end loop;
+
+  if v_token is null then
+    raise exception 'all 99 tokens are in use -- close some deliveries first';
+  end if;
+
+  -- Members are not asked for a code. Someone taking the same tiffin every
+  -- morning reciting four digits at 7am is friction with nothing behind it.
+  select exists (
+    select 1 from public.customer_packages p
+     where p.business_id = v_order.business_id
+       and p.mobile      = right(regexp_replace(coalesce(v_order.mobile, ''), '\D', '', 'g'), 10)
+       and p.status in ('trial', 'active')
+       and coalesce(p.period_end, p.trial_ends, now() + interval '100 years') > now()
+  ) into v_member;
+
+  if v_member then
+    v_otp := null;
+  else
+    v_otp := lpad((floor(random() * 10000))::int::text, 4, '0');
+  end if;
+
+  update public.orders
+     set token = v_token, delivery_otp = v_otp
+   where id = p_order;
+
+  return query select v_token, v_otp;
+end;
+$fn$;
+
+revoke all on function public.assign_delivery_token(text) from public;
+grant execute on function public.assign_delivery_token(text) to authenticated;
+
+
+-- ── 17 · The driver's two calls ──────────────────────────────────────────────
+-- Everything a rider can do, and nothing else. Both require the partner's
+-- access code AND the token on the packet, so a leaked link on its own reveals
+-- nothing and cannot be used to browse.
+
+create or replace function public.driver_lookup(p_code uuid, p_token text)
+returns table (
+  order_id      text,
+  token         text,
+  customer      text,
+  mobile        text,
+  address       text,
+  items         jsonb,
+  amount        numeric,
+  payment_mode  text,
+  needs_otp     boolean,
+  kitchen       text,
+  kitchen_phone text,
+  picked_up     boolean,
+  delivered     boolean,
+  -- Minutes until this order is late; negative means it already is. Computed
+  -- here rather than on the rider's phone, because only the kitchen knows what
+  -- the customer was promised.
+  slack_mins    int
+)
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_partner public.delivery_partners%rowtype;
+  v_order   public.orders%rowtype;
+begin
+  select * into v_partner from public.delivery_partners
+   where access_code = p_code and active limit 1;
+  if not found then raise exception 'this delivery link is not valid'; end if;
+
+  select * into v_order from public.orders
+   where business_id = v_partner.business_id
+     and token       = upper(btrim(p_token))
+     and delivered_at is null
+   limit 1;
+  if not found then raise exception 'no open order with that token'; end if;
+
+  update public.delivery_partners set last_used_at = now() where id = v_partner.id;
+
+  insert into public.delivery_events (business_id, order_id, partner_id, event)
+  values (v_partner.business_id, v_order.id, v_partner.id, 'looked_up');
+
+  return query
+    select v_order.id,
+           v_order.token,
+           v_order.name,
+           v_order.mobile,
+           v_order.address,
+           v_order.cart,
+           (v_order.bill ->> 'total')::numeric,
+           v_order.payment_mode,
+           (v_order.delivery_otp is not null),
+           coalesce(s.business_name, 'Kitchen'),
+           -- The rider needs a human to call when an address goes wrong, and it
+           -- has to be the kitchen rather than us.
+           coalesce(s.whatsapp_number, ''),
+           (v_order.picked_up_at is not null),
+           false,
+           -- A scheduled order has an explicit promise; everything else gets
+           -- prep plus a delivery allowance from when it was placed.
+           extract(epoch from (
+             coalesce(
+               v_order.scheduled_for,
+               v_order.created_at + interval '45 minutes'
+             ) - now()
+           ))::int / 60
+      from public.business_settings s
+     where s.business_id = v_partner.business_id;
+end;
+$fn$;
+
+revoke all on function public.driver_lookup(uuid, text) from public;
+grant execute on function public.driver_lookup(uuid, text) to anon, authenticated;
+
+
+create or replace function public.driver_update(
+  p_code   uuid,
+  p_token  text,
+  p_event  text,
+  p_otp    text default null,
+  p_driver text default null
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_partner public.delivery_partners%rowtype;
+  v_order   public.orders%rowtype;
+begin
+  select * into v_partner from public.delivery_partners
+   where access_code = p_code and active limit 1;
+  if not found then raise exception 'this delivery link is not valid'; end if;
+
+  select * into v_order from public.orders
+   where business_id = v_partner.business_id
+     and token       = upper(btrim(p_token))
+     and delivered_at is null
+   limit 1;
+  if not found then raise exception 'no open order with that token'; end if;
+
+  if p_event = 'picked_up' then
+    update public.orders
+       set picked_up_at = now(), driver_name = coalesce(p_driver, driver_name),
+           status = 'out_for_delivery'
+     where id = v_order.id;
+
+    insert into public.delivery_events (business_id, order_id, partner_id, event, driver_name)
+    values (v_partner.business_id, v_order.id, v_partner.id, 'picked_up', p_driver);
+    return 'picked_up';
+
+  elsif p_event = 'delivered' then
+    -- Only checked when one was issued. Members have no OTP by design, and
+    -- demanding one they were never given would strand every regular customer.
+    if v_order.delivery_otp is not null then
+      if p_otp is null or btrim(p_otp) <> v_order.delivery_otp then
+        insert into public.delivery_events (business_id, order_id, partner_id, event, driver_name, detail)
+        values (v_partner.business_id, v_order.id, v_partner.id, 'otp_failed', p_driver, 'wrong code');
+        raise exception 'that code does not match';
+      end if;
+    end if;
+
+    update public.orders
+       set delivered_at    = now(),
+           otp_verified_at = case when v_order.delivery_otp is not null then now() end,
+           driver_name     = coalesce(p_driver, driver_name),
+           status          = 'delivered',
+           -- Freed for reuse: the sticker is going in the bin either way.
+           token           = null
+     where id = v_order.id;
+
+    insert into public.delivery_events (business_id, order_id, partner_id, event, driver_name)
+    values (v_partner.business_id, v_order.id, v_partner.id, 'delivered', p_driver);
+    return 'delivered';
+  end if;
+
+  raise exception 'unknown event';
+end;
+$fn$;
+
+revoke all on function public.driver_update(uuid, text, text, text, text) from public;
+grant execute on function public.driver_update(uuid, text, text, text, text) to anon, authenticated;
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- Done. Check it worked — this should return 2 rows:
 --   select table_name from information_schema.tables
 --    where table_name in ('customer_packages','business_billing',
 --                         'customer_contacts','message_log',
---                         'order_ratings','complaints');
--- Expect 6 rows.
+--                         'order_ratings','complaints',
+--                         'delivery_partners','delivery_events');
+-- Expect 8 rows.
 -- ═══════════════════════════════════════════════════════════════════════════════

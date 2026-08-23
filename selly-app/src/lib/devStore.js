@@ -552,3 +552,72 @@ export async function addDevRating(entry) {
   if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
   return row;
 }
+
+// ── Delivery partners and tokens (preview) ────────────────────────────────────
+
+export const DEV_PARTNERS_KEY = "@selly_dev_partners";
+
+export async function getDevPartners() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_PARTNERS_KEY);
+    if (raw == null) {
+      const seed = [{
+        id: "dp1", name: "Baner Riders", phone: "9822004455",
+        access_code: "11111111-2222-3333-4444-555555555555",
+        active: true, created_at: new Date().toISOString(), last_used_at: null,
+      }];
+      await AsyncStorage.setItem(DEV_PARTNERS_KEY, JSON.stringify(seed));
+      return seed;
+    }
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addDevPartner({ name, phone }) {
+  const list = await getDevPartners();
+  // Good enough for a preview; the real code comes from gen_random_uuid().
+  const rand = () => Math.random().toString(16).slice(2, 10);
+  const row = {
+    id: String(Date.now()), name, phone: phone || null,
+    access_code: `${rand()}-${rand().slice(0,4)}-${rand().slice(0,4)}-${rand().slice(0,4)}-${rand()}${rand().slice(0,4)}`,
+    active: true, created_at: new Date().toISOString(), last_used_at: null,
+  };
+  await AsyncStorage.setItem(DEV_PARTNERS_KEY, JSON.stringify([...list, row]));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return row;
+}
+
+export async function patchDevPartner(id, changes) {
+  const list = await getDevPartners();
+  const next = list.map(p => (String(p.id) === String(id) ? { ...p, ...changes } : p));
+  await AsyncStorage.setItem(DEV_PARTNERS_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return next.find(p => String(p.id) === String(id));
+}
+
+/** Mirrors assign_delivery_token: smallest free number, no OTP for members. */
+export async function assignDevToken(orderId) {
+  const orders = await getDevOrders();
+  const order  = orders.find(o => String(o.id) === String(orderId));
+  if (!order) throw new Error("no such order");
+  if (order.token && !order.delivered_at) {
+    return { token: order.token, otp: order.delivery_otp || null };
+  }
+
+  const taken = new Set(orders.filter(o => o.token && !o.delivered_at).map(o => o.token));
+  let token = null;
+  for (let n = 1; n <= 99; n++) {
+    const t = String(n).padStart(2, "0");
+    if (!taken.has(t)) { token = t; break; }
+  }
+  if (!token) throw new Error("all 99 tokens are in use");
+
+  const pkg = await getDevPackageFor(order.mobile);
+  const otp = pkg ? null : String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+
+  await patchDevOrder(orderId, { token, delivery_otp: otp });
+  return { token, otp };
+}

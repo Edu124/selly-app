@@ -723,3 +723,50 @@ export async function markRatingReplied(id) {
   if (error) throw new Error(error.message);
   return { ok: true };
 }
+
+// ── Delivery partners and packet tokens ───────────────────────────────────────
+// The kitchen adds a partner once and hands over a single link. Riders need no
+// account: the link plus the number on the packet is the whole credential, and
+// neither half works without the other.
+
+export async function fetchDeliveryPartners() {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("delivery_partners")
+    .select("*")
+    .eq("business_id", bid)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function addDeliveryPartner({ name, phone }) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("delivery_partners")
+    .insert({ business_id: bid, name, phone: phone || null })
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function setPartnerActive(id, active) {
+  const bid = await _bid();
+  const { error } = await supabase
+    .from("delivery_partners")
+    .update({ active })
+    .eq("id", id)
+    .eq("business_id", bid);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+/** Seal the packet: assign the sticker number and, unless they're a member, an OTP. */
+export async function assignDeliveryToken(orderId) {
+  const { data, error } = await supabase
+    .rpc("assign_delivery_token", { p_order: String(orderId) });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
+}

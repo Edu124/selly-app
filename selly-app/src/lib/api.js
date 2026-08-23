@@ -780,3 +780,41 @@ export async function fetchRatings() {
   const { fetchRatings: f } = await import("./supabase_data");
   return f();
 }
+
+// ── Delivery partners and packet tokens ───────────────────────────────────────
+
+export async function fetchDeliveryPartners() {
+  if (useFixtures()) {
+    const { getDevPartners } = await import("./devStore");
+    return getDevPartners();
+  }
+  const { fetchDeliveryPartners: f } = await import("./supabase_data");
+  return f();
+}
+
+export async function addDeliveryPartner(input) {
+  if (useFixtures()) {
+    const { addDevPartner } = await import("./devStore");
+    return addDevPartner(input);
+  }
+  const { addDeliveryPartner: f } = await import("./supabase_data");
+  return f(input);
+}
+
+export async function setPartnerActive(id, active) {
+  if (useFixtures()) {
+    const { patchDevPartner } = await import("./devStore");
+    return patchDevPartner(id, { active });
+  }
+  const { setPartnerActive: f } = await import("./supabase_data");
+  return f(id, active);
+}
+
+export async function assignDeliveryToken(orderId) {
+  if (useFixtures()) {
+    const { assignDevToken } = await import("./devStore");
+    return assignDevToken(orderId);
+  }
+  const { assignDeliveryToken: f } = await import("./supabase_data");
+  return f(orderId);
+}
