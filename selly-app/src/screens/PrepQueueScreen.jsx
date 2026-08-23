@@ -28,7 +28,9 @@ import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
 import { orderTotal, inr } from "../lib/whatsapp";
-import { notifyStatus, channelFor, isReachable, tenDigit } from "../lib/messaging";
+import {
+  notifyStatus, channelFor, isReachable, tenDigit, CHANNELS, DEFAULT_CHANNEL,
+} from "../lib/messaging";
 import { isDueNow, isScheduled, formatWhen } from "../lib/scheduling";
 import SoldOutSheet from "../components/SoldOutSheet";
 
@@ -145,7 +147,8 @@ export default function PrepQueueScreen({ navigation }) {
         }).catch(() => {});
       }
 
-      if (res.sent)              setNotice({ ok: true,  text: `${STATUS_LABELS[next]} · ${res.channel === "sms" ? "SMS" : "WhatsApp"} opened for ${res.to}` });
+      const chName = (CHANNELS[res.channel] || CHANNELS[DEFAULT_CHANNEL]).label;
+      if (res.sent)              setNotice({ ok: true,  text: `${STATUS_LABELS[next]} · ${chName} opened for ${res.to}` });
       else if (res.error)        setNotice({ ok: false, text: `${STATUS_LABELS[next]} — but the customer wasn't notified: ${res.error}` });
       else                       setNotice(null);
     } catch (e) {
@@ -325,7 +328,7 @@ export default function PrepQueueScreen({ navigation }) {
                         />
                         <Text style={[styles.reachText, { color: ok ? Colors.green : Colors.yellow }]}>
                           {ok
-                            ? `updates → ${o.name || tenDigit(o.mobile)} on ${ch ? ch.label : "WhatsApp"}`
+                            ? `updates → ${o.name || tenDigit(o.mobile)} on ${(ch || CHANNELS[DEFAULT_CHANNEL]).label}`
                             : "No mobile number — this customer can't be updated"}
                         </Text>
                       </View>

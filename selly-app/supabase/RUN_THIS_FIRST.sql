@@ -267,10 +267,11 @@ create table if not exists public.customer_contacts (
   mobile       text not null,
   name         text,
 
-  -- Which app to open when the kitchen sends an update. Not a hard binding:
-  -- it is a default the kitchen can override per message, because a customer
-  -- who does not answer on one will answer on the other.
-  preferred_channel text not null default 'whatsapp',   -- whatsapp | sms
+  -- Which app to open when the kitchen sends an update. SMS by default: it
+  -- reaches every phone, needs nothing installed, and no platform can switch it
+  -- off. WhatsApp remains a per-customer override, because a customer who does
+  -- not answer on one will answer on the other.
+  preferred_channel text not null default 'sms',        -- sms | whatsapp
 
   first_seen_at  timestamptz not null default now(),
   last_contacted timestamptz,

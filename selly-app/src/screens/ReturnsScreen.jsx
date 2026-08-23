@@ -14,7 +14,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
 import { fetchComplaints, resolveComplaint } from "../lib/api";
 import { tplComplaintResolved, inr } from "../lib/whatsapp";
-import { deliver, isReachable } from "../lib/messaging";
+import { deliver, isReachable, DEFAULT_CHANNEL } from "../lib/messaging";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig } from "../lib/businessTypes";
@@ -117,7 +117,7 @@ export default function ReturnsScreen() {
       if (isReachable(selected)) {
         const out = await deliver({
           mobile : selected.mobile,
-          channel: selected.preferred_channel || "whatsapp",
+          channel: selected.preferred_channel || DEFAULT_CHANNEL,
           text   : tplComplaintResolved({
             order     : { id: selected.order_id },
             resolution: res.key,
@@ -320,7 +320,7 @@ export default function ReturnsScreen() {
                         </View>
                         {!selected.customer_id && (
                           <Text style={styles.noWaWarn}>
-                            No WhatsApp number on this one — the outcome will be
+                            No mobile number on this one — the outcome will be
                             recorded, but nothing will be sent to the customer.
                           </Text>
                         )}

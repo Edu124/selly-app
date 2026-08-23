@@ -23,7 +23,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { fetchRatings } from "../lib/api";
 import { friendlyError } from "../lib/errors";
-import { deliver } from "../lib/messaging";
+import { deliver, DEFAULT_CHANNEL, CHANNELS } from "../lib/messaging";
 import {
   RATINGS, ratingFor, summarise, isComplaint, severityOf, replyStarter,
 } from "../lib/ratings";
@@ -69,7 +69,7 @@ export default function RatingsScreen({ navigation }) {
     await deliver({
       mobile : r.mobile,
       text   : replyStarter(r),
-      channel: "whatsapp",
+      channel: r.preferred_channel || DEFAULT_CHANNEL,
     });
   }
 
@@ -218,7 +218,11 @@ export default function RatingsScreen({ navigation }) {
                 {isComplaint(r.score) && !r.replied_at && (
                   <View style={styles.actions}>
                     <TouchableOpacity style={styles.replyBtn} onPress={() => reply(r)}>
-                      <Ionicons name="logo-whatsapp" size={13} color="#fff" />
+                      <Ionicons
+                        name={(CHANNELS[r.preferred_channel] || CHANNELS[DEFAULT_CHANNEL]).icon}
+                        size={13}
+                        color="#fff"
+                      />
                       <Text style={styles.replyText}>Reply now</Text>
                     </TouchableOpacity>
                     <TouchableOpacity

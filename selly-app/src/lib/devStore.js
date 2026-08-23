@@ -503,7 +503,7 @@ export async function upsertDevContact({ mobile, name, preferredChannel }) {
   if (preferredChannel) patch.preferred_channel = preferredChannel;
 
   const next = at === -1
-    ? [...list, { id: String(Date.now()), preferred_channel: "whatsapp",
+    ? [...list, { id: String(Date.now()), preferred_channel: "sms",
                   first_seen_at: new Date().toISOString(), orders_count: 0, ...patch }]
     : list.map((c, i) => (i === at ? { ...c, ...patch } : c));
 

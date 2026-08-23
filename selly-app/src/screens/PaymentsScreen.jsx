@@ -25,7 +25,7 @@ import {
 import { friendlyError } from "../lib/errors";
 import { typeConfig } from "../lib/businessTypes";
 import { inr, orderTotal, resolveCustomer, tplBill } from "../lib/whatsapp";
-import { deliver, isReachable, tenDigit } from "../lib/messaging";
+import { deliver, isReachable, tenDigit, DEFAULT_CHANNEL } from "../lib/messaging";
 
 export default function PaymentsScreen() {
   const { industry, profile } = useAuth();
@@ -112,7 +112,7 @@ export default function PaymentsScreen() {
     try {
       const out = await deliver({
         mobile : o.mobile,
-        channel: (cust && cust.preferred_channel) || "whatsapp",
+        channel: (cust && cust.preferred_channel) || DEFAULT_CHANNEL,
         text   : buildBillText(o),
       });
       if (!out.ok) throw new Error(out.error);
@@ -158,7 +158,7 @@ export default function PaymentsScreen() {
       >
         <Text style={styles.title}>Collect Payment</Text>
         <Text style={styles.sub}>
-          Send the bill and UPI details straight to the customer's WhatsApp.
+          Send the bill and UPI details straight to the customer.
         </Text>
 
         {!!error && (
@@ -217,7 +217,7 @@ export default function PaymentsScreen() {
                       : `Order #${String(o.id).slice(-5)}`}
                   </Text>
                   {!cust && (
-                    <Text style={styles.warnLine}>No linked WhatsApp number</Text>
+                    <Text style={styles.warnLine}>No mobile number on this order</Text>
                   )}
                 </View>
                 <Text style={styles.amount}>{inr(totalOf(o))}</Text>
@@ -234,7 +234,7 @@ export default function PaymentsScreen() {
                   color={sent ? Colors.green : "#fff"}
                 />
                 <Text style={[styles.payBtnText, sent && { color: Colors.green }]}>
-                  {sent ? "Bill sent · send again" : "Request payment on WhatsApp"}
+                  {sent ? "Bill sent · send again" : "Send payment request"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -277,7 +277,7 @@ export default function PaymentsScreen() {
                 : (
                   <>
                     <Ionicons name="logo-whatsapp" size={16} color="#fff" />
-                    <Text style={styles.sendBtnText}>Send to WhatsApp</Text>
+                    <Text style={styles.sendBtnText}>Send the bill</Text>
                   </>
                 )}
             </TouchableOpacity>

@@ -28,11 +28,16 @@ import { Linking, Platform } from "react-native";
 import { messageForStatus, canNotifyStatus } from "./whatsapp";
 
 export const CHANNELS = {
-  whatsapp: { key: "whatsapp", label: "WhatsApp", icon: "logo-whatsapp", colour: "#25D366" },
   sms     : { key: "sms",      label: "SMS",      icon: "chatbox",       colour: "#f5a524" },
+  whatsapp: { key: "whatsapp", label: "WhatsApp", icon: "logo-whatsapp", colour: "#25D366" },
 };
 
-export const DEFAULT_CHANNEL = "whatsapp";
+// SMS, not WhatsApp. The product deliberately does not depend on WhatsApp any
+// more: SMS reaches every phone, needs no app installed, and no platform can
+// switch it off. WhatsApp stays as a per-customer override because some
+// customers genuinely prefer it and supporting it costs one config value --
+// but nothing defaults to it.
+export const DEFAULT_CHANNEL = "sms";
 
 // Where rate.html is served from. On web that is this same origin, which is what
 // makes the link work in dev and in production without configuration. On native
@@ -117,8 +122,8 @@ export async function deliver({ mobile, text, channel = DEFAULT_CHANNEL }) {
       return {
         ok: false, channel, url,
         error: channel === "sms"
-          ? "This device can't open the messaging app."
-          : "WhatsApp doesn't seem to be installed.",
+          ? "This phone can't open the messaging app."
+          : "WhatsApp doesn't seem to be installed on this phone.",
       };
     }
     await Linking.openURL(url);
@@ -132,8 +137,8 @@ export async function deliver({ mobile, text, channel = DEFAULT_CHANNEL }) {
  * Everything a status change needs: the right words, the right person, the
  * right app. Returns what happened so the caller can report it honestly.
  *
- * `channel` overrides the customer's usual one — for the case where WhatsApp
- * went unanswered and the kitchen wants to try a text instead.
+ * `channel` overrides the customer's usual one — for the case where a text
+ * went unanswered and the kitchen wants to try WhatsApp instead.
  */
 export async function notifyStatus(status, ctx, contacts = [], channel = null) {
   if (!canNotifyStatus(status)) {

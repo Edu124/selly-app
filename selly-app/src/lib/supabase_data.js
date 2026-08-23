@@ -640,7 +640,10 @@ export async function logMessage({ orderId, mobile, channel, statusKey, body, ou
     business_id: bid,
     order_id   : orderId ? String(orderId) : null,
     mobile     : String(mobile || "").replace(/\D/g, "").slice(-10),
-    channel    : channel || "whatsapp",
+    // Matches lib/messaging DEFAULT_CHANNEL. Not imported: supabase_data is
+    // below messaging in the dependency order and pulling it up would close a
+    // cycle for the sake of one string.
+    channel    : channel || "sms",
     status_key : statusKey || null,
     body       : body || "",
     outcome    : outcome || "opened",
