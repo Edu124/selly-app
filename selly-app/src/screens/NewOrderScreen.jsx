@@ -28,7 +28,9 @@ import {
 } from "../lib/api";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
-import { inr } from "../lib/whatsapp";
+import { inr, tplOrderTaken } from "../lib/whatsapp";
+import { deliver, DEFAULT_CHANNEL } from "../lib/messaging";
+import { upiLink, orderRef, payabilityOf } from "../lib/payments";
 import {
   availableDays, scheduleConfig, canSchedule, timeLabel,
 } from "../lib/scheduling";
@@ -223,6 +225,37 @@ export default function NewOrderScreen({ navigation }) {
         address: address.trim(),
         name   : name.trim(),
       }).catch(() => {});
+
+      // Confirmation goes out here, with the payment ask inside it. Leaving it
+      // to a second visit to the Payments screen means a deliberate extra act
+      // per order, all day — which is a thing that stops happening by Thursday.
+      // The customer is also never more willing to pay than right now.
+      const pay = payabilityOf(settings);
+      const text = tplOrderTaken({
+        order       : order,
+        businessName: (settings && settings.business_name) || "",
+        paymentMode : payMode,
+        etaMinutes  : when ? null : Number((settings && settings.prepMinutes) || 0) || null,
+        payLink     : (payMode === "upi" && pay.ok)
+          ? upiLink({
+              vpa   : pay.vpa,
+              name  : (settings && settings.business_name) || "",
+              amount: (order.bill && order.bill.total) || total,
+              note  : `Order ${String(order.id).slice(-5)}`,
+              ref   : orderRef(order.id),
+            })
+          : null,
+      });
+
+      const out = await deliver({ mobile: digits, text, channel: DEFAULT_CHANNEL });
+      if (!out.ok) {
+        // The order is saved either way. A message that would not open is worth
+        // saying out loud, but it must never look like the order failed.
+        Alert.alert(
+          "Order saved",
+          `Couldn't open the message to send confirmation: ${out.error}\n\nYou can send it from Payments.`
+        );
+      }
 
       // Straight to the screen that now owns it, rather than back to a blank
       // form — the kitchen's next question is always "is it in the queue".
@@ -579,7 +612,9 @@ export default function NewOrderScreen({ navigation }) {
           <Text style={styles.saveBtnText}>
             {saving ? "Saving…"
               : blocked ? "Not a scheduling member"
-              : lines.length ? `Take order · ${inr(total)}`
+              : lines.length
+                ? (payMode === "upi" ? `Take order & send bill · ${inr(total)}`
+                                     : `Take order · ${inr(total)}`)
               : "Add a dish first"}
           </Text>
         </TouchableOpacity>
@@ -588,6 +623,12 @@ export default function NewOrderScreen({ navigation }) {
           {when
             ? "Goes to Scheduled, and joins the Kitchen on its own when it's nearly due."
             : "Goes straight into the Kitchen queue."}
+          {"\n"}
+          {payMode === "upi"
+            ? "The customer gets a confirmation with a payment link straight away."
+            : payMode === "cod"
+              ? "The customer gets a confirmation saying to pay cash on delivery."
+              : "The customer gets a confirmation. Nothing more to collect."}
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

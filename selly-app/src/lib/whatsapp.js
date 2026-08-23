@@ -409,6 +409,41 @@ export async function notifyOrderStatus(status, ctx, customers = []) {
   }
 }
 
+/**
+ * What the customer gets the moment the kitchen takes their order.
+ *
+ * This is the one message that has to carry the payment ask. Asking later means
+ * a second deliberate act by the owner, for every order, all day -- which is a
+ * thing that stops happening by Thursday. The customer is also never more
+ * willing to pay than in the ten seconds after ordering.
+ *
+ * Payment wording follows how they said they would pay, so a cash customer is
+ * never sent a link and an already-paid one is never asked twice.
+ */
+export function tplOrderTaken({ order, businessName, payLink, paymentMode = "cod", etaMinutes }) {
+  const total = orderTotal(order);
+
+  const pay =
+    paymentMode === "paid" ? "\n\n✅ Paid — thank you."
+    : paymentMode === "upi" && payLink
+      ? `\n\n💳 *Pay now:* ${payLink}`
+      : paymentMode === "upi"
+        ? "\n\n💳 We'll send you payment details shortly."
+        : `\n\n💵 *${inr(total)} cash on delivery.*`;
+
+  return (
+    `✅ *Order confirmed* ${shortId(order?.id)}\n` +
+    `${businessName || "Our kitchen"}\n\n` +
+    `${cartLines(order?.cart)}\n` +
+    `──────────────\n` +
+    `*Total: ${inr(total)}*` +
+    (order?.address ? `\n📍 ${order.address}` : "") +
+    (etaMinutes ? `\n⏱ About ${etaMinutes} minutes` : "") +
+    pay +
+    `\n\n_We'll message you when it's on the way._`
+  );
+}
+
 /** Confirmation after an order is placed, used by both café and bakery. */
 export function tplOrderConfirmed({ order, tableNo, prepMinutes = 10 }) {
   const total = orderTotal(order);
