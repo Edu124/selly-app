@@ -136,7 +136,6 @@ function MoreHubScreen() {
         { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",               screen: "Promotions"     },
         { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",              screen: "QueryInbox"     },
         { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",                     screen: "PhotoInquiries" },
-        { icon: "⭐", label: "Reviews",         desc: "Customer star ratings after delivery",               screen: "Reviews"        },
         { icon: "⚠️", label: "Complaints",      desc: "Problems with an order — refund, credit or remake",  screen: "Returns"        },
       ],
     },
@@ -170,23 +169,9 @@ function MoreHubScreen() {
           <Text style={styles.miniName}>{profile?.business_name || "My Business"}</Text>
           <Text style={styles.miniEmail}>{user?.email}</Text>
         </View>
-        <View style={[
-          styles.planBadge,
-          profile?.subscription_status === "active"  ? styles.planBadgeActive  :
-          profile?.subscription_status === "expired" ? styles.planBadgeExpired :
-                                                       styles.planBadgeTrial,
-        ]}>
-          <Text style={[
-            styles.planBadgeText,
-            profile?.subscription_status === "active"  ? styles.planTextActive  :
-            profile?.subscription_status === "expired" ? styles.planTextExpired :
-                                                         styles.planTextTrial,
-          ]}>
-            {profile?.subscription_status === "active"  ? "PRO"
-           : profile?.subscription_status === "expired" ? "EXPIRED"
-           : `TRIAL · ${profile?.trial_days_left ?? 14}d`}
-          </Text>
-        </View>
+        {/* A plan-tier badge used to sit here reading "TRIAL · 14d". There is no
+            trial and there are no tiers now — billing is ₹1,000 once plus ₹20
+            per completed order — so it was showing something untrue. */}
       </View>
 
       {sections.map(section => (
@@ -210,23 +195,18 @@ function MoreHubScreen() {
 
 // ── Profile Screen ────────────────────────────────────────────────────────────
 function ProfileScreen() {
-  const { user, profile, signOut, updateWhatsappNumber, refreshSubscription } = useAuth();
+  const { user, profile, signOut, updateWhatsappNumber } = useAuth();
   const [copiedId, setCopiedId] = useState(false);
   const [waNumber, setWaNumber] = useState(profile?.whatsapp_number || "");
   const [saving,   setSaving]   = useState(false);
   const [savedMsg, setSavedMsg] = useState(null);
 
-  // Refresh live trial countdown every time this screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      refreshSubscription?.();
-    }, [])
-  );
-
   const businessId = profile?.business_id || "—";
-  const daysLeft   = profile?.trial_days_left ?? 14;
-  const isActive   = profile?.plan === "pro" || profile?.plan === "team" || profile?.subscription_status === "active";
-  const isExpired  = profile?.subscription_status === "expired";
+  // "Connected" now means a WhatsApp number is actually set, which is what the
+  // block below has always really been about. It used to be gated on a plan
+  // tier, so a paying kitchen with no number configured was told it was
+  // connected when it was not.
+  const isActive   = !!(profile?.whatsapp_number || "").trim();
 
   async function copyId() {
     await Clipboard.setStringAsync(businessId);
@@ -260,21 +240,9 @@ function ProfileScreen() {
         </View>
         <Text style={styles.profileName}>{profile?.business_name || "My Business"}</Text>
         <Text style={styles.profileEmail}>{user?.email}</Text>
-        <View style={[
-          styles.planBadge,
-          isActive  ? styles.planBadgeActive  :
-          isExpired ? styles.planBadgeExpired  :
-                      styles.planBadgeTrial,
-        ]}>
-          <Text style={
-            isActive  ? styles.planTextActive  :
-            isExpired ? styles.planTextExpired  :
-                        styles.planTextTrial
-          }>
-            {isActive  ? `✓ ${(profile?.plan || "pro").toUpperCase()} — Active`
-           : isExpired ? `⛔ Trial Expired`
-           :             `⏱ TRIAL — ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left`}
-          </Text>
+        {/* The real terms, rather than a tier that no longer exists. */}
+        <View style={[styles.planBadge, styles.planBadgeActive]}>
+          <Text style={styles.planTextActive}>₹1,000 once + ₹20 per order</Text>
         </View>
       </View>
 

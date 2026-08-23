@@ -222,29 +222,11 @@ export async function logStatus(caption, productId, productName, imageUrl) {
 }
 
 // ── Billing ───────────────────────────────────────────────────────────────────
-export async function fetchSubscription() {
-  const c = await client();
-  const r = await c.get("/api/billing/subscription");
-  return r.data;
-}
-
-export async function fetchBillingSummary() {
-  const c = await client();
-  const r = await c.get("/api/billing/summary");
-  return r.data;
-}
-
-export async function fetchCommissions() {
-  const c = await client();
-  const r = await c.get("/api/billing/commissions");
-  return r.data;
-}
-
-export async function recordPayment(payload) {
-  const c = await client();
-  const r = await c.post("/api/billing/payment", payload);
-  return r.data;
-}
+// The Railway billing endpoints served the old Rs 3,000/month + 5% commission
+// model, including a trial countdown. Both are gone: billing is now Rs 1,000
+// once plus Rs 20 per completed order, computed from the orders table in
+// lib/billing.js. Terms and payments come from Supabase -- see
+// fetchBusinessBilling below.
 
 // ── Wishlist ──────────────────────────────────────────────────────────────────
 export async function fetchWishlist(customerId) {

@@ -12,7 +12,7 @@ const SELLY_WEBSITE_URL = "https://selly.codeforgeai.app";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../lib/supabase";
-import { fetchSubscription, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
+import { fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import { normalizeBusinessType } from "../lib/businessTypes";
 import { useFixtures, getDevIndustry, setDevIndustry, resetDevOrders } from "../lib/devStore";
@@ -118,7 +118,6 @@ export function AuthProvider({ children }) {
       setProfile(baseProfile);
       await AsyncStorage.setItem(STORAGE_KEY_BID, businessId);
       // Pull live subscription + plan from Railway (non-blocking)
-      _refreshSubFromBackend(baseProfile);
       // Load industry + sync business name to business_settings (non-blocking)
       _loadIndustry(metaName);
     } catch (err) {
@@ -180,28 +179,10 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // ── Pull live subscription data from Railway (real-time countdown) ─────────
-  async function _refreshSubFromBackend(currentProfile) {
-    try {
-      const sub = await fetchSubscription();
-      // sub has: { status, plan, daysRemaining, isActive, trialEnds, ... }
-      setProfile(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          trial_days_left    : sub.daysRemaining   ?? prev.trial_days_left,
-          plan               : sub.status === "active" ? "pro"
-                             : sub.status === "expired" ? "expired"
-                             : "trial",
-          subscription_status: sub.status,
-          is_active          : sub.isActive,
-          trial_ends_at      : sub.trialEnds,
-        };
-      });
-    } catch (e) {
-      // Backend unreachable — static Supabase data stays as fallback
-    }
-  }
+  // The old model had a 14-day trial and a plan tier, both fetched from
+  // Railway. Billing is now Rs 1,000 once plus Rs 20 per completed order, with
+  // no trial and no tiers, so there is nothing to count down and nothing to
+  // gate. What is owed is computed from orders on the Billing screen.
 
   // ── Sign in ───────────────────────────────────────────────────────────────
   async function signIn(email, password) {
@@ -300,7 +281,6 @@ export function AuthProvider({ children }) {
       updateWhatsappNumber,
       updateIndustry,
       refreshProfile     : () => user && loadProfile(user),
-      refreshSubscription: () => profile && _refreshSubFromBackend(profile),
     }}>
       {children}
     </AuthContext.Provider>
