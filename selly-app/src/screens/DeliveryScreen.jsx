@@ -45,6 +45,7 @@ export default function DeliveryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error,    setError]    = useState(null);
   const [busyId,   setBusyId]   = useState(null);
+  const [notice,   setNotice]   = useState(null);
   const [adding,   setAdding]   = useState(false);
   const [pName,    setPName]    = useState("");
   const [pPhone,   setPPhone]   = useState("");
@@ -88,20 +89,27 @@ export default function DeliveryScreen() {
     }
   }
 
+  // Result goes on the screen rather than into Alert.alert. On web that is a
+  // browser dialog, which is trivially dismissed without being read -- so a
+  // failure here looked exactly like the button doing nothing at all.
   async function handOver(order) {
     if (busyId) return;
     setBusyId(order.id);
+    setNotice(null);
     try {
       const res = await assignDeliveryToken(order.id);
+      if (!res || !res.token) {
+        throw new Error("The server accepted it but sent no packet number back.");
+      }
       await load(true);
-      Alert.alert(
-        `Packet ${res.token}`,
-        res.otp
-          ? `Write ${res.token} on the sticker.\n\nThe customer's code is ${res.otp} — the rider will ask for it at the door.`
-          : `Write ${res.token} on the sticker.\n\nNo code needed — this customer is on a monthly plan.`
-      );
+      setNotice({
+        ok   : true,
+        token: res.token,
+        otp  : res.otp,
+        name : order.name || "Guest",
+      });
     } catch (e) {
-      Alert.alert("Couldn't assign a number", friendlyError(e));
+      setNotice({ ok: false, text: friendlyError(e) });
     } finally {
       setBusyId(null);
     }
@@ -154,6 +162,38 @@ export default function DeliveryScreen() {
         <View style={styles.errorBox}>
           <Ionicons name="alert-circle-outline" size={15} color={Colors.red} />
           <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {/* The sticker number, big enough to copy onto a label without squinting. */}
+      {notice && notice.ok && (
+        <View style={styles.tokenNotice}>
+          <View style={styles.tokenBig}>
+            <Text style={styles.tokenBigNum}>{notice.token}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.tokenNoticeTitle}>
+              Write {notice.token} on {notice.name}'s packet
+            </Text>
+            <Text style={styles.tokenNoticeBody}>
+              {notice.otp
+                ? `Their code is ${notice.otp} — the rider asks for it at the door.`
+                : "No code needed — they're on a monthly plan."}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => setNotice(null)}>
+            <Ionicons name="close" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {notice && !notice.ok && (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={15} color={Colors.red} />
+          <Text style={styles.errorText}>{notice.text}</Text>
+          <TouchableOpacity onPress={() => setNotice(null)}>
+            <Ionicons name="close" size={15} color={Colors.textMuted} />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -318,6 +358,19 @@ const styles = StyleSheet.create({
     borderRadius: 11, padding: 12, marginTop: 14,
   },
   errorText: { color: Colors.textSecondary, fontSize: 12.5, flex: 1 },
+
+  tokenNotice: {
+    flexDirection: "row", alignItems: "center", gap: 12, marginTop: 14,
+    backgroundColor: "rgba(34,197,94,0.10)", borderWidth: 1, borderColor: "rgba(34,197,94,0.32)",
+    borderRadius: 14, padding: 14,
+  },
+  tokenBig: {
+    width: 58, height: 58, borderRadius: 13, alignItems: "center", justifyContent: "center",
+    backgroundColor: Colors.bg,
+  },
+  tokenBigNum     : { color: Colors.textPrimary, fontSize: 26, fontWeight: "800", letterSpacing: -0.5 },
+  tokenNoticeTitle: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: "800" },
+  tokenNoticeBody : { color: Colors.textSecondary, fontSize: 12.5, marginTop: 4, lineHeight: 18 },
 
   adviceCard: {
     flexDirection: "row", gap: 10, alignItems: "flex-start", marginTop: 16,
