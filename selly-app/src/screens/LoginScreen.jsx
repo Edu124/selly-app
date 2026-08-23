@@ -108,7 +108,7 @@ export default function LoginScreen() {
         {/* Logo */}
         <View style={styles.logoWrap}>
           <Text style={styles.logoText}>Sell<Text style={styles.logoAccent}>y</Text></Text>
-          <Text style={styles.logoSub}>WhatsApp Commerce Platform</Text>
+          <Text style={styles.logoSub}>Ordering for cloud kitchens</Text>
         </View>
 
         {/* Card */}
