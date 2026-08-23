@@ -30,7 +30,9 @@ import {
 } from "../lib/scheduling";
 
 // Orders that no longer need planning for — already cooked or gone.
-const SETTLED = ["delivered", "paid", "cancelled", "rejected"];
+// Named FINISHED, not SETTLED: "settled" now means paid, and these are two
+// different questions since payment stopped being inferred from delivery.
+const FINISHED = ["delivered", "paid", "cancelled", "rejected"];
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -86,7 +88,7 @@ export default function ScheduledScreen({ navigation }) {
       setPrepMins(Number(sc.defaultPrepMinutes) || 30);
       setPackages(Array.isArray(pkgs) ? pkgs : []);
 
-      const open = (ordersRes.orders || []).filter(o => !SETTLED.includes(o.status));
+      const open = (ordersRes.orders || []).filter(o => !FINISHED.includes(o.status));
       setDays(groupByDay(open, cfg));
       setError(null);
     } catch (e) {
