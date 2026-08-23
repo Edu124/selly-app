@@ -21,7 +21,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useFixtures, FX_ORDERS, FX_DELIVERY_ORDERS, FX_CAKE_ORDERS,
-  FX_SCHEDULED_ORDERS, FX_PACKAGES,
+  FX_SCHEDULED_ORDERS, FX_PACKAGES, FX_RATINGS,
   FX_CUSTOMERS, FX_CATALOG, FX_SETTINGS,
 } from "./devFixtures";
 
@@ -522,4 +522,33 @@ export async function addDevMessageLog(entry) {
   } catch {
     return null;
   }
+}
+
+// ── Ratings (preview) ─────────────────────────────────────────────────────────
+// Seeded so the kitchen's ratings screen has a spread to show — including the
+// low ones, which are the whole reason the screen exists.
+
+export const DEV_RATINGS_KEY = "@selly_dev_ratings";
+
+export async function getDevRatings() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_RATINGS_KEY);
+    if (raw == null) {
+      const seed = [...FX_RATINGS];
+      await AsyncStorage.setItem(DEV_RATINGS_KEY, JSON.stringify(seed));
+      return seed;
+    }
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function addDevRating(entry) {
+  const list = await getDevRatings();
+  const row  = { id: String(Date.now()), created_at: new Date().toISOString(), ...entry };
+  await AsyncStorage.setItem(DEV_RATINGS_KEY, JSON.stringify([...list, row]));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return row;
 }

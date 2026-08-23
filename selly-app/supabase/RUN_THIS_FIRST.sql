@@ -339,10 +339,206 @@ create policy "message_log owner all" on public.message_log
   with check (business_id = auth.uid());
 
 
+-- ── 10 · Ratings ─────────────────────────────────────────────────────────────
+-- One tap on a face, then a few words. The words offered depend on the face,
+-- because handing "great taste" to someone whose food arrived cold gets you
+-- either silence or a wrong answer.
+
+alter table public.orders
+  add column if not exists rating_token uuid default gen_random_uuid();
+
+update public.orders set rating_token = gen_random_uuid() where rating_token is null;
+
+create unique index if not exists orders_rating_token_idx
+  on public.orders (rating_token);
+
+comment on column public.orders.rating_token is
+  'Unguessable handle in the rating link. The only thing that authorises '
+  'submitting a rating, so it must never appear alongside other orders.';
+
+create table if not exists public.order_ratings (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+
+  order_id     text not null,
+  mobile       text,
+  name         text,
+
+  score        int  not null,
+  -- The chips they tapped. An array rather than free text because the whole
+  -- point is that it aggregates -- "arrived cold" x11 is the finding.
+  keywords     text[] not null default '{}',
+  comment      text,
+
+  replied_at   timestamptz,
+  created_at   timestamptz not null default now(),
+
+  constraint order_ratings_score_chk check (score between 1 and 5)
+);
+
+-- One rating per order. Someone re-opening the link edits their answer rather
+-- than stacking a second one.
+create unique index if not exists order_ratings_order_idx
+  on public.order_ratings (order_id);
+
+create index if not exists order_ratings_business_idx
+  on public.order_ratings (business_id, created_at desc);
+
+alter table public.order_ratings enable row level security;
+
+drop policy if exists "order_ratings owner all" on public.order_ratings;
+create policy "order_ratings owner all" on public.order_ratings
+  for all
+  using      (business_id = auth.uid())
+  with check (business_id = auth.uid());
+
+
+-- ── 11 · Complaints ──────────────────────────────────────────────────────────
+-- Moved here from the Railway endpoint. Complaint handling is part of what the
+-- kitchen is paying us for, so it cannot depend on a separate service being up
+-- before the kitchen can answer an unhappy customer.
+--
+-- A one- or two-star rating IS a complaint whether or not anyone files one, so
+-- ratings open one directly (source = 'rating') and it lands in the same queue
+-- as the ones the kitchen raises itself.
+
+create table if not exists public.complaints (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+
+  order_id     text,
+  mobile       text,
+  name         text,
+
+  reason       text not null,
+  detail       text,
+  source       text not null default 'kitchen',   -- kitchen | rating
+  rating_id    uuid references public.order_ratings (id) on delete set null,
+
+  status       text not null default 'open',      -- open | resolved | rejected
+  resolution   text,                              -- refund | credit | remake | decline
+  amount       numeric(10,2),
+  owner_note   text,
+
+  created_at   timestamptz not null default now(),
+  resolved_at  timestamptz,
+
+  constraint complaints_status_chk check (status in ('open', 'resolved', 'rejected')),
+  constraint complaints_source_chk check (source in ('kitchen', 'rating'))
+);
+
+create index if not exists complaints_business_idx
+  on public.complaints (business_id, status, created_at desc);
+
+alter table public.complaints enable row level security;
+
+drop policy if exists "complaints owner all" on public.complaints;
+create policy "complaints owner all" on public.complaints
+  for all
+  using      (business_id = auth.uid())
+  with check (business_id = auth.uid());
+
+
+-- ── 12 · The rating link ─────────────────────────────────────────────────────
+-- The customer has no account and never will, so these two functions are the
+-- entire public surface: one to see what they are rating, one to submit. Both
+-- take the token and nothing else, so neither can be used to enumerate.
+--
+-- No table is opened up. This is the same narrow-function pattern the ordering
+-- page will use when it ships.
+
+create or replace function public.rating_context(p_token uuid)
+returns table (
+  order_id       text,
+  kitchen        text,
+  items          jsonb,
+  delivered_at   timestamptz,
+  existing_score int
+)
+language sql
+security definer
+set search_path = public
+as $fn$
+  select o.id,
+         coalesce(s.business_name, 'the kitchen'),
+         o.cart,
+         o.updated_at,
+         r.score
+  from public.orders o
+  left join public.business_settings s on s.business_id = o.business_id
+  left join public.order_ratings     r on r.order_id    = o.id
+  where o.rating_token = p_token
+  limit 1;
+$fn$;
+
+revoke all on function public.rating_context(uuid) from public;
+grant execute on function public.rating_context(uuid) to anon, authenticated;
+
+
+create or replace function public.submit_rating(
+  p_token    uuid,
+  p_score    int,
+  p_keywords text[] default '{}',
+  p_comment  text   default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $fn$
+declare
+  v_order  public.orders%rowtype;
+  v_rating uuid;
+begin
+  if p_score is null or p_score < 1 or p_score > 5 then
+    raise exception 'score must be between 1 and 5';
+  end if;
+
+  select * into v_order from public.orders where rating_token = p_token limit 1;
+  if not found then
+    raise exception 'that rating link is not valid';
+  end if;
+
+  -- Re-opening the link edits the answer rather than adding a second one.
+  insert into public.order_ratings
+    (business_id, order_id, mobile, name, score, keywords, comment)
+  values
+    (v_order.business_id, v_order.id, v_order.mobile, v_order.name,
+     p_score, coalesce(p_keywords, '{}'), nullif(btrim(coalesce(p_comment, '')), ''))
+  on conflict (order_id) do update
+    set score      = excluded.score,
+        keywords   = excluded.keywords,
+        comment    = excluded.comment,
+        created_at = now()
+  returning id into v_rating;
+
+  -- One or two stars is a complaint whether or not anyone files one. Opening it
+  -- here puts it in the queue the kitchen already watches, instead of leaving it
+  -- inside an average nobody reads.
+  if p_score <= 2 then
+    insert into public.complaints
+      (business_id, order_id, mobile, name, reason, detail, source, rating_id)
+    select v_order.business_id, v_order.id, v_order.mobile, v_order.name,
+           case when array_length(coalesce(p_keywords, '{}'), 1) > 0
+                then array_to_string(p_keywords, ', ')
+                else 'Low rating' end,
+           nullif(btrim(coalesce(p_comment, '')), ''),
+           'rating', v_rating
+    where not exists (select 1 from public.complaints c where c.rating_id = v_rating);
+  end if;
+
+  return v_rating;
+end;
+$fn$;
+
+revoke all on function public.submit_rating(uuid, int, text[], text) from public;
+grant execute on function public.submit_rating(uuid, int, text[], text) to anon, authenticated;
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- Done. Check it worked — this should return 2 rows:
 --   select table_name from information_schema.tables
 --    where table_name in ('customer_packages','business_billing',
---                         'customer_contacts','message_log');
--- Expect 4 rows.
+--                         'customer_contacts','message_log',
+--                         'order_ratings','complaints');
+-- Expect 6 rows.
 -- ═══════════════════════════════════════════════════════════════════════════════

@@ -34,6 +34,30 @@ export const CHANNELS = {
 
 export const DEFAULT_CHANNEL = "whatsapp";
 
+// Where rate.html is served from. On web that is this same origin, which is what
+// makes the link work in dev and in production without configuration. On native
+// there is no origin, so it falls back to the deployed domain.
+const RATING_HOST = "https://selly.codeforgeai.app";
+
+export function ratingBase() {
+  if (typeof window !== "undefined" && window.location && window.location.origin) {
+    return window.location.origin;
+  }
+  return RATING_HOST;
+}
+
+/**
+ * The one-tap rating link for an order.
+ *
+ * Returns null rather than a broken link when the order has no token — an order
+ * created before the migration ran, or a fixture. A missing link is better than
+ * one that lands the customer on "this link isn't valid".
+ */
+export function ratingLink(order) {
+  const token = order && (order.rating_token || order.ratingToken);
+  return token ? `${ratingBase()}/rate.html?t=${token}` : null;
+}
+
 /** Last ten digits — the form every other part of the app matches on. */
 export const tenDigit = (v) => String(v || "").replace(/\D/g, "").slice(-10);
 
@@ -116,8 +140,16 @@ export async function notifyStatus(status, ctx, contacts = [], channel = null) {
     return { sent: false, skipped: true, reason: "No message for this status." };
   }
 
-  const text = messageForStatus(status, ctx);
+  let text = messageForStatus(status, ctx);
   if (!text) return { sent: false, skipped: true, reason: "No message for this status." };
+
+  // Delivery is the only moment the customer is holding the food and thinking
+  // about it. Asking a day later gets a fraction of the replies, so the ask
+  // rides along with the message that is already going out.
+  if (status === "delivered") {
+    const link = ratingLink(ctx.order);
+    if (link) text += `\n\nHow was it? One tap:\n${link}`;
+  }
 
   const contact = contactFor(ctx.order, contacts);
   if (!contact) {

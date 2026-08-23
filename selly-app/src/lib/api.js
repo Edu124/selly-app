@@ -731,3 +731,52 @@ export async function logMessage(entry) {
   const { logMessage: f } = await import("./supabase_data");
   return f(entry);
 }
+
+// ── Complaints and ratings ────────────────────────────────────────────────────
+// Both live in Supabase now rather than behind the Railway /api/returns
+// endpoint: answering an unhappy customer must not depend on a second service
+// being reachable.
+
+export async function fetchComplaints(status = null) {
+  if (useFixtures()) {
+    const all = await getDevComplaints();
+    return status ? all.filter(r => r.status === status) : all;
+  }
+  const { fetchComplaints: f } = await import("./supabase_data");
+  return f(status);
+}
+
+export async function createComplaint(input) {
+  if (useFixtures()) {
+    const { addDevComplaint } = await import("./devStore");
+    return addDevComplaint({
+      order_id: input.orderId, mobile: input.mobile, name: input.name,
+      reason: input.reason, detail: input.detail, source: "kitchen",
+    });
+  }
+  const { createComplaint: f } = await import("./supabase_data");
+  return f(input);
+}
+
+export async function resolveComplaint(id, changes) {
+  if (useFixtures()) {
+    return patchDevComplaint(id, {
+      status     : changes.status,
+      resolution : changes.resolution || null,
+      owner_note : changes.note || "",
+      amount     : changes.amount ?? null,
+      resolved_at: new Date().toISOString(),
+    });
+  }
+  const { resolveComplaint: f } = await import("./supabase_data");
+  return f(id, changes);
+}
+
+export async function fetchRatings() {
+  if (useFixtures()) {
+    const { getDevRatings } = await import("./devStore");
+    return getDevRatings();
+  }
+  const { fetchRatings: f } = await import("./supabase_data");
+  return f();
+}

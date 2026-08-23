@@ -574,3 +574,48 @@ export const FX_PACKAGES = [
     orders_used: 14, created_at: daysAgo(78),
   },
 ];
+
+// ── Ratings ───────────────────────────────────────────────────────────────────
+// A realistic spread, not a wall of five stars. The low ones matter most: they
+// are what the ratings screen exists to surface, and a demo where everyone is
+// delighted proves nothing about whether the kitchen would spot a problem.
+
+const ratedAgo = (h) => new Date(Date.now() - h * 3600_000).toISOString();
+
+export const FX_RATINGS = [
+  { id: "rt1", order_id: "1755003001", mobile: "9820011223", name: "Priya Nair",
+    score: 5, keywords: ["Great taste", "Hot on arrival", "Well packed"],
+    comment: "Butter chicken was excellent, will order again",
+    replied_at: null, created_at: ratedAgo(3) },
+
+  { id: "rt2", order_id: "1755003002", mobile: "9820044556", name: "Arjun Mehta",
+    score: 4, keywords: ["Tasty", "Good portion"],
+    comment: null, replied_at: null, created_at: ratedAgo(9) },
+
+  { id: "rt3", order_id: "1755004001", mobile: "9822011223", name: "Meera Joshi",
+    score: 5, keywords: ["Fresh", "On time", "Worth the price"],
+    comment: null, replied_at: ratedAgo(20), created_at: ratedAgo(26) },
+
+  { id: "rt4", order_id: "1755004002", mobile: "9845567788", name: "Rohit Kulkarni",
+    score: 3, keywords: ["Arrived warm, not hot", "A bit late"],
+    comment: "Food was fine but took nearly an hour",
+    replied_at: null, created_at: ratedAgo(31) },
+
+  { id: "rt5", order_id: "1755004003", mobile: "9011224455", name: "Anjali Deshmukh",
+    score: 2, keywords: ["Arrived cold", "Packaging leaked"],
+    comment: "The dal had spilled all over the bag",
+    replied_at: null, created_at: ratedAgo(44) },
+
+  { id: "rt6", order_id: "1755004004", mobile: "9762200114", name: "Sameer Rane",
+    score: 5, keywords: ["Great taste", "Good quantity", "On time"],
+    comment: null, replied_at: null, created_at: ratedAgo(50) },
+
+  { id: "rt7", order_id: "1755004005", mobile: "9623344556", name: "Kavita Shah",
+    score: 1, keywords: ["Item missing", "Very late"],
+    comment: "Ordered two thalis, only one arrived, and 70 minutes late",
+    replied_at: null, created_at: ratedAgo(58) },
+
+  { id: "rt8", order_id: "1755003003", mobile: "9820066778", name: "Nikhil Rao",
+    score: 4, keywords: ["Fresh", "Well packed", "Fair price"],
+    comment: null, replied_at: null, created_at: ratedAgo(70) },
+];

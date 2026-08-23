@@ -40,6 +40,7 @@ import PrepQueueScreen       from "../screens/PrepQueueScreen";
 import ScheduledScreen       from "../screens/ScheduledScreen";
 import PackagesScreen        from "../screens/PackagesScreen";
 import NewOrderScreen        from "../screens/NewOrderScreen";
+import RatingsScreen         from "../screens/RatingsScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
@@ -435,6 +436,7 @@ function MainDrawer({ industry }) {
     Kitchen  : { label: "Kitchen",           icon: "flame"      },
     Scheduled: { label: "Scheduled",         icon: "calendar"   },
     Members  : { label: "Members",           icon: "star"       },
+    Ratings  : { label: "Ratings",           icon: "happy"      },
     Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
     Catalog  : { label: cfg.catalog.label,   icon: cfg.catalog.icon   },
     Customers: { label: cfg.customers.label, icon: cfg.customers.icon },
@@ -484,6 +486,11 @@ function MainDrawer({ industry }) {
       )}
       {cfg.hasScheduling && (
         <Drawer.Screen name="Members" component={PackagesScreen} options={{ title: "Members" }} />
+      )}
+      {/* Ratings sits in the drawer rather than under More: an unhappy customer
+          is time-sensitive, and a screen nobody opens is where they get lost. */}
+      {cfg.hasPrepQueue && (
+        <Drawer.Screen name="Ratings" component={RatingsScreen} options={{ title: "Ratings" }} />
       )}
       <Drawer.Screen name="Orders"    component={screens.orders}  options={{ title: cfg.orders.label }} />
       <Drawer.Screen name="Catalog"   component={screens.catalog} options={{ title: cfg.catalog.label }} />

@@ -12,8 +12,9 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Colors } from "../constants/colors";
-import { fetchReturns, updateReturn, sendMessageToCustomer } from "../lib/api";
+import { fetchComplaints, resolveComplaint } from "../lib/api";
 import { tplComplaintResolved, inr } from "../lib/whatsapp";
+import { deliver, isReachable } from "../lib/messaging";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig } from "../lib/businessTypes";
@@ -69,10 +70,12 @@ export default function ReturnsScreen() {
 
   const load = async () => {
     try {
-      const d = await fetchReturns(filter === "all" ? null : filter);
-      setReturns(d.returns || []);
+      // Now a plain array from Supabase, where the Railway endpoint returned
+      // { returns: [...] }. Both shapes accepted so a stale cache can't blank it.
+      const d = await fetchComplaints(filter === "all" ? null : filter);
+      setReturns(Array.isArray(d) ? d : (d && d.returns) || []);
     } catch (e) {
-      console.warn("Returns load error:", e.message);
+      console.warn("Complaints load error:", e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -97,28 +100,36 @@ export default function ReturnsScreen() {
     setSaving(true);
     const note = ownerNote.trim();
     try {
-      await updateReturn(selected.id, res.status, note, res.key);
+      await resolveComplaint(selected.id, {
+        status: res.status, resolution: res.key, note, amount: selected.order_total,
+      });
       setReturns(prev => prev.map(r =>
         r.id === selected.id
           ? { ...r, status: res.status, owner_note: note, resolution: res.key }
           : r
       ));
 
+      // The complaint carries the mobile number, which is all anyone needs to
+      // reach someone. Unlike the old path it does not require the WhatsApp bot
+      // to have created the customer first, so a complaint about a manually
+      // entered order can actually be answered.
       let told = "";
-      if (selected.customer_id) {
-        try {
-          await sendMessageToCustomer(selected.customer_id, tplComplaintResolved({
+      if (isReachable(selected)) {
+        const out = await deliver({
+          mobile : selected.mobile,
+          channel: selected.preferred_channel || "whatsapp",
+          text   : tplComplaintResolved({
             order     : { id: selected.order_id },
             resolution: res.key,
             note,
             amount    : selected.order_total,
-          }));
-          told = `\n\n${selected.customer_name || "The customer"} has been told on WhatsApp.`;
-        } catch (e) {
-          told = `\n\nSaved — but the message did not send: ${friendlyError(e)}`;
-        }
+          }),
+        });
+        told = out.ok
+          ? `\n\nThe message to ${selected.name || "the customer"} is ready to send.`
+          : `\n\nSaved, but the message could not be opened: ${out.error}`;
       } else {
-        told = "\n\nNo WhatsApp number on this complaint, so nothing was sent.";
+        told = "\n\nNo mobile number on this complaint, so nothing was sent.";
       }
 
       setSelected(null);

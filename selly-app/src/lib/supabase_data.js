@@ -80,6 +80,9 @@ function _toOrder(row) {
     // Scheduling. Null means ASAP, which is every order placed for right now —
     // must be carried through or the Scheduled screen sees nothing at all.
     scheduled_for  : row.scheduled_for  || null,
+    // Unguessable handle for the customer's rating link. Carried through so the
+    // delivered message can include it without a second query.
+    rating_token   : row.rating_token   || null,
     schedule_slot  : row.schedule_slot  || null,
     createdAt      : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     updatedAt      : row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
@@ -642,6 +645,81 @@ export async function logMessage({ orderId, mobile, channel, statusKey, body, ou
     body       : body || "",
     outcome    : outcome || "opened",
   });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+// ── Complaints and ratings ────────────────────────────────────────────────────
+// Complaint handling is part of what the kitchen pays us for, so it cannot sit
+// behind a separate service that has to be up before they can answer an unhappy
+// customer. Moved off the Railway /api/returns endpoint. Requires RUN_THIS_FIRST.
+
+export async function fetchComplaints(status = null) {
+  const bid = await _bid();
+  let q = supabase
+    .from("complaints")
+    .select("*")
+    .eq("business_id", bid)
+    .order("created_at", { ascending: false });
+  if (status) q = q.eq("status", status);
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function createComplaint({ orderId, mobile, name, reason, detail }) {
+  const bid = await _bid();
+  const { data, error } = await supabase.from("complaints").insert({
+    business_id: bid,
+    order_id   : orderId ? String(orderId) : null,
+    mobile     : String(mobile || "").replace(/\D/g, "").slice(-10) || null,
+    name       : name || null,
+    reason     : reason || "Complaint",
+    detail     : detail || null,
+    source     : "kitchen",
+  }).select().maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function resolveComplaint(id, { status, resolution, note, amount }) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("complaints")
+    .update({
+      status,
+      resolution : resolution || null,
+      owner_note : note || null,
+      amount     : amount != null ? amount : null,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("business_id", bid)
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function fetchRatings() {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("order_ratings")
+    .select("*")
+    .eq("business_id", bid)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function markRatingReplied(id) {
+  const bid = await _bid();
+  const { error } = await supabase
+    .from("order_ratings")
+    .update({ replied_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("business_id", bid);
   if (error) throw new Error(error.message);
   return { ok: true };
 }
