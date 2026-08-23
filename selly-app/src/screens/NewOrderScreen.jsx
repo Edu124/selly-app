@@ -101,11 +101,33 @@ export default function NewOrderScreen({ navigation }) {
     }));
   };
 
+  // Cart keys: <id>[::<portion>][|+|<add-on>]. A separate marker for add-ons
+  // rather than a third "::" segment, so an unportioned dish with an extra does
+  // not need an empty slot in the middle of its key.
+  const ADDON = "|+|";
+
   const lines = useMemo(() => Object.keys(cart).map(key => {
-    const [id, label] = key.split("::");
+    const [variantKey, addOnName] = key.split(ADDON);
+    const [id, label] = variantKey.split("::");
     const it = menu.find(m => String(m.id) === String(id));
     if (!it) return null;
-    const v = variantsOf(it).find(x => x.key === key);
+
+    if (addOnName) {
+      const a = ((it.extraFields && it.extraFields.addOns) || [])
+        .find(x => x.name === addOnName);
+      if (!a) return null;
+      return {
+        id: key,
+        // Prefixed so it reads as an extra on the ticket rather than as another
+        // dish, without needing a nested line shape anywhere downstream.
+        name : `+ ${a.name}`,
+        price: Number(a.price) || 0,
+        qty  : cart[key],
+        productNumber: "",
+      };
+    }
+
+    const v = variantsOf(it).find(x => x.key === variantKey);
     if (!v) return null;
     return {
       id: key,
@@ -117,7 +139,17 @@ export default function NewOrderScreen({ navigation }) {
       qty  : cart[key],
       productNumber: it.productNumber || "",
     };
-  }).filter(Boolean), [cart, menu]);
+  })
+    .filter(Boolean)
+    // Keep each add-on directly under the dish it belongs to. Object key order
+    // is not something to rely on, and "+ Extra gravy" three lines away from the
+    // paneer is a ticket the kitchen has to decode rather than read.
+    .sort((a, b) => {
+      const base = (k) => k.split("|+|")[0];
+      if (base(a.id) !== base(b.id)) return base(a.id) < base(b.id) ? -1 : 1;
+      return (a.id.includes("|+|") ? 1 : 0) - (b.id.includes("|+|") ? 1 : 0);
+    }),
+  [cart, menu]);
 
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
   const delivery = Number((settings && settings.delivery_charge) || 0);
@@ -221,6 +253,33 @@ export default function NewOrderScreen({ navigation }) {
               const variants = variantsOf(it);
               const anyOn = variants.some(v => (cart[v.key] || 0) > 0);
 
+              const addOns = (it.extraFields && it.extraFields.addOns) || [];
+
+              // Only offered once the dish itself is in the order. Showing
+              // "extra gravy" against a dish nobody ordered is just clutter.
+              const extras = (v) => {
+                if (!addOns.length || !(cart[v.key] > 0)) return null;
+                return (
+                  <View style={styles.addOnRow}>
+                    {addOns.map(a => {
+                      const k  = v.key + "|+|" + a.name;
+                      const on = (cart[k] || 0) > 0;
+                      return (
+                        <TouchableOpacity
+                          key={k}
+                          style={[styles.addOnChip, on && styles.addOnChipOn]}
+                          onPress={() => setQty(k, on ? 0 : 1)}
+                        >
+                          <Text style={[styles.addOnChipText, on && styles.addOnChipTextOn]}>
+                            {on ? "✓ " : "+ "}{a.name} {inr(a.price)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              };
+
               const control = (v) => {
                 const q = cart[v.key] || 0;
                 return q === 0 ? (
@@ -245,12 +304,15 @@ export default function NewOrderScreen({ navigation }) {
               // which price they just tapped.
               if (variants.length === 1) {
                 return (
-                  <View key={it.id} style={[styles.dish, anyOn && styles.dishOn]}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.dishName}>{it.name}</Text>
-                      <Text style={styles.dishPrice}>{inr(variants[0].price)}</Text>
+                  <View key={it.id} style={[styles.dishGroup, anyOn && styles.dishOn]}>
+                    <View style={styles.dishTopRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.dishName}>{it.name}</Text>
+                        <Text style={styles.dishPrice}>{inr(variants[0].price)}</Text>
+                      </View>
+                      {control(variants[0])}
                     </View>
-                    {control(variants[0])}
+                    {extras(variants[0])}
                   </View>
                 );
               }
@@ -259,10 +321,13 @@ export default function NewOrderScreen({ navigation }) {
                 <View key={it.id} style={[styles.dishGroup, anyOn && styles.dishOn]}>
                   <Text style={styles.dishName}>{it.name}</Text>
                   {variants.map(v => (
-                    <View key={v.key} style={styles.portionLine}>
-                      <Text style={styles.portionLabel}>{v.label}</Text>
-                      <Text style={styles.portionPrice}>{inr(v.price)}</Text>
-                      {control(v)}
+                    <View key={v.key}>
+                      <View style={styles.portionLine}>
+                        <Text style={styles.portionLabel}>{v.label}</Text>
+                        <Text style={styles.portionPrice}>{inr(v.price)}</Text>
+                        {control(v)}
+                      </View>
+                      {extras(v)}
                     </View>
                   ))}
                 </View>
@@ -491,6 +556,15 @@ const styles = StyleSheet.create({
   },
   portionLabel: { color: Colors.textSecondary, fontSize: 13, flex: 1 },
   portionPrice: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "700" },
+  dishTopRow  : { flexDirection: "row", alignItems: "center", gap: 10 },
+  addOnRow    : { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10, paddingLeft: 2 },
+  addOnChip   : {
+    backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 20, paddingHorizontal: 11, paddingVertical: 7,
+  },
+  addOnChipOn    : { backgroundColor: Colors.primarySoft, borderColor: Colors.primary },
+  addOnChipText  : { color: Colors.textSecondary, fontSize: 12 },
+  addOnChipTextOn: { color: Colors.primaryLight, fontWeight: "700" },
   dishName : { color: Colors.textPrimary, fontSize: 14, fontWeight: "600" },
   dishPrice: { color: Colors.textMuted, fontSize: 12, marginTop: 2 },
 

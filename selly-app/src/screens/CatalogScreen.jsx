@@ -240,6 +240,49 @@ function MenuItemForm({ form, set, cfg }) {
         </>
       )}
 
+      {/* Add-ons live on the dish, not on the kitchen: "extra gravy" belongs to
+          the curry and would be nonsense offered against a cold drink. */}
+      <Text style={styles.fieldLabel}>Add-ons</Text>
+      <View style={styles.portionBox}>
+        <Text style={styles.portionHint}>
+          Extras the customer can add to this {cfg.itemLabel.toLowerCase()} — extra gravy,
+          extra cheese, a side. Leave empty if there are none.
+        </Text>
+        {(form.addOns || []).map((a, i) => (
+          <View key={i} style={styles.portionRow}>
+            <TextInput
+              style={styles.addOnName}
+              value={a.name}
+              onChangeText={v => set("addOns", (form.addOns || []).map(
+                (x, j) => (j === i ? { ...x, name: v } : x)))}
+              placeholder="Extra gravy"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <Text style={styles.portionRupee}>₹</Text>
+            <TextInput
+              style={styles.portionInput}
+              value={String(a.price ?? "")}
+              onChangeText={v => set("addOns", (form.addOns || []).map(
+                (x, j) => (j === i ? { ...x, price: v.replace(/[^0-9]/g, "") } : x)))}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <TouchableOpacity
+              onPress={() => set("addOns", (form.addOns || []).filter((_, j) => j !== i))}
+            >
+              <Text style={styles.addOnRemove}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+        <TouchableOpacity
+          style={styles.addOnAdd}
+          onPress={() => set("addOns", [...(form.addOns || []), { name: "", price: "" }])}
+        >
+          <Text style={styles.addOnAddText}>+ Add an extra</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.fieldLabel}>Diet</Text>
       <ChipRow items={DIET_OPTIONS} selected={form.diet} onSelect={v => set("diet", v)} color={cfg.color} />
 
@@ -298,7 +341,7 @@ function MenuItemForm({ form, set, cfg }) {
 const BLANK = {
   name:"", price:"", category:"", subCategory:"", description:"",
   imageUrl:"", imageUrls:[],
-  sizes:[], portionPrices:{}, isPremium:false, inStock:true,
+  sizes:[], portionPrices:{}, addOns:[], isPremium:false, inStock:true,
   diet:"", prepMinutes:"",
   productNumber:"",
   stockCount: "",
@@ -316,6 +359,7 @@ function toForm(p) {
     imageUrls:    p.imageUrls   || (p.imageUrl ? [p.imageUrl] : []),
     sizes:        p.sizes       || [],
     portionPrices: ef.portionPrices || {},
+    addOns:       Array.isArray(ef.addOns) ? ef.addOns.map(a => ({ ...a, price: String(a.price ?? "") })) : [],
     isPremium:    p.isPremium   || false,
     inStock:      p.inStock !== false,
     diet:         ef.diet        || "",
@@ -380,6 +424,13 @@ function AddEditModal({ visible, industry, product, onClose, onDone }) {
       if (v > 0) portions[sz] = v;
     });
     if (Object.keys(portions).length) extraFields.portionPrices = portions;
+
+    // Half-filled rows are dropped rather than saved: an add-on with no name is
+    // unpickable, and one with no price would quietly be free.
+    const addOns = (form.addOns || [])
+      .map(a => ({ name: (a.name || "").trim(), price: Number(a.price) || 0 }))
+      .filter(a => a.name && a.price > 0);
+    if (addOns.length) extraFields.addOns = addOns;
 
     const imageUrls = form.imageUrls && form.imageUrls.length > 0
       ? form.imageUrls
@@ -696,6 +747,14 @@ const styles = StyleSheet.create({
   portionRow  : { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
   portionName : { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "600", flex: 1 },
   portionRupee: { color: Colors.textMuted, fontSize: 13 },
+  addOnName   : {
+    flex: 1, backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
+    color: Colors.textPrimary, fontSize: 14,
+  },
+  addOnRemove : { color: Colors.textMuted, fontSize: 15, paddingHorizontal: 4 },
+  addOnAdd    : { paddingVertical: 8 },
+  addOnAddText: { color: Colors.primaryLight, fontSize: 12.5, fontWeight: "700" },
   portionInput: {
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
