@@ -22,11 +22,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
 import { useAuth } from "../context/AuthContext";
 import { typeConfig, STATUS_LABELS, ADVANCE_LABELS, nextStatus } from "../lib/businessTypes";
-import { fetchOrders, updateOrderStatus, fetchCustomers, fetchCatalog } from "../lib/api";
+import { fetchOrders, updateOrderStatus, fetchCatalog,
+         fetchCustomerContacts, logMessage } from "../lib/api";
 import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
-import { orderTotal, inr, notifyOrderStatus, notifyTarget } from "../lib/whatsapp";
+import { orderTotal, inr } from "../lib/whatsapp";
+import { notifyStatus, channelFor, isReachable, tenDigit } from "../lib/messaging";
 import { isDueNow, isScheduled, formatWhen } from "../lib/scheduling";
 import SoldOutSheet from "../components/SoldOutSheet";
 
@@ -66,7 +68,7 @@ export default function PrepQueueScreen({ navigation }) {
   const twoCol = width >= 900;
 
   const [allOrders,  setAllOrders]  = useState([]);
-  const [customers,  setCustomers]  = useState([]);
+  const [contacts,   setContacts]   = useState([]);
   const [catalog,    setCatalog]    = useState([]);
   const [prepMins,   setPrepMins]   = useState(30);
   const [loading,    setLoading]    = useState(true);
@@ -85,11 +87,11 @@ export default function PrepQueueScreen({ navigation }) {
       const [o, s, c, k] = await Promise.all([
         fetchOrders({ page: 1, limit: 100 }),
         loadStoreConfig().catch(() => null),
-        fetchCustomers().catch(() => ({ customers: [] })),
+        fetchCustomerContacts().catch(() => []),
         fetchCatalog().catch(() => ({ products: [] })),
       ]);
       setAllOrders((o.orders || []).filter(x => ACTIVE.includes(x.status)));
-      setCustomers(c.customers || []);
+      setContacts(Array.isArray(c) ? c : []);
       setCatalog(k.products || []);
       if (s?.config?.defaultPrepMinutes) setPrepMins(Number(s.config.defaultPrepMinutes));
     } catch (e) {
@@ -124,14 +126,26 @@ export default function PrepQueueScreen({ navigation }) {
       await updateOrderStatus(order.id, next);
       // Notify after the status lands, never before, and never blocking: the
       // kitchen has to be able to move an order even when the message can't go.
-      const res = await notifyOrderStatus(next, {
+      const res = await notifyStatus(next, {
         order,
         customerName: order.name,
         tableNo     : order.table_no,
         address     : order.address,
         prepMinutes : prepMins,
-      }, customers);
-      if (res.sent)              setNotice({ ok: true,  text: `${STATUS_LABELS[next]} · ${res.to} notified on WhatsApp` });
+      }, contacts);
+      // "opened", not "sent": their phone opened the chat with the text ready.
+      // Whether they pressed send is not something we can know, and saying
+      // otherwise would put a false number in front of the kitchen.
+      // Record it either way — a message that failed to open is the one the
+      // kitchen most needs to find later.
+      if (!res.skipped) {
+        logMessage({
+          orderId: order.id, mobile: res.mobile, channel: res.channel,
+          statusKey: next, body: res.text, outcome: res.outcome,
+        }).catch(() => {});
+      }
+
+      if (res.sent)              setNotice({ ok: true,  text: `${STATUS_LABELS[next]} · ${res.channel === "sms" ? "SMS" : "WhatsApp"} opened for ${res.to}` });
       else if (res.error)        setNotice({ ok: false, text: `${STATUS_LABELS[next]} — but the customer wasn't notified: ${res.error}` });
       else                       setNotice(null);
     } catch (e) {
@@ -300,18 +314,19 @@ export default function PrepQueueScreen({ navigation }) {
                       discovered afterwards. Advancing the wrong order used to
                       send a message to a customer you weren't looking at. */}
                   {(() => {
-                    const target = notifyTarget(o, customers);
+                    const ok  = isReachable(o);
+                    const ch  = channelFor(o, contacts);
                     return (
                       <View style={styles.reachRow}>
                         <Ionicons
-                          name={target.ok ? "logo-whatsapp" : "alert-circle-outline"}
+                          name={ok ? (ch ? ch.icon : "chatbox") : "alert-circle-outline"}
                           size={11}
-                          color={target.ok ? Colors.green : Colors.yellow}
+                          color={ok ? Colors.green : Colors.yellow}
                         />
-                        <Text style={[styles.reachText, { color: target.ok ? Colors.green : Colors.yellow }]}>
-                          {target.ok
-                            ? `updates → ${target.customer.name || target.customer.mobile}`
-                            : target.reason}
+                        <Text style={[styles.reachText, { color: ok ? Colors.green : Colors.yellow }]}>
+                          {ok
+                            ? `updates → ${o.name || tenDigit(o.mobile)} on ${ch ? ch.label : "WhatsApp"}`
+                            : "No mobile number — this customer can't be updated"}
                         </Text>
                       </View>
                     );

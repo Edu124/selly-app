@@ -22,7 +22,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
-import { fetchCatalog, createOrder, fetchCustomerPackage } from "../lib/api";
+import { fetchCatalog, createOrder, fetchCustomerPackage, upsertCustomerContact } from "../lib/api";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
 import { inr } from "../lib/whatsapp";
@@ -131,6 +131,10 @@ export default function NewOrderScreen({ navigation }) {
         scheduledFor: when ? when.iso : null,
         scheduleSlot: when ? when.slotKey : null,
       });
+
+      // Remember who this was. Without it the kitchen can take the same
+      // customer's order ten times and still have no way to reach them.
+      await upsertCustomerContact({ mobile: digits, name: name.trim() }).catch(() => {});
 
       // Straight to the screen that now owns it, rather than back to a blank
       // form — the kitchen's next question is always "is it in the queue".

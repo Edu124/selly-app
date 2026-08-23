@@ -700,3 +700,34 @@ export async function createOrder(input) {
   const { createOrder: f } = await import("./supabase_data");
   return f(input);
 }
+
+// ── Customer contacts and message log ─────────────────────────────────────────
+// The kitchen's own address book plus a record of what was said. Both are how a
+// manually-entered order becomes a customer we can reach again.
+
+export async function fetchCustomerContacts() {
+  if (useFixtures()) {
+    const { getDevContacts } = await import("./devStore");
+    return getDevContacts();
+  }
+  const { fetchCustomerContacts: f } = await import("./supabase_data");
+  return f();
+}
+
+export async function upsertCustomerContact(input) {
+  if (useFixtures()) {
+    const { upsertDevContact } = await import("./devStore");
+    return upsertDevContact(input);
+  }
+  const { upsertCustomerContact: f } = await import("./supabase_data");
+  return f(input);
+}
+
+export async function logMessage(entry) {
+  if (useFixtures()) {
+    const { addDevMessageLog } = await import("./devStore");
+    return addDevMessageLog(entry);
+  }
+  const { logMessage: f } = await import("./supabase_data");
+  return f(entry);
+}

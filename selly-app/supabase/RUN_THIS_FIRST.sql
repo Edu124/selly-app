@@ -37,7 +37,8 @@ alter table public.orders add column if not exists scheduled_for timestamptz;
 alter table public.orders add column if not exists schedule_slot text;
 
 comment on column public.orders.channel is
-  'How the order reached us: manual (the kitchen typed it in), whatsapp, web.';
+  'How the order reached us: manual (the kitchen typed it in), web, whatsapp. '
+  'Phase 1 is manual only — the other two arrive with the ordering page.';
 comment on column public.orders.scheduled_for is
   'When the customer wants it. Null = ASAP.';
 
@@ -249,8 +250,99 @@ returns int language sql as $$
 $$;
 
 
+-- ── 8 · Reaching the customer ────────────────────────────────────────────────
+-- The gap this closes: the old notify path resolved a customer out of
+-- bot_customers, a table only the WhatsApp bot ever wrote to. An order the
+-- kitchen typed in has no such row, so advancing it produced "this order isn't
+-- linked to a saved customer" and no message could ever be sent.
+--
+-- The order already carries the mobile number. That is enough to reach someone,
+-- and it does not care which app the message goes through — which is the whole
+-- point of moving off a single channel.
+
+create table if not exists public.customer_contacts (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+
+  mobile       text not null,
+  name         text,
+
+  -- Which app to open when the kitchen sends an update. Not a hard binding:
+  -- it is a default the kitchen can override per message, because a customer
+  -- who does not answer on one will answer on the other.
+  preferred_channel text not null default 'whatsapp',   -- whatsapp | sms
+
+  first_seen_at  timestamptz not null default now(),
+  last_contacted timestamptz,
+  orders_count   int not null default 0,
+  created_at     timestamptz not null default now(),
+
+  constraint customer_contacts_channel_chk
+    check (preferred_channel in ('whatsapp', 'sms'))
+);
+
+create unique index if not exists customer_contacts_mobile_idx
+  on public.customer_contacts (business_id, mobile);
+
+alter table public.customer_contacts enable row level security;
+
+drop policy if exists "customer_contacts owner all" on public.customer_contacts;
+create policy "customer_contacts owner all" on public.customer_contacts
+  for all
+  using      (business_id = auth.uid())
+  with check (business_id = auth.uid());
+
+comment on table public.customer_contacts is
+  'Everyone this kitchen has taken an order from, keyed on mobile. Exists so a '
+  'manually-entered order can be replied to without the WhatsApp bot having '
+  'created the customer first.';
+
+
+-- ── 9 · What was actually said ───────────────────────────────────────────────
+-- Every outbound message, whichever app carried it.
+--
+-- 'opened' rather than 'delivered' is deliberate and worth reading. In phase 1
+-- there is no aggregator and no WhatsApp Business API: the kitchen taps a button
+-- and their own phone opens the chat with the text already written. We know we
+-- handed it over. We do not know they pressed send, and recording 'delivered'
+-- would be a claim we cannot support.
+
+create table if not exists public.message_log (
+  id           uuid primary key default gen_random_uuid(),
+  business_id  uuid not null references auth.users (id) on delete cascade,
+
+  order_id     text,
+  mobile       text not null,
+
+  channel      text not null,                 -- whatsapp | sms | push
+  status_key   text,                          -- the order status that triggered it
+  body         text not null,
+
+  outcome      text not null default 'opened', -- opened | failed | skipped
+  created_at   timestamptz not null default now(),
+
+  constraint message_log_channel_chk check (channel in ('whatsapp', 'sms', 'push')),
+  constraint message_log_outcome_chk check (outcome in ('opened', 'failed', 'skipped'))
+);
+
+create index if not exists message_log_business_idx
+  on public.message_log (business_id, created_at desc);
+create index if not exists message_log_order_idx
+  on public.message_log (order_id);
+
+alter table public.message_log enable row level security;
+
+drop policy if exists "message_log owner all" on public.message_log;
+create policy "message_log owner all" on public.message_log
+  for all
+  using      (business_id = auth.uid())
+  with check (business_id = auth.uid());
+
+
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- Done. Check it worked — this should return 2 rows:
 --   select table_name from information_schema.tables
---    where table_name in ('customer_packages','business_billing');
+--    where table_name in ('customer_packages','business_billing',
+--                         'customer_contacts','message_log');
+-- Expect 4 rows.
 -- ═══════════════════════════════════════════════════════════════════════════════

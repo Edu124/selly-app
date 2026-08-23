@@ -68,12 +68,14 @@ function _toOrder(row) {
     statusDates    : row.status_dates   || {},
     trackingNumber : row.tracking_number || null,
     trackingUrl    : row.tracking_url   || null,
-    source         : row.source         || "whatsapp",
+    // Phase 1 orders are typed in by the kitchen. Defaulting a null to
+    // "whatsapp" mislabelled every one of them as having arrived from the bot.
+    source         : row.source         || "manual",
     // Added for the food build. Snake_case is kept here deliberately: these
     // names match the DB columns and the demo data, and the bot writes them.
     table_no       : row.table_no       ?? null,
     order_kind     : row.order_kind     || "standard",   // standard | cake
-    channel        : row.channel        || "whatsapp",   // whatsapp | instagram | qr | walkin
+    channel        : row.channel        || "manual",     // manual | web | whatsapp
     extra          : row.extra          || {},           // cake specs live here
     // Scheduling. Null means ASAP, which is every order placed for right now —
     // must be carried through or the Scheduled screen sees nothing at all.
@@ -592,4 +594,54 @@ export async function createOrder(input) {
   const { data, error } = await supabase.from("orders").insert(row).select().maybeSingle();
   if (error) throw new Error(error.message);
   return _toOrder(data || row);
+}
+
+// ── Customer contacts and the message log ─────────────────────────────────────
+// customer_contacts is this kitchen's own address book, keyed on mobile. It
+// exists because bot_customers is only ever written by the WhatsApp bot, so a
+// manually-entered order had no customer to reply to. Requires RUN_THIS_FIRST.
+
+export async function fetchCustomerContacts() {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .select("*")
+    .eq("business_id", bid);
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+export async function upsertCustomerContact({ mobile, name, preferredChannel }) {
+  const bid = await _bid();
+  const key = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (key.length !== 10) return null;
+
+  const row = { business_id: bid, mobile: key };
+  // Only write what was actually given: an order that captured no name must not
+  // blank out a name the kitchen entered earlier.
+  if (name)             row.name = name;
+  if (preferredChannel) row.preferred_channel = preferredChannel;
+
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .upsert(row, { onConflict: "business_id,mobile" })
+    .select()
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+export async function logMessage({ orderId, mobile, channel, statusKey, body, outcome }) {
+  const bid = await _bid();
+  const { error } = await supabase.from("message_log").insert({
+    business_id: bid,
+    order_id   : orderId ? String(orderId) : null,
+    mobile     : String(mobile || "").replace(/\D/g, "").slice(-10),
+    channel    : channel || "whatsapp",
+    status_key : statusKey || null,
+    body       : body || "",
+    outcome    : outcome || "opened",
+  });
+  if (error) throw new Error(error.message);
+  return { ok: true };
 }

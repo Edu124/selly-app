@@ -474,3 +474,52 @@ export async function addDevOrder(input) {
   if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
   return order;
 }
+
+// ── Customer contacts and message log (preview) ───────────────────────────────
+
+export const DEV_CONTACTS_KEY = "@selly_dev_contacts";
+export const DEV_MSGLOG_KEY   = "@selly_dev_msglog";
+
+const _ten = (v) => String(v || "").replace(/\D/g, "").slice(-10);
+
+export async function getDevContacts() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_CONTACTS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function upsertDevContact({ mobile, name, preferredChannel }) {
+  const key = _ten(mobile);
+  if (key.length !== 10) return null;
+
+  const list = await getDevContacts();
+  const at   = list.findIndex(c => _ten(c.mobile) === key);
+  const patch = { mobile: key };
+  if (name)             patch.name = name;
+  if (preferredChannel) patch.preferred_channel = preferredChannel;
+
+  const next = at === -1
+    ? [...list, { id: String(Date.now()), preferred_channel: "whatsapp",
+                  first_seen_at: new Date().toISOString(), orders_count: 0, ...patch }]
+    : list.map((c, i) => (i === at ? { ...c, ...patch } : c));
+
+  await AsyncStorage.setItem(DEV_CONTACTS_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return next.find(c => _ten(c.mobile) === key);
+}
+
+export async function addDevMessageLog(entry) {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_MSGLOG_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    const row = { id: String(Date.now()), created_at: new Date().toISOString(), ...entry };
+    await AsyncStorage.setItem(DEV_MSGLOG_KEY, JSON.stringify([...(Array.isArray(arr) ? arr : []), row]));
+    return row;
+  } catch {
+    return null;
+  }
+}
