@@ -21,6 +21,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useFixtures, FX_ORDERS, FX_DELIVERY_ORDERS, FX_CAKE_ORDERS,
+  FX_SCHEDULED_ORDERS, FX_PACKAGES,
   FX_CUSTOMERS, FX_CATALOG, FX_SETTINGS,
 } from "./devFixtures";
 
@@ -58,7 +59,10 @@ export async function setDevIndustry(industry) {
 // seeding it with café orders showed a table number on every order — orders that
 // were never eaten in. Bakery gets cake orders for the same reason.
 function seedFor(industry) {
-  if (industry === "cloudkitchen") return [...FX_DELIVERY_ORDERS];
+  // Cloud kitchens get the scheduled orders too — a delivery kitchen with no
+  // pre-booked breakfast has nothing to show on the Scheduled screen, and the
+  // whole point of that screen is the batch it can see coming.
+  if (industry === "cloudkitchen") return [...FX_DELIVERY_ORDERS, ...FX_SCHEDULED_ORDERS];
   if (industry === "bakery")       return [...FX_CAKE_ORDERS];
   return [...FX_ORDERS];
 }
@@ -318,6 +322,66 @@ export async function setDevStoreConfig(config) {
   return { ok: true };
 }
 
+// ── Customer packages ─────────────────────────────────────────────────────────
+// The CUSTOMER's monthly subscription to this kitchen, which is what buys them
+// the right to choose a delivery time.
+//
+// Not to be confused with the kitchen's own subscription to Selly — that is
+// billed to the kitchen, lives behind fetchSubscription(), and is shown on the
+// Billing screen. Same word, opposite direction of payment.
+
+export const DEV_PACKAGES_KEY = "@selly_dev_packages";
+
+const tenDigits = (v) => String(v || "").replace(/\D/g, "").slice(-10);
+
+export async function getDevPackages() {
+  try {
+    const raw = await AsyncStorage.getItem(DEV_PACKAGES_KEY);
+    if (raw == null) {
+      const seed = [...FX_PACKAGES];
+      await AsyncStorage.setItem(DEV_PACKAGES_KEY, JSON.stringify(seed));
+      return seed;
+    }
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The live package for a mobile number, if any. Cancelled rows never match. */
+export async function getDevPackageFor(mobile) {
+  const key  = tenDigits(mobile);
+  if (!key) return null;
+  const list = await getDevPackages();
+  return list.find(p => tenDigits(p.mobile) === key &&
+                        (p.status === "trial" || p.status === "active")) || null;
+}
+
+export async function upsertDevPackage(pkg) {
+  const key  = tenDigits(pkg.mobile);
+  const list = await getDevPackages();
+  const at   = list.findIndex(p => tenDigits(p.mobile) === key &&
+                                   (p.status === "trial" || p.status === "active"));
+  const row  = { id: String(Date.now()), created_at: new Date().toISOString(), ...pkg, mobile: key };
+
+  const next = at === -1 ? [...list, row] : list.map((p, i) => (i === at ? { ...p, ...pkg } : p));
+  await AsyncStorage.setItem(DEV_PACKAGES_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return at === -1 ? row : next[at];
+}
+
+export async function cancelDevPackage(mobile) {
+  const key  = tenDigits(mobile);
+  const list = await getDevPackages();
+  const next = list.map(p => (tenDigits(p.mobile) === key && (p.status === "trial" || p.status === "active")
+    ? { ...p, status: "cancelled", cancelled_at: new Date().toISOString() }
+    : p));
+  await AsyncStorage.setItem(DEV_PACKAGES_KEY, JSON.stringify(next));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return { ok: true };
+}
+
 // ── Stats, matching the shape supabase_data._statsFrom produces ───────────────
 const IN_PROGRESS = ["preparing", "baking", "ready", "served", "packed", "shipped", "out_for_delivery"];
 const COMPLETED   = ["paid", "delivered"];
@@ -365,3 +429,48 @@ export async function devFetchDashboard() {
 }
 
 export { useFixtures };
+
+// ── Creating an order by hand (preview) ───────────────────────────────────────
+// Mirrors supabase_data.createOrder so the New Order screen behaves identically
+// with and without a backend.
+
+export async function addDevOrder(input) {
+  const cart     = input.cart || [];
+  const items    = cart.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+  const delivery = Number(input.deliveryCharge || 0);
+  const discount = Number(input.discount || 0);
+
+  const order = {
+    id         : String(Date.now()),
+    customerId : null,
+    name       : input.name || "Guest",
+    mobile     : String(input.mobile || "").replace(/\D/g, "").slice(-10),
+    cart,
+    bill       : {
+      subtotal: items,
+      discount,
+      delivery,
+      total   : Math.max(0, items - discount + delivery),
+    },
+    address     : input.address || "",
+    payLink     : null,
+    paymentMode : input.paymentMode || "cod",
+    status      : input.status || "confirmed",
+    statusDates : {},
+    trackingNumber: null, trackingUrl: null,
+    source      : "manual",
+    channel     : "manual",
+    table_no    : null,
+    order_kind  : input.scheduledFor ? "scheduled" : "standard",
+    scheduled_for: input.scheduledFor || null,
+    schedule_slot: input.scheduleSlot || null,
+    extra       : input.note ? { note: input.note } : {},
+    createdAt   : Date.now(),
+    updatedAt   : Date.now(),
+  };
+
+  const list = await getDevOrders();
+  await AsyncStorage.setItem(DEV_ORDERS_KEY, JSON.stringify([...list, order]));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return order;
+}

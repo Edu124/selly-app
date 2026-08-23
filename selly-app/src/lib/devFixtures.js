@@ -404,3 +404,173 @@ export const FX_WAITLIST_DEMAND = [
 
 /** Areas the platform actually covers — drives the honest out-of-area refusal. */
 export const FX_COVERED_AREAS = ["Koregaon Park"];
+
+// ── Scheduled orders ──────────────────────────────────────────────────────────
+// Orders placed last night for a time the customer chose. These are what make
+// the Scheduled screen worth opening: at 8pm the kitchen can already see that
+// tomorrow's 7am breakfast is eleven idlis and six poha, and buy for it tonight.
+//
+// Deliberately clustered into two slots rather than spread evenly — a real
+// pre-book pattern is lumpy, and the batch roll-up only proves itself on a lump.
+
+/** A time on the next calendar day, in local time. */
+const tomorrowAt = (h, m = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  d.setHours(h, m, 0, 0);
+  return d.toISOString();
+};
+
+const laterToday = (h, m = 0) => {
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  // If that hour has already passed, roll to tomorrow so the fixture is never
+  // seeded already-overdue — an overdue demo order looks like a bug.
+  if (d.getTime() < Date.now() + 45 * 60_000) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+};
+
+export const FX_SCHEDULED_ORDERS = [
+  {
+    id: "1755004001", customerId: "d5", name: "Meera Joshi", mobile: "+919822011223",
+    cart: [
+      { name: "Poha",        productNumber: "s1", size: null, qty: 2, price: 70 },
+      { name: "Masala Chai", productNumber: "s4", size: null, qty: 2, price: 30 },
+    ],
+    bill: { subtotal: 200, discount: 0, delivery: 0, total: 200 },
+    address: "Flat 1104, Kumar Prospera, Baner Road",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: tomorrowAt(7, 0), schedule_slot: "breakfast",
+    extra: { note: "leave at the door please" },
+    createdAt: hoursAgo(3), updatedAt: hoursAgo(3),
+  },
+  {
+    id: "1755004002", customerId: "d6", name: "Rohit Kulkarni", mobile: "+919845567788",
+    cart: [
+      { name: "Idli Sambar", productNumber: "s2", size: null, qty: 3, price: 90 },
+      { name: "Filter Coffee", productNumber: "s5", size: null, qty: 1, price: 40 },
+    ],
+    bill: { subtotal: 310, discount: 0, delivery: 0, total: 310 },
+    address: "B-402, Rohan Abhilasha, Balewadi",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: tomorrowAt(7, 0), schedule_slot: "breakfast",
+    extra: {},
+    createdAt: hoursAgo(5), updatedAt: hoursAgo(5),
+  },
+  {
+    id: "1755004003", customerId: "d7", name: "Anjali Deshmukh", mobile: "+919011224455",
+    cart: [
+      { name: "Idli Sambar", productNumber: "s2", size: null, qty: 2, price: 90 },
+      { name: "Poha",        productNumber: "s1", size: null, qty: 1, price: 70 },
+    ],
+    bill: { subtotal: 250, discount: 0, delivery: 0, total: 250 },
+    address: "Row House 12, Pancard Club Road, Baner",
+    payLink: null, paymentMode: "cod", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: tomorrowAt(7, 30), schedule_slot: "breakfast",
+    extra: { note: "no coriander" },
+    createdAt: hoursAgo(9), updatedAt: hoursAgo(9),
+  },
+  {
+    id: "1755004004", customerId: "d8", name: "Sameer Rane", mobile: "+919762200114",
+    cart: [
+      { name: "Veg Thali",   productNumber: "t1", size: null, qty: 2, price: 180 },
+    ],
+    bill: { subtotal: 360, discount: 0, delivery: 0, total: 360 },
+    address: "Wing C, 7th floor, EON IT Park, Kharadi",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: tomorrowAt(12, 30), schedule_slot: "lunch",
+    extra: { note: "reception desk" },
+    createdAt: hoursAgo(6), updatedAt: hoursAgo(6),
+  },
+  {
+    id: "1755004005", customerId: "d9", name: "Kavita Shah", mobile: "+919623344556",
+    cart: [
+      { name: "Veg Thali",      productNumber: "t1", size: null, qty: 1, price: 180 },
+      { name: "Chicken Biryani", productNumber: "m4", size: null, qty: 1, price: 280 },
+    ],
+    bill: { subtotal: 460, discount: 0, delivery: 0, total: 460 },
+    address: "Flat 305, Ganga Fernhill, Baner",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: tomorrowAt(13, 0), schedule_slot: "lunch",
+    extra: {},
+    createdAt: hoursAgo(2), updatedAt: hoursAgo(2),
+  },
+  {
+    id: "1755004006", customerId: "d1", name: "Priya Nair", mobile: "+919820011223",
+    cart: [
+      { name: "Butter Chicken", productNumber: "m1", size: null, qty: 1, price: 320 },
+      { name: "Butter Naan",    productNumber: "b1", size: null, qty: 2, price: 45 },
+    ],
+    bill: { subtotal: 410, discount: 0, delivery: 0, total: 410 },
+    address: "Flat 402, Sunrise Apartments, Baner Road, near D-Mart",
+    payLink: null, paymentMode: "upi", status: "confirmed",
+    statusDates: {}, trackingNumber: null, trackingUrl: null,
+    source: "web", channel: "web", table_no: null, order_kind: "scheduled",
+    scheduled_for: laterToday(20, 30), schedule_slot: "dinner",
+    extra: {},
+    createdAt: minsAgo(90), updatedAt: minsAgo(90),
+  },
+];
+
+// ── Customer packages ─────────────────────────────────────────────────────────
+// The customer's own monthly subscription to this kitchen — what buys them the
+// right to pick a delivery time. One of each state so the Members screen has
+// something to show in every branch.
+
+const daysOut = (n) => new Date(Date.now() + n * 86_400_000).toISOString();
+const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
+
+export const FX_PACKAGES = [
+  {
+    id: "pk1", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9822011223", name: "Meera Joshi",
+    plan: "schedule", status: "active", price_month: 99,
+    started_at: daysAgo(64), period_end: daysOut(11), trial_ends: null,
+    orders_used: 38, created_at: daysAgo(64),
+  },
+  {
+    id: "pk2", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9845567788", name: "Rohit Kulkarni",
+    plan: "schedule", status: "active", price_month: 99,
+    started_at: daysAgo(31), period_end: daysOut(2), trial_ends: null,
+    orders_used: 21, created_at: daysAgo(31),
+  },
+  {
+    id: "pk3", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9011224455", name: "Anjali Deshmukh",
+    plan: "schedule", status: "trial", price_month: 99,
+    started_at: daysAgo(5), period_end: null, trial_ends: daysOut(9),
+    orders_used: 4, created_at: daysAgo(5),
+  },
+  {
+    id: "pk4", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9762200114", name: "Sameer Rane",
+    plan: "schedule", status: "trial", price_month: 99,
+    started_at: daysAgo(11), period_end: null, trial_ends: daysOut(3),
+    orders_used: 9, created_at: daysAgo(11),
+  },
+  {
+    id: "pk5", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9623344556", name: "Kavita Shah",
+    plan: "schedule", status: "active", price_month: 99,
+    started_at: daysAgo(96), period_end: daysOut(24), trial_ends: null,
+    orders_used: 57, created_at: daysAgo(96),
+  },
+  {
+    id: "pk6", business_id: FIXTURE_BUSINESS_ID,
+    mobile: "9820044556", name: "Arjun Mehta",
+    plan: "schedule", status: "expired", price_month: 99,
+    started_at: daysAgo(78), period_end: daysAgo(6), trial_ends: null,
+    orders_used: 14, created_at: daysAgo(78),
+  },
+];

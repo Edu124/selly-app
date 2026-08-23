@@ -1,54 +1,83 @@
+// ── Billing — what this kitchen pays Selly ────────────────────────────────────
+//
+//   ₹1,000  once, to onboard
+//   ₹20     per order that actually completes
+//
+// That is the entire price list, and the screen is built to make that obvious
+// rather than to bury it. No plan comparison, no upgrade path, no tiers.
+//
+// NOT the Members screen. Members is what this kitchen's customers pay the
+// kitchen. This is what the kitchen pays us. Opposite direction of money.
+//
+// The bill is computed from the kitchen's own orders every time it loads, and
+// the orders that made it up are listed underneath. A kitchen that thinks the
+// number is wrong can count them.
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, RefreshControl, Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
-import { fetchSubscription } from "../lib/api";
+import { fetchOrders, fetchBusinessBilling, fetchBillingPayments } from "../lib/api";
+import { friendlyError } from "../lib/errors";
+import { inr } from "../lib/whatsapp";
+import {
+  billForPeriod, billingHistory, aggregatorComparison, normalizeBilling,
+  PER_ORDER_FEE, ONBOARDING_FEE,
+} from "../lib/billing";
 
-// ── Contact number for upgrade enquiries ─────────────────────────────────────
-const SELLY_SUPPORT_WA = "https://wa.me/919876543210?text=Hi%2C%20I%20want%20to%20upgrade%20my%20Selly%20account%20to%20Pro.";
+const SUPPORT_WA = "https://wa.me/919370499351?text=" +
+  encodeURIComponent("Hi Selly, I'd like to settle my bill.");
 
 export default function BillingScreen() {
-  const [sub,        setSub]        = useState(null);
-  const [loading,    setLoading]    = useState(true);
+  const [orders,   setOrders]   = useState([]);
+  const [billing,  setBilling]  = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [loading,  setLoading]  = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error,    setError]    = useState(null);
+  const [showOrders, setShowOrders] = useState(false);
 
-  const load = async (silent = false) => {
+  const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const s = await fetchSubscription();
-      setSub(s);
+      const [o, b, p] = await Promise.all([
+        fetchOrders({ page: 1, limit: 500 }),
+        fetchBusinessBilling().catch(() => null),   // migration 004 may not be run
+        fetchBillingPayments().catch(() => []),
+      ]);
+      setOrders(o.orders || []);
+      setBilling(b);
+      setPayments(Array.isArray(p) ? p : []);
+      setError(null);
     } catch (e) {
-      console.warn("[Billing]", e.message);
+      setError(friendlyError(e));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => { load(); }, [load]));
   const onRefresh = () => { setRefreshing(true); load(true); };
 
-  if (loading && !sub) {
+  if (loading && !orders.length) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={Colors.primary} size="large" />
+        <Text style={styles.centerText}>Working out this month…</Text>
       </View>
     );
   }
 
-  const daysLeft    = sub?.daysRemaining   ?? 0;
-  const trialTotal  = sub?.trialDays       ?? 14;   // fallback to 14-day trial
-  const startDate   = sub?.startDate       ? new Date(sub.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
-  const status      = sub?.status          || "trial";
-  const isExpired   = status === "expired" || status === "suspended" || daysLeft <= 0;
-  const pct         = Math.min(100, Math.max(0, (daysLeft / trialTotal) * 100));
-
-  const barColor    = daysLeft > 5 ? Colors.primary
-                    : daysLeft > 2 ? Colors.yellow
-                    : Colors.red;
+  const terms = normalizeBilling(billing);
+  const bill  = billForPeriod(orders, { onboardingPaid: terms.onboardingPaid });
+  const vs    = aggregatorComparison(bill.billableOrders);
+  const past  = billingHistory(orders, 6).slice(1);
 
   return (
     <ScrollView
@@ -56,142 +85,244 @@ export default function BillingScreen() {
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
     >
-      <Text style={styles.pageTitle}>Plan & Billing</Text>
+      <Text style={styles.pageTitle}>Billing</Text>
 
-      {/* Trial card */}
-      <View style={[styles.card, isExpired && styles.cardExpired]}>
-        {/* Badge row */}
-        <View style={styles.badgeRow}>
-          <Text style={styles.planName}>🚀 Selly Trial</Text>
-          <View style={[styles.badge, { backgroundColor: (isExpired ? Colors.red : Colors.yellow) + "22" }]}>
-            <Text style={[styles.badgeText, { color: isExpired ? Colors.red : Colors.yellow }]}>
-              {isExpired ? "EXPIRED" : "TRIAL"}
+      {error && (
+        <View style={styles.errorBox}>
+          <Ionicons name="alert-circle-outline" size={15} color={Colors.red} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {/* ── the price list, stated plainly ── */}
+      <View style={styles.priceCard}>
+        <Text style={styles.priceLabel}>WHAT SELLY COSTS YOU</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.priceAmt}>{inr(terms.onboardingFee)}</Text>
+          <Text style={styles.priceWhat}>once, to get set up</Text>
+        </View>
+        <View style={styles.priceRow}>
+          <Text style={styles.priceAmt}>{inr(terms.perOrderFee)}</Text>
+          <Text style={styles.priceWhat}>per order that completes</Text>
+        </View>
+        <Text style={styles.priceNote}>
+          That's everything. No monthly fee, and never a percentage of the bill —
+          a ₹2,000 order costs you the same {inr(terms.perOrderFee)} as a ₹200 one.
+        </Text>
+      </View>
+
+      {/* ── this month ── */}
+      <View style={styles.dueCard}>
+        <Text style={styles.dueLabel}>{bill.period.toUpperCase()}</Text>
+        <Text style={styles.dueValue}>{inr(bill.totalDue)}</Text>
+
+        <View style={styles.lineItems}>
+          <View style={styles.line}>
+            <Text style={styles.lineText}>
+              {bill.ordersBilled} completed order{bill.ordersBilled === 1 ? "" : "s"} × {inr(terms.perOrderFee)}
             </Text>
+            <Text style={styles.lineAmt}>{inr(bill.orderCharges)}</Text>
           </View>
-        </View>
 
-        {/* Activated on */}
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Trial activated on</Text>
-          <Text style={styles.infoValue}>{startDate}</Text>
-        </View>
-
-        {/* Days left */}
-        {!isExpired ? (
-          <>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Days remaining</Text>
-              <Text style={[styles.infoValue, { color: barColor, fontWeight: "900" }]}>
-                {daysLeft} / {trialTotal} days
+          {bill.ordersFree > 0 && (
+            <View style={styles.line}>
+              <Text style={styles.lineFree}>
+                {bill.ordersFree} still open or cancelled — not charged
               </Text>
+              <Text style={styles.lineFreeAmt}>₹0</Text>
             </View>
+          )}
 
-            {/* Progress bar */}
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: barColor }]} />
+          {bill.onboarding > 0 && (
+            <View style={styles.line}>
+              <Text style={styles.lineText}>One-time onboarding</Text>
+              <Text style={styles.lineAmt}>{inr(bill.onboarding)}</Text>
             </View>
-            <Text style={styles.progressCaption}>
-              {pct >= 100 ? "Trial just started!" : `${Math.round(pct)}% of trial remaining`}
+          )}
+        </View>
+
+        {bill.ordersBilled > 0 && (
+          <TouchableOpacity style={styles.showLink} onPress={() => setShowOrders(v => !v)}>
+            <Text style={styles.showLinkText}>
+              {showOrders ? "Hide the orders" : "See exactly which orders"}
             </Text>
+            <Ionicons name={showOrders ? "chevron-up" : "chevron-down"} size={13} color={Colors.primaryLight} />
+          </TouchableOpacity>
+        )}
 
-            {daysLeft <= 3 && (
-              <View style={styles.urgentBox}>
-                <Text style={styles.urgentText}>
-                  ⚠️ Only {daysLeft} day{daysLeft !== 1 ? "s" : ""} left! Contact us to keep your store running.
-                </Text>
+        {showOrders && (
+          <View style={styles.orderList}>
+            {bill.billableOrders.slice(0, 40).map(o => (
+              <View key={o.id} style={styles.orderLine}>
+                <Text style={styles.orderId}>#{String(o.id).slice(-5)}</Text>
+                <Text style={styles.orderName} numberOfLines={1}>{o.name || "Guest"}</Text>
+                <Text style={styles.orderFee}>{inr(terms.perOrderFee)}</Text>
               </View>
+            ))}
+            {bill.billableOrders.length > 40 && (
+              <Text style={styles.orderMore}>
+                …and {bill.billableOrders.length - 40} more
+              </Text>
             )}
-          </>
-        ) : (
-          /* Expired state */
-          <View style={styles.expiredBox}>
-            <Text style={styles.expiredIcon}>⏰</Text>
-            <Text style={styles.expiredTitle}>Your trial has ended</Text>
-            <Text style={styles.expiredSub}>
-              Upgrade to Selly Pro to continue receiving orders and sending promotions.
-            </Text>
           </View>
         )}
       </View>
 
-      {/* What's included card */}
-      {!isExpired && (
-        <View style={styles.featuresCard}>
-          <Text style={styles.featuresTitle}>What's included in your trial</Text>
-          {[
-            "✅ WhatsApp order bot (unlimited messages)",
-            "✅ Product catalog & shop page",
-            "✅ Order management dashboard",
-            "✅ Customer tracking",
-            "✅ Promotions & flash sales",
-            "✅ Multi-language support",
-          ].map((f, i) => (
-            <Text key={i} style={styles.featureItem}>{f}</Text>
-          ))}
+      {/* ── the comparison that makes ₹20 look like what it is ── */}
+      {vs.gross > 0 && (
+        <View style={styles.vsCard}>
+          <Text style={styles.vsLabel}>ON THE SAME ORDERS</Text>
+          <View style={styles.vsRow}>
+            <View style={styles.vsCol}>
+              <Text style={styles.vsAmtBad}>{inr(vs.theirCut)}</Text>
+              <Text style={styles.vsWho}>an aggregator's 25%</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+            <View style={styles.vsCol}>
+              <Text style={styles.vsAmtGood}>{inr(vs.ourFee)}</Text>
+              <Text style={styles.vsWho}>Selly</Text>
+            </View>
+          </View>
+          <Text style={styles.vsSaved}>
+            You kept {inr(vs.saved)} this month that a marketplace would have taken.
+          </Text>
         </View>
       )}
 
-      {/* CTA — contact team */}
-      <View style={styles.ctaCard}>
-        <Text style={styles.ctaTitle}>
-          {isExpired ? "Upgrade to Selly Pro" : "Want to continue after trial?"}
-        </Text>
-        <Text style={styles.ctaSub}>
-          Message our team on WhatsApp — we'll set you up in minutes.
-        </Text>
-        <TouchableOpacity
-          style={styles.ctaBtn}
-          onPress={() => Linking.openURL(SELLY_SUPPORT_WA)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.ctaBtnText}>💬 Contact Team to Upgrade</Text>
+      {/* ── settle ── */}
+      {bill.totalDue > 0 && (
+        <TouchableOpacity style={styles.payBtn} onPress={() => Linking.openURL(SUPPORT_WA)}>
+          <Ionicons name="logo-whatsapp" size={16} color="#fff" />
+          <Text style={styles.payBtnText}>Settle {inr(bill.totalDue)}</Text>
         </TouchableOpacity>
-      </View>
+      )}
+
+      {/* ── history ── */}
+      {past.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>EARLIER MONTHS</Text>
+          {past.map(m => (
+            <View key={m.period} style={styles.histRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.histPeriod}>{m.period}</Text>
+                <Text style={styles.histMeta}>
+                  {m.ordersBilled} order{m.ordersBilled === 1 ? "" : "s"}
+                </Text>
+              </View>
+              <Text style={styles.histAmt}>{inr(m.orderCharges)}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {payments.length > 0 && (
+        <>
+          <Text style={styles.sectionLabel}>PAYMENTS RECEIVED</Text>
+          {payments.map(p => (
+            <View key={p.id} style={styles.histRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.histPeriod}>
+                  {p.kind === "onboarding" ? "Onboarding" : p.period || "Orders"}
+                </Text>
+                <Text style={styles.histMeta}>
+                  {new Date(p.paid_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  {p.method ? ` · ${p.method}` : ""}
+                </Text>
+              </View>
+              <Text style={styles.histPaid}>{inr(p.amount)}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      <Text style={styles.footNote}>
+        Charged only on orders that reached the customer. Cancelled, rejected and
+        unpaid orders are never billed.
+      </Text>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container : { flex: 1, backgroundColor: Colors.bg },
-  content   : { padding: 16, paddingBottom: 48 },
+  content   : { padding: 16, paddingBottom: 40 },
   center    : { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: Colors.bg },
-  pageTitle : { color: Colors.textPrimary, fontSize: 24, fontWeight: "900", marginBottom: 20 },
+  centerText: { color: Colors.textMuted, fontSize: 13, marginTop: 12 },
+  pageTitle : { color: Colors.textPrimary, fontSize: 24, fontWeight: "900", marginBottom: 18 },
 
-  // Main trial card
-  card        : { backgroundColor: Colors.bgCard, borderRadius: 16, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: Colors.primary + "33" },
-  cardExpired : { borderColor: Colors.red + "44" },
+  errorBox: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "rgba(239,68,68,0.10)", borderWidth: 1, borderColor: "rgba(239,68,68,0.28)",
+    borderRadius: 11, padding: 12, marginBottom: 14,
+  },
+  errorText: { color: Colors.textSecondary, fontSize: 12.5, flex: 1 },
 
-  badgeRow    : { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  planName    : { color: Colors.textPrimary, fontSize: 20, fontWeight: "900" },
-  badge       : { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 },
-  badgeText   : { fontSize: 12, fontWeight: "800", letterSpacing: 1 },
+  priceCard : {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 16, padding: 16, marginBottom: 14,
+  },
+  priceLabel: { color: Colors.textMuted, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.9, marginBottom: 12 },
+  priceRow  : { flexDirection: "row", alignItems: "baseline", gap: 10, marginBottom: 8 },
+  priceAmt  : { color: Colors.textPrimary, fontSize: 24, fontWeight: "800", letterSpacing: -0.5, minWidth: 86 },
+  priceWhat : { color: Colors.textSecondary, fontSize: 13 },
+  priceNote : { color: Colors.textMuted, fontSize: 11.5, lineHeight: 18, marginTop: 6 },
 
-  infoRow     : { flexDirection: "row", justifyContent: "space-between", paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  infoLabel   : { color: Colors.textSecondary, fontSize: 14 },
-  infoValue   : { color: Colors.textPrimary, fontSize: 14, fontWeight: "700" },
+  dueCard  : {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: "rgba(124,92,255,0.32)",
+    borderRadius: 16, padding: 16, marginBottom: 14,
+  },
+  dueLabel : { color: Colors.textMuted, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.9 },
+  dueValue : { color: Colors.textPrimary, fontSize: 34, fontWeight: "800", letterSpacing: -0.9, marginTop: 6 },
+  lineItems: { marginTop: 14, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 12 },
+  line     : { flexDirection: "row", alignItems: "center", paddingVertical: 5 },
+  lineText : { color: Colors.textSecondary, fontSize: 13, flex: 1 },
+  lineAmt  : { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "700" },
+  lineFree : { color: Colors.green, fontSize: 12.5, flex: 1 },
+  lineFreeAmt: { color: Colors.green, fontSize: 13, fontWeight: "700" },
 
-  progressBg      : { height: 8, backgroundColor: Colors.bgInput, borderRadius: 4, overflow: "hidden", marginTop: 14, marginBottom: 6 },
-  progressFill    : { height: "100%", borderRadius: 4 },
-  progressCaption : { color: Colors.textMuted, fontSize: 12, marginBottom: 4 },
+  showLink    : { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 12 },
+  showLinkText: { color: Colors.primaryLight, fontSize: 12.5, fontWeight: "600" },
+  orderList   : { marginTop: 10, backgroundColor: Colors.bg, borderRadius: 10, padding: 10 },
+  orderLine   : { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  orderId     : { color: Colors.textMuted, fontSize: 11.5, fontFamily: "monospace", minWidth: 52 },
+  orderName   : { color: Colors.textSecondary, fontSize: 12, flex: 1 },
+  orderFee    : { color: Colors.textSecondary, fontSize: 12, fontWeight: "700" },
+  orderMore   : { color: Colors.textMuted, fontSize: 11.5, marginTop: 6, textAlign: "center" },
 
-  urgentBox  : { backgroundColor: Colors.red + "18", borderRadius: 10, padding: 12, marginTop: 12 },
-  urgentText : { color: Colors.red, fontSize: 13, fontWeight: "700" },
+  vsCard : {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 16, padding: 16, marginBottom: 14,
+  },
+  vsLabel: { color: Colors.textMuted, fontSize: 9.5, fontWeight: "800", letterSpacing: 0.9, marginBottom: 12 },
+  vsRow  : { flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
+  vsCol  : { alignItems: "center" },
+  vsAmtBad : { color: "#f87171", fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
+  vsAmtGood: { color: Colors.green, fontSize: 22, fontWeight: "800", letterSpacing: -0.4 },
+  vsWho    : { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
+  vsSaved  : { color: Colors.textSecondary, fontSize: 12.5, textAlign: "center", marginTop: 14, lineHeight: 18 },
 
-  // Expired box
-  expiredBox   : { alignItems: "center", paddingVertical: 20 },
-  expiredIcon  : { fontSize: 40, marginBottom: 8 },
-  expiredTitle : { color: Colors.textPrimary, fontSize: 18, fontWeight: "800", marginBottom: 6 },
-  expiredSub   : { color: Colors.textSecondary, fontSize: 14, textAlign: "center", lineHeight: 20 },
+  payBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: Colors.primary, borderRadius: 12, padding: 15, marginBottom: 6,
+  },
+  payBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
 
-  // Features card
-  featuresCard  : { backgroundColor: Colors.bgCard, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
-  featuresTitle : { color: Colors.textPrimary, fontSize: 15, fontWeight: "700", marginBottom: 12 },
-  featureItem   : { color: Colors.textSecondary, fontSize: 13, lineHeight: 22 },
+  sectionLabel: {
+    color: Colors.textMuted, fontSize: 9.5, fontWeight: "800",
+    letterSpacing: 0.9, marginTop: 20, marginBottom: 9,
+  },
+  histRow   : {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 12, padding: 13, marginBottom: 8,
+  },
+  histPeriod: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "700" },
+  histMeta  : { color: Colors.textMuted, fontSize: 11.5, marginTop: 3 },
+  histAmt   : { color: Colors.textSecondary, fontSize: 14, fontWeight: "800" },
+  histPaid  : { color: Colors.green, fontSize: 14, fontWeight: "800" },
 
-  // CTA card
-  ctaCard  : { backgroundColor: Colors.primary + "0F", borderRadius: 16, padding: 20, alignItems: "center", borderWidth: 1, borderColor: Colors.primary + "33" },
-  ctaTitle : { color: Colors.textPrimary, fontSize: 18, fontWeight: "800", marginBottom: 6, textAlign: "center" },
-  ctaSub   : { color: Colors.textSecondary, fontSize: 13, textAlign: "center", marginBottom: 18, lineHeight: 19 },
-  ctaBtn   : { backgroundColor: Colors.primary, borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14, width: "100%" },
-  ctaBtnText: { color: "#fff", fontWeight: "800", fontSize: 15, textAlign: "center" },
+  footNote: {
+    color: Colors.textMuted, fontSize: 11.5, lineHeight: 18,
+    textAlign: "center", marginTop: 22, paddingHorizontal: 16,
+  },
 });

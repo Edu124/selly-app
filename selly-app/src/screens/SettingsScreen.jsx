@@ -8,6 +8,7 @@ import { Colors } from "../constants/colors";
 import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
+import { scheduleConfig } from "../lib/scheduling";
 import { friendlyError } from "../lib/errors";
 import { BUSINESS_TYPE_LIST } from "../lib/businessTypes";
 import {
@@ -488,6 +489,7 @@ export default function SettingsScreen() {
 
       {/* Trading hours & store status */}
       <StoreHoursCard />
+      <SchedulingCard />
 
       {/* Preview data controls — dev builds only */}
       {__DEV__ && <DemoDataCard />}
@@ -531,8 +533,8 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.cardTitle}>ℹ️ About Selly</Text>
         <InfoRow label="Version"  value="1.0.0" />
-        <InfoRow label="Platform" value="Instagram Commerce Bot" />
-        <InfoRow label="Billing"  value="₹3,000/month + 5% commission" />
+        <InfoRow label="Platform" value="Ordering for cloud kitchens" />
+        <InfoRow label="Billing"  value="₹1,000 once + ₹20 per order" />
         <InfoRow label="Support"  value="help@selly.in" />
       </View>
 
@@ -637,6 +639,170 @@ function DemoDataCard() {
 }
 
 // ── Trading hours ─────────────────────────────────────────────────────────────
+// ── Scheduling ────────────────────────────────────────────────────────────────
+// Two decisions live here, and they are not the same decision:
+//   · whether customers may choose a delivery time at all
+//   · what they pay each month for the privilege
+//
+// The price is deliberately not a constant in code. A kitchen in Baner and one
+// in Kharadi will not charge the same, and a kitchen that changes its mind
+// should not change what existing members already pay — which is why the amount
+// is copied onto each member row when they join, not read from here at billing.
+function SchedulingCard() {
+  const [cfg,    setCfg]    = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved,  setSaved]  = useState(false);
+
+  useEffect(() => {
+    loadStoreConfig().then(({ config }) => setCfg(config)).catch(() => setCfg(null));
+  }, []);
+
+  if (!cfg) return null;
+
+  const sched = scheduleConfig({ schedule_config: cfg.schedule });
+
+  const setSched = (patch) => {
+    setCfg(c => ({ ...c, schedule: { ...(c.schedule || {}), ...patch } }));
+    setSaved(false);
+  };
+
+  async function save() {
+    setSaving(true);
+    try {
+      await saveStoreConfig(cfg);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      Alert.alert("Couldn't save", friendlyError(e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>📅 Scheduling</Text>
+      <Text style={styles.cardDesc}>
+        Lets a customer order now and choose when it arrives — tonight for tomorrow's
+        breakfast, for instance. Orders wait on the Scheduled screen and move into the
+        Kitchen on their own when they come due.
+      </Text>
+
+      <View style={styles.schedRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.fieldLabel}>Accept scheduled orders</Text>
+          <Text style={styles.fieldHint}>
+            {sched.enabled ? "Customers can pick a delivery time" : "Everything is treated as ASAP"}
+          </Text>
+        </View>
+        <Switch
+          value={sched.enabled}
+          onValueChange={v => setSched({ enabled: v })}
+          trackColor={{ false: Colors.border, true: Colors.primary }}
+          thumbColor="#fff"
+        />
+      </View>
+
+      {sched.enabled && (
+        <>
+          <View style={styles.schedRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.fieldLabel}>Free for everyone</Text>
+              <Text style={styles.fieldHint}>
+                {sched.freeWithoutPackage
+                  ? "Anyone can schedule — you earn nothing from it"
+                  : "Only paying members can schedule"}
+              </Text>
+            </View>
+            <Switch
+              value={!!sched.freeWithoutPackage}
+              onValueChange={v => setSched({ freeWithoutPackage: v })}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {!sched.freeWithoutPackage && (
+            <>
+              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Monthly package price (₹)</Text>
+              <Text style={styles.fieldHint}>
+                What a new member pays you each month. Existing members keep the price
+                they joined at.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={sched.packagePrice == null ? "" : String(sched.packagePrice)}
+                onChangeText={v => {
+                  const n = v.replace(/[^0-9]/g, "");
+                  setSched({ packagePrice: n === "" ? null : Number(n) });
+                }}
+                placeholder="e.g. 99"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+              />
+
+              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Free trial (days)</Text>
+              <Text style={styles.fieldHint}>
+                Long enough for the habit to form. Zero means no trial.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={String(sched.trialDays ?? 14)}
+                onChangeText={v => setSched({ trialDays: Number(v.replace(/[^0-9]/g, "") || 0) })}
+                placeholder="14"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="number-pad"
+              />
+            </>
+          )}
+
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Shortest notice (minutes)</Text>
+          <Text style={styles.fieldHint}>
+            How far ahead a slot must be booked. Too low and someone books 7:00 at 6:58.
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={String(sched.leadMinutes ?? 45)}
+            onChangeText={v => setSched({ leadMinutes: Number(v.replace(/[^0-9]/g, "") || 0) })}
+            placeholder="45"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+          />
+
+          <Text style={[styles.fieldLabel, { marginTop: 12 }]}>How far ahead bookings open (days)</Text>
+          <TextInput
+            style={styles.input}
+            value={String(sched.maxDaysAhead ?? 7)}
+            onChangeText={v => setSched({ maxDaysAhead: Number(v.replace(/[^0-9]/g, "") || 1) })}
+            placeholder="7"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+          />
+
+          <View style={styles.slotPreview}>
+            <Text style={styles.slotPreviewLabel}>MEAL WINDOWS ON OFFER</Text>
+            {sched.slots.map(s => (
+              <Text key={s.key} style={styles.slotPreviewText}>
+                {s.emoji}  {s.label} · {s.from} – {s.to}
+              </Text>
+            ))}
+          </View>
+        </>
+      )}
+
+      <TouchableOpacity
+        style={[styles.saveBtn, { flex: 0, marginTop: 16 }, saving && styles.btnDisabled]}
+        onPress={save}
+        disabled={saving}
+      >
+        <Text style={styles.saveBtnText}>
+          {saving ? "Saving…" : saved ? "Saved ✓" : "Save scheduling"}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // Hours decide whether the ordering page accepts an order when the owner hasn't
 // manually paused. A day with no times is closed — that's how a kitchen says
 // "we don't trade Mondays" without having to remember to pause every week.
@@ -832,6 +998,13 @@ const styles = StyleSheet.create({
 
   fieldHint   : { color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -2 },
   sectionDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 16 },
+
+  schedRow        : { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10,
+                      borderBottomWidth: 1, borderBottomColor: Colors.border },
+  slotPreview     : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12, marginTop: 14 },
+  slotPreviewLabel: { color: Colors.textMuted, fontSize: 9.5, fontWeight: "800",
+                      letterSpacing: 0.9, marginBottom: 8 },
+  slotPreviewText : { color: Colors.textSecondary, fontSize: 12.5, lineHeight: 21 },
 
   paymentNote     : { backgroundColor: Colors.primary + "12", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.primary + "30" },
   paymentNoteText : { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },

@@ -43,6 +43,7 @@ export const BUSINESS_TYPES = {
     hasFunZone  : true,
     hasOccasions: false,
     hasPrepQueue: false,
+    hasScheduling: false,
     hasDelivery : false,
 
     itemWord  : "dish",
@@ -73,6 +74,7 @@ export const BUSINESS_TYPES = {
     hasFunZone  : false,
     hasOccasions: true,
     hasPrepQueue: false,
+    hasScheduling: false,
     hasDelivery : true,
 
     itemWord  : "cake",
@@ -93,7 +95,7 @@ export const BUSINESS_TYPES = {
     catalog  : { label: "Menu",      icon: "restaurant" },
     customers: { label: "Customers", icon: "people"     },
 
-    extraNav: ["PrepQueue"],
+    extraNav: ["PrepQueue", "Scheduled"],
 
     statusFlow: ["confirmed", "preparing", "out_for_delivery", "delivered"],
     unpaid    : ["pending_payment", "confirmed", "preparing", "out_for_delivery"],
@@ -103,6 +105,7 @@ export const BUSINESS_TYPES = {
     hasFunZone  : false,
     hasOccasions: false,
     hasPrepQueue: true,
+    hasScheduling: true,
     hasDelivery : true,
 
     itemWord  : "dish",

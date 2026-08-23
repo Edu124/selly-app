@@ -27,6 +27,7 @@ import { subscribeDevOrders } from "../lib/devStore";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
 import { orderTotal, inr, notifyOrderStatus, notifyTarget } from "../lib/whatsapp";
+import { isDueNow, isScheduled, formatWhen } from "../lib/scheduling";
 import SoldOutSheet from "../components/SoldOutSheet";
 
 // Orders the kitchen still has work to do on.
@@ -64,7 +65,7 @@ export default function PrepQueueScreen({ navigation }) {
   const { width } = useWindowDimensions();
   const twoCol = width >= 900;
 
-  const [orders,     setOrders]     = useState([]);
+  const [allOrders,  setAllOrders]  = useState([]);
   const [customers,  setCustomers]  = useState([]);
   const [catalog,    setCatalog]    = useState([]);
   const [prepMins,   setPrepMins]   = useState(30);
@@ -87,7 +88,7 @@ export default function PrepQueueScreen({ navigation }) {
         fetchCustomers().catch(() => ({ customers: [] })),
         fetchCatalog().catch(() => ({ products: [] })),
       ]);
-      setOrders((o.orders || []).filter(x => ACTIVE.includes(x.status)));
+      setAllOrders((o.orders || []).filter(x => ACTIVE.includes(x.status)));
       setCustomers(c.customers || []);
       setCatalog(k.products || []);
       if (s?.config?.defaultPrepMinutes) setPrepMins(Number(s.config.defaultPrepMinutes));
@@ -114,7 +115,7 @@ export default function PrepQueueScreen({ navigation }) {
     if (!next || busyId) return;
     setBusyId(order.id);
     // Optimistic: the kitchen taps and moves on, it shouldn't wait on a round trip.
-    setOrders(prev =>
+    setAllOrders(prev =>
       ACTIVE.includes(next)
         ? prev.map(o => (o.id === order.id ? { ...o, status: next } : o))
         : prev.filter(o => o.id !== order.id)
@@ -140,6 +141,16 @@ export default function PrepQueueScreen({ navigation }) {
       setBusyId(null);
     }
   }
+
+  // ── What the kitchen is actually holding right now ──────────────────────────
+  // A scheduled order is not this screen's problem until it is nearly due.
+  // Tomorrow's 7am breakfast sitting in tonight's queue buries the orders that
+  // need cooking now — the Scheduled screen holds them until they come due.
+  //
+  // Derived rather than filtered on load, so the 60-second tick that drives the
+  // elapsed timers also brings an order in the moment it falls due. Filtering at
+  // load time would leave it invisible until someone pulled to refresh.
+  const orders = allOrders.filter(o => isDueNow(o, prepMins));
 
   // ── Batch roll-up ───────────────────────────────────────────────────────────
   // Every line across every open order, summed by item. This is what the kitchen

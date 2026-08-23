@@ -37,6 +37,9 @@ import CatalogScreen         from "../screens/CatalogScreen";
 import CakeOrdersScreen      from "../screens/CakeOrdersScreen";
 import CakeMenuScreen        from "../screens/CakeMenuScreen";
 import PrepQueueScreen       from "../screens/PrepQueueScreen";
+import ScheduledScreen       from "../screens/ScheduledScreen";
+import PackagesScreen        from "../screens/PackagesScreen";
+import NewOrderScreen        from "../screens/NewOrderScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
@@ -428,7 +431,10 @@ function MainDrawer({ industry }) {
   // types; only what the owner reads changes.
   const navMeta = React.useMemo(() => ({
     Home     : { label: "Home",              icon: "home"       },
+    NewOrder : { label: "New order",         icon: "add-circle" },
     Kitchen  : { label: "Kitchen",           icon: "flame"      },
+    Scheduled: { label: "Scheduled",         icon: "calendar"   },
+    Members  : { label: "Members",           icon: "star"       },
     Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
     Catalog  : { label: cfg.catalog.label,   icon: cfg.catalog.icon   },
     Customers: { label: cfg.customers.label, icon: cfg.customers.icon },
@@ -460,10 +466,24 @@ function MainDrawer({ industry }) {
       }}
     >
       <Drawer.Screen name="Home"      component={HomeScreen}      options={{ title: "Dashboard" }} />
+      {/* With no customer-facing page in phase 1, typing an order in IS the way
+          orders arrive — so it sits at the top, not behind More. */}
+      {cfg.hasPrepQueue && (
+        <Drawer.Screen name="NewOrder" component={NewOrderScreen} options={{ title: "New order" }} />
+      )}
       {/* The kitchen screen sits right after Home for a cloud kitchen — it's the
           screen they'll have open all service, so it shouldn't be buried. */}
       {cfg.hasPrepQueue && (
         <Drawer.Screen name="Kitchen" component={PrepQueueScreen} options={{ title: "Kitchen" }} />
+      )}
+      {/* Scheduled sits beside the Kitchen, not under More: the whole value of
+          taking an order early is seeing it early, and a buried screen doesn't
+          get looked at the night before. */}
+      {cfg.hasScheduling && (
+        <Drawer.Screen name="Scheduled" component={ScheduledScreen} options={{ title: "Scheduled" }} />
+      )}
+      {cfg.hasScheduling && (
+        <Drawer.Screen name="Members" component={PackagesScreen} options={{ title: "Members" }} />
       )}
       <Drawer.Screen name="Orders"    component={screens.orders}  options={{ title: cfg.orders.label }} />
       <Drawer.Screen name="Catalog"   component={screens.catalog} options={{ title: cfg.catalog.label }} />

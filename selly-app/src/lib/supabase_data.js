@@ -75,6 +75,10 @@ function _toOrder(row) {
     order_kind     : row.order_kind     || "standard",   // standard | cake
     channel        : row.channel        || "whatsapp",   // whatsapp | instagram | qr | walkin
     extra          : row.extra          || {},           // cake specs live here
+    // Scheduling. Null means ASAP, which is every order placed for right now —
+    // must be carried through or the Scheduled screen sees nothing at all.
+    scheduled_for  : row.scheduled_for  || null,
+    schedule_slot  : row.schedule_slot  || null,
     createdAt      : row.created_at ? new Date(row.created_at).getTime() : Date.now(),
     updatedAt      : row.updated_at ? new Date(row.updated_at).getTime() : Date.now(),
   };
@@ -437,4 +441,155 @@ export async function saveBusinessSettings(payload) {
     .upsert({ ...payload, business_id: uid, updated_at: new Date().toISOString() }, { onConflict: "business_id" });
   if (error) throw new Error(error.message);
   return { ok: true };
+}
+
+// ── Customer packages ─────────────────────────────────────────────────────────
+// The customer's monthly subscription to THIS kitchen — what grants them the
+// right to choose a delivery time. Distinct from the kitchen's own Selly
+// subscription, which is billed the other way round and lives behind
+// fetchSubscription(). Requires migration 003.
+
+export async function fetchCustomerPackages() {
+  const bid = await _bid();
+
+  // Lapsed rows are expired on read rather than by a cron: a kitchen that opens
+  // the app after a week away should see the truth without a scheduled job
+  // having run. Failure here is not fatal — the UI re-checks dates anyway.
+  try {
+    await supabase.rpc("expire_customer_packages", { p_business: bid });
+  } catch (e) {
+    console.warn("[packages] expiry pass skipped:", e.message);
+  }
+
+  const { data, error } = await supabase
+    .from("customer_packages")
+    .select("*")
+    .eq("business_id", bid)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchCustomerPackage(mobile) {
+  const bid = await _bid();
+  const key = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (!key) return null;
+
+  const { data, error } = await supabase
+    .from("customer_packages")
+    .select("*")
+    .eq("business_id", bid)
+    .eq("mobile", key)
+    .in("status", ["trial", "active"])
+    .maybeSingle();
+
+  if (error) throw error;
+  return data || null;
+}
+
+export async function saveCustomerPackage(pkg) {
+  const bid = await _bid();
+  const row = { ...pkg, business_id: bid, mobile: String(pkg.mobile || "").replace(/\D/g, "").slice(-10) };
+
+  // The partial unique index only covers live rows, so an upsert on
+  // (business_id, mobile) would not see a cancelled row — which is what we want.
+  const { data, error } = await supabase
+    .from("customer_packages")
+    .upsert(row, { onConflict: "business_id,mobile" })
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function setOrderSchedule(orderId, { scheduledFor, slot }) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ scheduled_for: scheduledFor, schedule_slot: slot })
+    .eq("id", orderId)
+    .eq("business_id", bid)
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+// ── What this kitchen pays Selly ──────────────────────────────────────────────
+// Rs 1,000 onboarding once, Rs 20 per completed order. The amount owed is
+// computed from the orders table (see lib/billing.js) — this only reads the
+// terms and what has already been paid. Requires migration 004.
+
+export async function fetchBusinessBilling() {
+  const bid = await _bid();
+
+  const { data, error } = await supabase
+    .from("business_billing")
+    .select("*")
+    .eq("business_id", bid)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data || null;
+}
+
+export async function fetchBillingPayments() {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("billing_payments")
+    .select("*")
+    .eq("business_id", bid)
+    .order("paid_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+// ── Creating an order by hand ─────────────────────────────────────────────────
+// Phase 1 has no customer-facing page, so this is how EVERY order gets in: the
+// kitchen takes it on the phone or on WhatsApp and types it here. Without it the
+// app has nothing to manage, so this is the load-bearing write in the product.
+
+export async function createOrder(input) {
+  const bid = await _bid();
+
+  const cart  = input.cart || [];
+  const items = cart.reduce((s, i) => s + Number(i.price || 0) * Number(i.qty || 1), 0);
+  const delivery = Number(input.deliveryCharge || 0);
+  const discount = Number(input.discount || 0);
+
+  const row = {
+    // Timestamp id, matching what the rest of the app and the bot already write.
+    id           : String(Date.now()),
+    business_id  : bid,
+    name         : input.name || "Guest",
+    mobile       : String(input.mobile || "").replace(/\D/g, "").slice(-10),
+    cart,
+    bill         : {
+      subtotal: items,
+      discount,
+      delivery,
+      total   : Math.max(0, items - discount + delivery),
+    },
+    address      : input.address || "",
+    payment_mode : input.paymentMode || "cod",
+    // A kitchen typing in an order it already agreed on the phone is not waiting
+    // for a payment decision — it starts confirmed, not pending.
+    status       : input.status || "confirmed",
+    source       : "manual",
+    channel      : "manual",
+    order_kind   : input.scheduledFor ? "scheduled" : "standard",
+    scheduled_for: input.scheduledFor || null,
+    schedule_slot: input.scheduleSlot || null,
+    extra        : input.note ? { note: input.note } : {},
+    created_at   : new Date().toISOString(),
+    updated_at   : new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase.from("orders").insert(row).select().maybeSingle();
+  if (error) throw new Error(error.message);
+  return _toOrder(data || row);
 }

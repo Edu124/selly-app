@@ -27,6 +27,9 @@ export const DEFAULT_STORE_CONFIG = {
   hours            : Array.from({ length: 7 }, () => ({ open: "10:00", close: "23:00" })),
   deliveryRadiusKm : 5,
   defaultPrepMinutes: 30,
+  // Scheduling rules — slot windows, lead time, package price. Shape and
+  // defaults live in lib/scheduling.js; this only has to carry the blob.
+  schedule         : {},
 };
 
 /** Merge a stored blob over the defaults so a partial write can't break callers. */
@@ -41,6 +44,10 @@ export function normalizeStoreConfig(raw) {
     hours,
     deliveryRadiusKm  : Number(c.deliveryRadiusKm ?? DEFAULT_STORE_CONFIG.deliveryRadiusKm),
     defaultPrepMinutes: Number(c.defaultPrepMinutes ?? DEFAULT_STORE_CONFIG.defaultPrepMinutes),
+    // Passed through rather than whitelisted field by field: the slot list is
+    // open-ended, and this function's job is to stop a partial write breaking
+    // callers, not to police the shape of a config it doesn't own.
+    schedule          : (c.schedule && typeof c.schedule === "object") ? c.schedule : {},
   };
 }
 

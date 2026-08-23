@@ -609,3 +609,94 @@ export async function resetServerUrl() {
   await AsyncStorage.setItem(KEY_URL, DEFAULT_URL);
   return DEFAULT_URL;
 }
+
+// ── Customer packages ─────────────────────────────────────────────────────────
+// The CUSTOMER's monthly package with this kitchen, which unlocks choosing a
+// delivery time. Not the kitchen's own Selly subscription — that is
+// fetchSubscription() above, billed in the opposite direction.
+//
+// There is no Railway endpoint for these yet, so this goes straight to Supabase
+// once migration 003 has been run.
+
+export async function fetchCustomerPackages() {
+  if (useFixtures()) {
+    const { getDevPackages } = await import("./devStore");
+    return getDevPackages();
+  }
+  const { fetchCustomerPackages: _f } = await import("./supabase_data");
+  return _f();
+}
+
+export async function fetchCustomerPackage(mobile) {
+  if (useFixtures()) {
+    const { getDevPackageFor } = await import("./devStore");
+    return getDevPackageFor(mobile);
+  }
+  const { fetchCustomerPackage: _f } = await import("./supabase_data");
+  return _f(mobile);
+}
+
+export async function saveCustomerPackage(pkg) {
+  if (useFixtures()) {
+    const { upsertDevPackage } = await import("./devStore");
+    return upsertDevPackage(pkg);
+  }
+  const { saveCustomerPackage: _f } = await import("./supabase_data");
+  return _f(pkg);
+}
+
+export async function cancelCustomerPackage(mobile) {
+  if (useFixtures()) {
+    const { cancelDevPackage } = await import("./devStore");
+    return cancelDevPackage(mobile);
+  }
+  const { saveCustomerPackage: _f } = await import("./supabase_data");
+  return _f({ mobile, status: "cancelled", cancelled_at: new Date().toISOString() });
+}
+
+// ── Selly's own charges to this kitchen ───────────────────────────────────────
+// Rs 1,000 onboarding, Rs 20 per completed order. What is OWED is computed from
+// orders in lib/billing.js; these two only fetch the agreed terms and the
+// payments already made.
+
+export async function fetchBusinessBilling() {
+  if (useFixtures()) {
+    // Preview: onboarding settled, standard terms.
+    return {
+      business_id: "dev-preview-business",
+      onboarding_fee: 1000,
+      onboarding_paid: true,
+      onboarding_paid_at: new Date(Date.now() - 62 * 86400000).toISOString(),
+      per_order_fee: 20,
+      status: "active",
+    };
+  }
+  const { fetchBusinessBilling: f } = await import("./supabase_data");
+  return f();
+}
+
+export async function fetchBillingPayments() {
+  if (useFixtures()) {
+    return [
+      { id: "p1", kind: "onboarding", amount: 1000, method: "upi",
+        paid_at: new Date(Date.now() - 62 * 86400000).toISOString() },
+      { id: "p2", kind: "orders", period: "July 2026", amount: 4260, orders_count: 213,
+        method: "upi", paid_at: new Date(Date.now() - 22 * 86400000).toISOString() },
+    ];
+  }
+  const { fetchBillingPayments: f } = await import("./supabase_data");
+  return f();
+}
+
+// ── Creating an order by hand ─────────────────────────────────────────────────
+// The kitchen takes an order on the phone and types it in. In phase 1 this is
+// the only way an order enters the system at all.
+
+export async function createOrder(input) {
+  if (useFixtures()) {
+    const { addDevOrder } = await import("./devStore");
+    return addDevOrder(input);
+  }
+  const { createOrder: f } = await import("./supabase_data");
+  return f(input);
+}
