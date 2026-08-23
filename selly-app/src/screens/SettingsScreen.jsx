@@ -48,6 +48,7 @@ export default function SettingsScreen() {
   const [testing, setTesting]       = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [industrySaving, setIndustrySaving] = useState(false);
+  const [industryError, setIndustryError] = useState(null);
 
   const [biz, setBiz]         = useState(DEFAULT_SETTINGS);
   const [bizSaving, setBizSaving] = useState(false);
@@ -510,8 +511,17 @@ export default function SettingsScreen() {
               onPress={async () => {
                 if (isActive || industrySaving) return;
                 setIndustrySaving(true);
-                await updateIndustry(opt.id);
+                // The result was being thrown away. updateIndustry switches the
+                // UI optimistically before it writes, so a failed save left the
+                // app showing the new type while the database still held the old
+                // one -- and it silently reverted on the next reload.
+                const res = await updateIndustry(opt.id);
                 setIndustrySaving(false);
+                if (res && res.ok === false) {
+                  setIndustryError(res.error || "Couldn't save the business type.");
+                } else {
+                  setIndustryError(null);
+                }
               }}
               disabled={industrySaving}
             >
@@ -521,6 +531,11 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           );
         })}
+        {industryError && (
+          <View style={styles.industryErrBox}>
+            <Text style={styles.industryErrText}>{industryError}</Text>
+          </View>
+        )}
         {industrySaving && (
           <ActivityIndicator color={Colors.primary} size="small" style={{ marginTop: 8 }} />
         )}
@@ -998,6 +1013,11 @@ const styles = StyleSheet.create({
 
   fieldHint   : { color: Colors.textMuted, fontSize: 11, marginBottom: 6, marginTop: -2 },
   sectionDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 16 },
+
+  industryErrBox : { backgroundColor: "rgba(239,68,68,0.10)", borderWidth: 1,
+                     borderColor: "rgba(239,68,68,0.28)", borderRadius: 10,
+                     padding: 11, marginTop: 10 },
+  industryErrText: { color: "#f87171", fontSize: 12.5, lineHeight: 18 },
 
   schedRow        : { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10,
                       borderBottomWidth: 1, borderBottomColor: Colors.border },
