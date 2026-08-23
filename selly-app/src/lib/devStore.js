@@ -621,3 +621,43 @@ export async function assignDevToken(orderId) {
   await patchDevOrder(orderId, { token, delivery_otp: otp });
   return { token, otp };
 }
+
+// ── Saved addresses (preview) ─────────────────────────────────────────────────
+// Mirrors supabase_data so the picker behaves identically with no backend.
+
+export async function getDevAddresses(mobile) {
+  const key  = _ten(mobile);
+  const list = await getDevContacts();
+  const c    = list.find(x => _ten(x.mobile) === key);
+  return {
+    name     : (c && c.name) || "",
+    addresses: (c && Array.isArray(c.addresses)) ? c.addresses : [],
+  };
+}
+
+export async function saveDevAddress(mobile, { label, address, name }) {
+  const key  = _ten(mobile);
+  const addr = String(address || "").trim();
+  if (key.length !== 10 || !addr) return null;
+
+  const current = await getDevAddresses(key);
+  const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const tag  = label || "Other";
+
+  // Dropped if it is the same place, OR if it reuses a named label. Somebody
+  // who moves house has one Home, not two chips both saying Home with different
+  // addresses on them. "Other" is exempt -- a customer legitimately has several
+  // of those, and collapsing them would lose the one they meant.
+  const kept = (current.addresses || []).filter(a =>
+    !same(a.address || "", addr) && !(tag !== "Other" && a.label === tag));
+
+  const next = [{ label: tag, address: addr, usedAt: new Date().toISOString() },
+                ...kept].slice(0, 6);
+
+  await upsertDevContact({ mobile: key, name });
+  const list = await getDevContacts();
+  const out  = list.map(c => (_ten(c.mobile) === key ? { ...c, addresses: next } : c));
+  await AsyncStorage.setItem(DEV_CONTACTS_KEY, JSON.stringify(out));
+  if (isWeb) window.dispatchEvent(new Event(SAME_TAB_EVENT));
+  return next;
+}

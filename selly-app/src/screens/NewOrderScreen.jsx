@@ -22,7 +22,10 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
-import { fetchCatalog, createOrder, fetchCustomerPackage, upsertCustomerContact } from "../lib/api";
+import {
+  fetchCatalog, createOrder, fetchCustomerPackage, upsertCustomerContact,
+  fetchCustomerAddresses, saveCustomerAddress,
+} from "../lib/api";
 import { loadStoreConfig } from "../lib/storeStatus";
 import { friendlyError } from "../lib/errors";
 import { inr } from "../lib/whatsapp";
@@ -44,6 +47,8 @@ export default function NewOrderScreen({ navigation }) {
   const [dayIdx,   setDayIdx]   = useState(0);
   const [sched,    setSched]    = useState(null);
   const [gate,     setGate]     = useState(null);   // package check for this mobile
+  const [saved,    setSaved]    = useState([]);     // addresses this number has used
+  const [addrLabel, setAddrLabel] = useState(null); // label to file a new address under
 
   const [settings, setSettings] = useState(null);
   const [loading,  setLoading]  = useState(true);
@@ -76,7 +81,21 @@ export default function NewOrderScreen({ navigation }) {
   // look up. Checked here rather than at save time so the kitchen finds out
   // before it promises the customer a delivery time it cannot honour.
   const checkPackage = useCallback(async (digits) => {
-    if (digits.length !== 10 || !sched) { setGate(null); return; }
+    if (digits.length !== 10) { setGate(null); setSaved([]); return; }
+
+    // Addresses first: a repeat customer giving the same address every time is
+    // the common case, and retyping it while they wait on the phone is the
+    // thing this screen exists to avoid.
+    try {
+      const known = await fetchCustomerAddresses(digits);
+      setSaved((known && known.addresses) || []);
+      // Only fill a blank name -- never overwrite what is being typed.
+      if (known && known.name) setName(n => (n.trim() ? n : known.name));
+    } catch {
+      setSaved([]);
+    }
+
+    if (!sched) { setGate(null); return; }
     try {
       const pkg = await fetchCustomerPackage(digits);
       setGate(canSchedule(pkg, sched));
@@ -196,12 +215,21 @@ export default function NewOrderScreen({ navigation }) {
       // customer's order ten times and still have no way to reach them.
       await upsertCustomerContact({ mobile: digits, name: name.trim() }).catch(() => {});
 
+      // File the address against the number. Saved whether or not a label was
+      // picked -- an unlabelled address they can tap next time is still worth
+      // more than making them type it again.
+      await saveCustomerAddress(digits, {
+        label  : addrLabel || "Other",
+        address: address.trim(),
+        name   : name.trim(),
+      }).catch(() => {});
+
       // Straight to the screen that now owns it, rather than back to a blank
       // form — the kitchen's next question is always "is it in the queue".
       navigation?.navigate?.(when ? "Scheduled" : "Kitchen");
 
       setCart({}); setName(""); setMobile(""); setAddress(""); setNote("");
-      setWhen(null); setGate(null);
+      setWhen(null); setGate(null); setSaved([]); setAddrLabel(null);
     } catch (e) {
       Alert.alert("Couldn't save the order", friendlyError(e));
     } finally {
@@ -362,12 +390,64 @@ export default function NewOrderScreen({ navigation }) {
           </Text>
 
           <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Delivery address</Text>
+
+          {/* Anything this number has ordered to before. One tap beats retyping
+              a Pune address with the customer waiting on the line. */}
+          {saved.length > 0 && (
+            <View style={styles.savedRow}>
+              {saved.map((a, i) => {
+                const on = address.trim() === (a.address || "").trim();
+                return (
+                  <TouchableOpacity
+                    key={i}
+                    style={[styles.savedChip, on && styles.savedChipOn]}
+                    onPress={() => {
+                      setAddress(a.address || "");
+                      setAddrLabel(a.label || null);
+                    }}
+                  >
+                    <Text style={[styles.savedLabel, on && styles.savedLabelOn]}>
+                      {a.label || "Saved"}
+                    </Text>
+                    <Text style={styles.savedText} numberOfLines={1}>{a.address}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                style={styles.savedChip}
+                onPress={() => { setAddress(""); setAddrLabel(null); }}
+              >
+                <Text style={styles.savedLabel}>+ Somewhere else</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <TextInput
             style={[styles.input, styles.multiline]}
             value={address} onChangeText={setAddress} multiline
             placeholder={"Flat 302, B wing, Shanti Residency, near D-Mart, Baner"}
             placeholderTextColor={Colors.textMuted}
           />
+
+          {/* Offered only for an address not already on file, so a regular
+              customer is never asked to re-label the same home twice. */}
+          {address.trim().length > 6 &&
+           !saved.some(a => (a.address || "").trim() === address.trim()) && (
+            <View style={styles.labelRow}>
+              <Text style={styles.labelHint}>Save this as</Text>
+              {["Home", "Work", "Office", "Other"].map(l => (
+                <TouchableOpacity
+                  key={l}
+                  style={[styles.labelChip, addrLabel === l && styles.labelChipOn]}
+                  onPress={() => setAddrLabel(addrLabel === l ? null : l)}
+                >
+                  <Text style={[styles.labelChipText, addrLabel === l && styles.labelChipTextOn]}>
+                    {l}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Note for the kitchen</Text>
           <TextInput
@@ -584,6 +664,26 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border,
   },
   multiline : { height: 74, textAlignVertical: "top" },
+
+  savedRow  : { gap: 7, marginBottom: 9 },
+  savedChip : {
+    backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9,
+  },
+  savedChipOn : { backgroundColor: Colors.primarySoft, borderColor: Colors.primary },
+  savedLabel  : { color: Colors.textSecondary, fontSize: 12, fontWeight: "800" },
+  savedLabelOn: { color: Colors.primaryLight },
+  savedText   : { color: Colors.textMuted, fontSize: 11.5, marginTop: 3 },
+
+  labelRow   : { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7, marginTop: 9 },
+  labelHint  : { color: Colors.textMuted, fontSize: 11.5, marginRight: 2 },
+  labelChip  : {
+    backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  labelChipOn    : { backgroundColor: Colors.primarySoft, borderColor: Colors.primary },
+  labelChipText  : { color: Colors.textSecondary, fontSize: 12 },
+  labelChipTextOn: { color: Colors.primaryLight, fontWeight: "800" },
 
   whenRow  : { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   whenBtn  : {

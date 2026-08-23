@@ -807,3 +807,23 @@ export async function assignDeliveryToken(orderId) {
   const { assignDeliveryToken: f } = await import("./supabase_data");
   return f(orderId);
 }
+
+// ── Saved addresses ───────────────────────────────────────────────────────────
+
+export async function fetchCustomerAddresses(mobile) {
+  if (useFixtures()) {
+    const { getDevAddresses } = await import("./devStore");
+    return getDevAddresses(mobile);
+  }
+  const { fetchCustomerAddresses: f } = await import("./supabase_data");
+  return f(mobile);
+}
+
+export async function saveCustomerAddress(mobile, entry) {
+  if (useFixtures()) {
+    const { saveDevAddress } = await import("./devStore");
+    return saveDevAddress(mobile, entry);
+  }
+  const { saveCustomerAddress: f } = await import("./supabase_data");
+  return f(mobile, entry);
+}

@@ -770,3 +770,63 @@ export async function assignDeliveryToken(orderId) {
   const row = Array.isArray(data) ? data[0] : data;
   return row || null;
 }
+
+// ── Saved addresses ───────────────────────────────────────────────────────────
+// Kept on the contact rather than in their own table: a customer has two or
+// three, always read together, never queried on their own. Requires FIX_005.
+
+export async function fetchCustomerAddresses(mobile) {
+  const bid = await _bid();
+  const key = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (key.length !== 10) return [];
+
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .select("addresses, name")
+    .eq("business_id", bid)
+    .eq("mobile", key)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return {
+    name     : (data && data.name) || "",
+    addresses: (data && Array.isArray(data.addresses)) ? data.addresses : [],
+  };
+}
+
+/**
+ * Remember an address against a customer.
+ *
+ * Matching on the address text rather than the label, because a customer whose
+ * "Home" moved should get their new home recorded, not a second row that looks
+ * identical in the picker. Most recently used comes first.
+ */
+export async function saveCustomerAddress(mobile, { label, address, name }) {
+  const bid = await _bid();
+  const key = String(mobile || "").replace(/\D/g, "").slice(-10);
+  const addr = String(address || "").trim();
+  if (key.length !== 10 || !addr) return null;
+
+  const current = await fetchCustomerAddresses(key);
+  const same = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const tag  = label || "Other";
+
+  // Dropped if it is the same place, OR if it reuses a named label. Somebody
+  // who moves house has one Home, not two chips both saying Home with different
+  // addresses on them. "Other" is exempt -- a customer legitimately has several
+  // of those, and collapsing them would lose the one they meant.
+  const kept = (current.addresses || []).filter(a =>
+    !same(a.address || "", addr) && !(tag !== "Other" && a.label === tag));
+
+  const next = [{ label: tag, address: addr, usedAt: new Date().toISOString() },
+                ...kept].slice(0, 6);
+
+  const row = { business_id: bid, mobile: key, addresses: next };
+  if (name) row.name = name;
+
+  const { error } = await supabase
+    .from("customer_contacts")
+    .upsert(row, { onConflict: "business_id,mobile" });
+  if (error) throw new Error(error.message);
+  return next;
+}
