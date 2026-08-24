@@ -267,7 +267,10 @@
         $("ktName").textContent = kitchen.business_name || "Kitchen";
 
         var cfg  = kitchen.store_config || {};
-        var open = cfg.acceptingOrders !== false;
+        // Open/closed is decided by the database, which knows the trading hours
+        // and the kitchen's timezone. Working it out here from the raw config
+        // would be a second implementation to disagree with the first.
+        var open = kitchen.is_open !== false;
         $("ktDot").className = "dot" + (open ? "" : " shut");
         $("ktMeta").textContent = (open ? "Open" : "Closed") +
           (kitchen.city ? " · " + kitchen.city : "");
@@ -275,6 +278,12 @@
           $("shutBar").style.display = "block";
           $("shutBar").textContent = cfg.closedMessage ||
             "This kitchen isn't taking orders right now. Do come back later.";
+          // Menu stays visible -- people like to look -- but there is no point
+          // letting somebody build a cart the checkout will refuse.
+          $("goBtn").disabled = true;
+          $("goBtn").textContent = "Closed";
+          $("goBtn").style.background = "var(--line)";
+          $("goBtn").style.color = "var(--tx3)";
         }
         renderMenu();
         show("app");
