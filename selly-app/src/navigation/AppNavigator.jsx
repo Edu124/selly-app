@@ -42,6 +42,7 @@ import PackagesScreen        from "../screens/PackagesScreen";
 import NewOrderScreen        from "../screens/NewOrderScreen";
 import RatingsScreen         from "../screens/RatingsScreen";
 import DeliveryScreen        from "../screens/DeliveryScreen";
+import OrderLinkScreen       from "../screens/OrderLinkScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
 import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
@@ -403,6 +404,7 @@ function MainDrawer({ industry }) {
     Kitchen  : { label: "Kitchen",           icon: "flame"      },
     Scheduled: { label: "Scheduled",         icon: "calendar"   },
     Members  : { label: "Members",           icon: "star"       },
+    OrderLink: { label: "Ordering link",      icon: "qr-code"    },
     Delivery : { label: "Delivery",          icon: "bicycle"    },
     Ratings  : { label: "Ratings",           icon: "happy"      },
     Orders   : { label: cfg.orders.label,    icon: cfg.orders.icon    },
@@ -457,6 +459,11 @@ function MainDrawer({ industry }) {
       )}
       {/* Ratings sits in the drawer rather than under More: an unhappy customer
           is time-sensitive, and a screen nobody opens is where they get lost. */}
+      {/* The ordering link sits right after New order: one is how an order gets
+          in when they phone you, the other is how it gets in when they don't. */}
+      {cfg.hasPrepQueue && (
+        <Drawer.Screen name="OrderLink" component={OrderLinkScreen} options={{ title: "Ordering link" }} />
+      )}
       {cfg.hasPrepQueue && (
         <Drawer.Screen name="Delivery" component={DeliveryScreen} options={{ title: "Delivery" }} />
       )}
