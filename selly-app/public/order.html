@@ -252,12 +252,14 @@
   if (!code) { show("bad"); }
   else {
     show("load");
-    api("/rest/v1/public_kitchen?public_code=eq." + encodeURIComponent(code) + "&select=*")
+    // Both calls take the code. There is no way to ask for "all kitchens" or
+    // "all menus" -- the earlier version used views, and a view answers whatever
+    // query it is handed, including one with no filter at all.
+    rpc("get_public_kitchen", { p_code: code })
       .then(function (rows) {
         kitchen = rows && rows[0];
         if (!kitchen) throw new Error("no kitchen");
-        return api("/rest/v1/public_menu?business_id=eq." +
-                   encodeURIComponent(kitchen.business_id) + "&select=*");
+        return rpc("get_public_menu", { p_code: code });
       })
       .then(function (rows) {
         menu = rows || [];
