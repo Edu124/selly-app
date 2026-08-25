@@ -15,14 +15,14 @@
 
 import React, { useState, useCallback } from "react";
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity,
-  ActivityIndicator, Share, Platform, Linking,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
+  ActivityIndicator, Share, Platform, Linking, Switch, Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
-import { fetchBusinessSettings, fetchCatalog } from "../lib/api";
+import { fetchBusinessSettings, saveBusinessSettings, fetchCatalog } from "../lib/api";
 import { friendlyError } from "../lib/errors";
 import { ratingBase } from "../lib/messaging";
 import QrCode from "../components/QrCode";
@@ -33,6 +33,12 @@ export default function OrderLinkScreen({ navigation }) {
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(null);
   const [copied,   setCopied]   = useState(false);
+  const [listed,   setListed]   = useState(false);
+  const [cuisine,  setCuisine]  = useState("");
+  const [radius,   setRadius]   = useState("5");
+  const [coords,   setCoords]   = useState(null);
+  const [locBusy,  setLocBusy]  = useState(false);
+  const [saveMsg,  setSaveMsg]  = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,7 +47,12 @@ export default function OrderLinkScreen({ navigation }) {
         fetchBusinessSettings(),
         fetchCatalog().catch(() => ({ products: [] })),
       ]);
-      setSettings((s && s.settings) || {});
+      const st = (s && s.settings) || {};
+      setSettings(st);
+      setListed(!!st.listed);
+      setCuisine(st.cuisine || "");
+      setRadius(String(st.delivery_radius_km ?? 5));
+      setCoords(st.lat != null && st.lng != null ? { lat: st.lat, lng: st.lng } : null);
       setDishes(((c && c.products) || []).filter(p => p.inStock !== false).length);
       setError(null);
     } catch (e) {
@@ -149,6 +160,118 @@ export default function OrderLinkScreen({ navigation }) {
             </View>
           </View>
 
+          {/* ── being found by people who have never heard of you ── */}
+          <Text style={styles.sectionLabel}>BE FOUND ON SELLY</Text>
+          <View style={styles.listCard}>
+            <View style={styles.listRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.listTitle}>List my kitchen</Text>
+                <Text style={styles.listBody}>
+                  {listed
+                    ? "Customers searching near you can find you and order."
+                    : "Off — only people you give your link to can order."}
+                </Text>
+              </View>
+              <Switch
+                value={listed}
+                onValueChange={setListed}
+                trackColor={{ false: Colors.border, true: Colors.primary }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {listed && (
+              <>
+                {/* Without a location nobody can be found by distance, so this
+                    is the one thing that has to be set. */}
+                <TouchableOpacity
+                  style={[styles.locBtn, coords && styles.locBtnOn]}
+                  disabled={locBusy}
+                  onPress={() => {
+                    if (typeof navigator === "undefined" || !navigator.geolocation) {
+                      Alert.alert("Not available", "This device can't share a location. Open Selly in a browser on your phone, standing at the kitchen.");
+                      return;
+                    }
+                    setLocBusy(true);
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setCoords({
+                          lat: Number(pos.coords.latitude.toFixed(6)),
+                          lng: Number(pos.coords.longitude.toFixed(6)),
+                        });
+                        setLocBusy(false);
+                      },
+                      () => {
+                        setLocBusy(false);
+                        Alert.alert("Couldn't get your location", "Allow location for this site, then try again.");
+                      },
+                      { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                  }}
+                >
+                  <Ionicons
+                    name={coords ? "checkmark-circle" : "location-outline"}
+                    size={15}
+                    color={coords ? Colors.green : Colors.primaryLight}
+                  />
+                  <Text style={[styles.locBtnText, coords && { color: Colors.green }]}>
+                    {locBusy ? "Finding you…"
+                      : coords ? `Location set · ${coords.lat}, ${coords.lng}`
+                      : "Set my kitchen's location"}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.listHint}>
+                  Do this standing at the kitchen — it's what "3 km away" is
+                  measured from. Nobody can find you by distance without it.
+                </Text>
+
+                <Text style={styles.fieldLabel}>What you cook</Text>
+                <TextInput
+                  style={styles.input} value={cuisine} onChangeText={setCuisine}
+                  placeholder="North Indian, Thali, Biryani…"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.fieldLabel}>How far you'll deliver (km)</Text>
+                <TextInput
+                  style={styles.input} value={radius}
+                  onChangeText={v => setRadius(v.replace(/[^0-9.]/g, ""))}
+                  keyboardType="numeric" placeholder="5"
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <Text style={styles.listHint}>
+                  Your answer, not ours. Somebody further than this simply won't
+                  be shown your kitchen.
+                </Text>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={async () => {
+                if (listed && !coords) {
+                  Alert.alert("Location needed", "Set your kitchen's location first, or customers can't be shown how far away you are.");
+                  return;
+                }
+                try {
+                  await saveBusinessSettings({
+                    listed,
+                    cuisine: cuisine.trim(),
+                    delivery_radius_km: Number(radius) || 5,
+                    lat: coords ? coords.lat : null,
+                    lng: coords ? coords.lng : null,
+                  });
+                  setSaveMsg("Saved");
+                  setTimeout(() => setSaveMsg(null), 2200);
+                } catch (e) {
+                  Alert.alert("Couldn't save", friendlyError(e));
+                }
+              }}
+            >
+              <Text style={styles.saveBtnText}>{saveMsg || "Save listing"}</Text>
+            </TouchableOpacity>
+          </View>
+
           <Text style={styles.sectionLabel}>WHERE TO PUT IT</Text>
           {[
             { icon: "🧾", t: "On the packet",     d: "A sticker with this code. The customer who already liked your food is the cheapest one to get back." },
@@ -223,6 +346,24 @@ const styles = StyleSheet.create({
     color: Colors.textMuted, fontSize: 9.5, fontWeight: "800",
     letterSpacing: 0.9, marginTop: 24, marginBottom: 10,
   },
+  listCard : { backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+               borderRadius: 14, padding: 14 },
+  listRow  : { flexDirection: "row", alignItems: "center", gap: 12 },
+  listTitle: { color: Colors.textPrimary, fontSize: 14.5, fontWeight: "700" },
+  listBody : { color: Colors.textMuted, fontSize: 12, marginTop: 4, lineHeight: 17 },
+  listHint : { color: Colors.textMuted, fontSize: 11, marginTop: 7, lineHeight: 16 },
+  locBtn   : { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
+               backgroundColor: Colors.bgInput, borderWidth: 1, borderColor: Colors.border,
+               borderRadius: 11, padding: 13, marginTop: 14 },
+  locBtnOn : { borderColor: "rgba(34,197,94,0.4)" },
+  locBtnText: { color: Colors.primaryLight, fontSize: 12.5, fontWeight: "700" },
+  fieldLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: "600", marginTop: 14, marginBottom: 6 },
+  input    : { backgroundColor: Colors.bgInput, borderRadius: 10, padding: 12,
+               color: Colors.textPrimary, fontSize: 14, borderWidth: 1, borderColor: Colors.border },
+  saveBtn  : { backgroundColor: Colors.primary, borderRadius: 11, padding: 13,
+               alignItems: "center", marginTop: 16 },
+  saveBtnText: { color: "#fff", fontSize: 13.5, fontWeight: "800" },
+
   tipRow  : { flexDirection: "row", gap: 11, alignItems: "flex-start", marginBottom: 14 },
   tipIcon : { fontSize: 19 },
   tipTitle: { color: Colors.textPrimary, fontSize: 13.5, fontWeight: "700" },

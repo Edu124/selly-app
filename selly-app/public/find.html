@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a12">
+<title>Selly — food near you</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#0a0a12;--card:#14141f;--elev:#1c1c2b;--line:#242437;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
+    --violet:#7c5cff;--violet-d:#6a4ae8;--green:#22c55e;--amber:#f5a524;--red:#ef4444;
+  }
+  html,body{background:var(--bg);color:var(--tx);overflow-x:clip}
+  body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding-bottom:40px}
+  .wrap{max-width:520px;margin:0 auto;padding:0 18px}
+
+  .brand{display:flex;align-items:center;gap:9px;padding:22px 0 6px}
+  .brand .logo{font-size:22px;font-weight:900;letter-spacing:-.6px}
+  .brand .logo span{color:var(--green)}
+
+  h1{font-size:25px;font-weight:800;letter-spacing:-.6px;line-height:1.25;margin-top:14px}
+  .sub{color:var(--tx2);font-size:14px;margin-top:9px;line-height:1.6}
+
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:16px 0 6px;letter-spacing:.2px}
+  input,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px;color:var(--tx);font-size:15.5px;font-family:inherit;outline:none}
+  input:focus,textarea:focus{border-color:var(--violet)}
+  textarea{resize:none;line-height:1.5}
+  .hint{font-size:11.5px;color:var(--tx3);margin-top:6px;line-height:1.5}
+
+  .locBtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+    background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:13px;
+    color:var(--tx);font-size:13.5px;font-weight:700;cursor:pointer;margin-top:9px}
+  .locBtn.got{border-color:rgba(34,197,94,.4);color:var(--green)}
+
+  .go{width:100%;background:var(--violet);border:none;color:#fff;border-radius:13px;
+    padding:17px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:22px}
+  .go:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  .err{color:#f87171;font-size:13px;margin-top:12px;display:none;line-height:1.5}
+  .err.on{display:block}
+
+  /* ── results ── */
+  .backRow{display:flex;align-items:center;gap:9px;padding:20px 0 4px}
+  .back{background:var(--elev);border:1px solid var(--line);color:var(--tx2);
+    width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer}
+  .backRow .who{font-size:12.5px;color:var(--tx2);line-height:1.4}
+  .backRow .who b{color:var(--tx);display:block;font-size:14px}
+
+  .kit{display:block;text-decoration:none;color:inherit;background:var(--card);
+    border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:11px}
+  .kit.shut{opacity:.55}
+  .kTop{display:flex;align-items:center;gap:11px}
+  .kAv{width:44px;height:44px;border-radius:13px;flex:none;display:grid;place-items:center;
+    font-size:21px;background:linear-gradient(135deg,#f5a524,#f97316)}
+  .kName{font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .kMeta{color:var(--tx2);font-size:12px;margin-top:3px}
+  .kDist{margin-left:auto;text-align:right;flex:none}
+  .kDist b{font-size:15px;font-weight:800;display:block}
+  .kDist span{font-size:10.5px;color:var(--tx3)}
+  .kFoot{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
+  .tag{background:var(--elev);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--tx2)}
+  .tag.open{background:rgba(34,197,94,.13);color:var(--green);font-weight:700}
+  .tag.shut{background:rgba(239,68,68,.13);color:#f87171;font-weight:700}
+
+  .state{text-align:center;padding:60px 20px}
+  .state .em{font-size:44px}
+  .state h2{font-size:18px;font-weight:800;margin-top:16px}
+  .state p{color:var(--tx2);font-size:13.5px;margin-top:9px;line-height:1.6}
+  .linkBtn{background:none;border:none;color:#9d87ff;font-size:13.5px;font-weight:700;
+    cursor:pointer;margin-top:16px;text-decoration:underline}
+
+  #step2,#loading{display:none}
+  .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:28px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <div class="logo">selly<span>.</span></div>
+  </div>
+
+  <!-- ── step 1: who and where ── -->
+  <div id="step1">
+    <h1>Good food,<br>from a kitchen near you</h1>
+    <p class="sub">
+      Tell us where you are and we'll show you the kitchens that actually deliver
+      to you. No app, no account.
+    </p>
+
+    <label for="nm">Your name</label>
+    <input id="nm" placeholder="Your name" autocomplete="name">
+
+    <label for="ph">Mobile number</label>
+    <input id="ph" placeholder="98765 43210" inputmode="numeric" autocomplete="tel" maxlength="11">
+    <div class="hint">Your order updates come here.</div>
+
+    <label for="ad">Delivery address</label>
+    <textarea id="ad" rows="3" placeholder="Flat 302, B wing, Shanti Residency, near D-Mart, Baner" autocomplete="street-address"></textarea>
+
+    <button class="locBtn" id="locBtn">📍 Use my current location</button>
+    <div class="hint" id="locHint">
+      Sharing your location finds kitchens by real distance. Without it we can
+      only match on your city.
+    </div>
+
+    <label for="ct">City</label>
+    <input id="ct" placeholder="Pune" autocomplete="address-level2">
+
+    <div class="err" id="err"></div>
+    <button class="go" id="goBtn">Find kitchens near me</button>
+    <p class="foot">We remember this on your phone so you only type it once.</p>
+  </div>
+
+  <!-- ── step 2: pick a kitchen ── -->
+  <div id="step2">
+    <div class="backRow">
+      <button class="back" id="backBtn">←</button>
+      <div class="who"><b id="whoName">You</b><span id="whoAddr"></span></div>
+    </div>
+    <div id="results"></div>
+    <p class="foot">Tap a kitchen to see its menu and order.</p>
+  </div>
+
+  <div id="loading" class="state"><div class="em">🍲</div><p>Looking for kitchens near you…</p></div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SUPABASE_URL  = "https://ekughxkikjzkimadyyuk.supabase.co";
+  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdWdoeGtpa2p6a2ltYWR5eXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODkxNzQsImV4cCI6MjA5MjE2NTE3NH0.RMROZ2GAcDC6yxY8YjLW3RmyUk2c5G6HnzQry4qA2xs";
+  var KEY = "selly_customer";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+  var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+  var me = { lat: null, lng: null };
+
+  function rpc(fn, body) {
+    return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+      method : "POST",
+      headers: { "Content-Type": "application/json",
+                 "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON },
+      body   : JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        if (!r.ok) throw new Error((d && (d.message || d.hint)) || "Something went wrong.");
+        return d;
+      });
+    });
+  }
+
+  function show(which) {
+    ["step1","step2","loading"].forEach(function (id) {
+      $(id).style.display = id === which ? "block" : "none";
+    });
+    window.scrollTo(0, 0);
+  }
+
+  // ── remember them, so this is typed once and never again ──────────────────
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  if (saved.name)    $("nm").value = saved.name;
+  if (saved.mobile)  $("ph").value = saved.mobile;
+  if (saved.address) $("ad").value = saved.address;
+  if (saved.city)    $("ct").value = saved.city;
+  if (saved.lat && saved.lng) {
+    me.lat = saved.lat; me.lng = saved.lng;
+    $("locBtn").classList.add("got");
+    $("locBtn").textContent = "📍 Location saved";
+  }
+
+  $("ph").addEventListener("input", function (e) {
+    var d = e.target.value.replace(/\D/g, "").slice(0, 10);
+    e.target.value = d.length > 5 ? d.slice(0, 5) + " " + d.slice(5) : d;
+  });
+
+  // ── location, from the browser rather than a paid geocoder ────────────────
+  $("locBtn").onclick = function () {
+    var b = this;
+    if (!navigator.geolocation) {
+      $("locHint").textContent = "This browser can't share a location. We'll match on your city instead.";
+      return;
+    }
+    b.textContent = "📍 Finding you…";
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        me.lat = Number(pos.coords.latitude.toFixed(6));
+        me.lng = Number(pos.coords.longitude.toFixed(6));
+        b.classList.add("got");
+        b.textContent = "📍 Location saved";
+        $("locHint").textContent = "We'll find kitchens by real distance from here.";
+      },
+      function () {
+        b.textContent = "📍 Use my current location";
+        // Not an error. Plenty of people say no, and the city fallback exists
+        // exactly so that saying no is not a dead end.
+        $("locHint").textContent =
+          "No problem — we'll match on your city instead. Distances won't show.";
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  };
+
+  // ── find ──────────────────────────────────────────────────────────────────
+  $("goBtn").onclick = function () {
+    var err = $("err");
+    var name = $("nm").value.trim();
+    var ph   = $("ph").value.replace(/\D/g, "");
+    var ad   = $("ad").value.trim();
+    var city = $("ct").value.trim();
+
+    if (ph.length !== 10) { err.textContent = "Please enter a 10-digit mobile number."; err.classList.add("on"); return; }
+    if (!ad)              { err.textContent = "Please enter your delivery address.";    err.classList.add("on"); return; }
+    if (!me.lat && !city) { err.textContent = "Either share your location or type your city."; err.classList.add("on"); return; }
+    err.classList.remove("on");
+
+    var who = { name: name, mobile: ph, address: ad, city: city, lat: me.lat, lng: me.lng };
+    try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
+
+    $("whoName").textContent = name || "Your order";
+    $("whoAddr").textContent = ad;
+    show("loading");
+
+    var call = me.lat
+      ? rpc("kitchens_near", { p_lat: me.lat, p_lng: me.lng, p_max_km: 5 })
+      : rpc("kitchens_in_city", { p_city: city });
+
+    call.then(render).catch(function (e) {
+      show("step1");
+      err.textContent = e.message; err.classList.add("on");
+    });
+  };
+
+  $("backBtn").onclick = function () { show("step1"); };
+
+  function render(rows) {
+    var el = $("results");
+    if (!rows || !rows.length) {
+      el.innerHTML =
+        '<div class="state"><div class="em">🙁</div>' +
+        '<h2>Nothing near you yet</h2>' +
+        '<p>Selly is new in your area — no kitchen delivers here just now. ' +
+        'Do try again in a few days.</p></div>';
+      show("step2");
+      return;
+    }
+
+    el.innerHTML = "";
+    rows.forEach(function (k) {
+      var a = document.createElement("a");
+      a.className = "kit" + (k.is_open ? "" : " shut");
+      // Their details ride along, so the menu page does not ask again.
+      a.href = "order.html?k=" + encodeURIComponent(k.public_code) + "&from=find";
+
+      var dist = (k.distance_km != null)
+        ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>' : "";
+
+      a.innerHTML =
+        '<div class="kTop">' +
+          '<div class="kAv">🍲</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div class="kName">' + esc(k.business_name || "Kitchen") + '</div>' +
+            '<div class="kMeta">' +
+              (k.cuisine ? esc(k.cuisine) + " · " : "") +
+              k.dishes + (k.dishes === 1 ? " dish" : " dishes") +
+              (k.min_price != null ? " · from " + inr(k.min_price) : "") +
+            '</div>' +
+          '</div>' + dist +
+        '</div>' +
+        '<div class="kFoot">' +
+          '<span class="tag ' + (k.is_open ? "open" : "shut") + '">' +
+            (k.is_open ? "Open now" : "Closed") + '</span>' +
+          (Number(k.delivery_charge) > 0
+            ? '<span class="tag">' + inr(k.delivery_charge) + ' delivery</span>'
+            : '<span class="tag">Free delivery</span>') +
+          (Number(k.free_above) > 0
+            ? '<span class="tag">Free over ' + inr(k.free_above) + '</span>' : "") +
+        '</div>';
+      el.appendChild(a);
+    });
+    show("step2");
+  }
+})();
+</script>
+</body>
+</html>

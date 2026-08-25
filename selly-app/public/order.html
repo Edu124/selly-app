@@ -215,6 +215,12 @@
 
   var kitchen = null, menu = [], cart = {}, payMode = "cod";
 
+  // Details already given on the Selly find page. Filled in here rather than
+  // asked again — a customer who typed their address two screens ago and is
+  // asked for it a second time concludes the thing is broken.
+  var known = {};
+  try { known = JSON.parse(localStorage.getItem("selly_customer") || "{}"); } catch (e) {}
+
   function api(path, opts) {
     return fetch(SUPABASE_URL + path, Object.assign({
       headers: { "Content-Type": "application/json",
@@ -430,7 +436,17 @@
   }
 
   // ── checkout ──────────────────────────────────────────────────────────────
+  function prefill() {
+    if (known.name    && !$("nm").value) $("nm").value = known.name;
+    if (known.address && !$("ad").value) $("ad").value = known.address;
+    if (known.mobile  && !$("ph").value) {
+      var d = String(known.mobile).replace(/\D/g, "").slice(0, 10);
+      $("ph").value = d.length > 5 ? d.slice(0, 5) + " " + d.slice(5) : d;
+    }
+  }
+
   $("goBtn").onclick = function () {
+    prefill();
     var ls = lines();
     $("lines").innerHTML = ls.map(function (l) {
       return '<div class="ln"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span>' +
@@ -492,6 +508,11 @@
       .then(function (rows) {
         var r = rows && rows[0];
         if (!r) throw new Error("The order didn't go through. Please try again.");
+        try {
+          localStorage.setItem("selly_customer", JSON.stringify(Object.assign({}, known, {
+            name: $("nm").value.trim(), mobile: ph, address: ad,
+          })));
+        } catch (e) {}
         closeSheet();
         showDone(r);
       })
