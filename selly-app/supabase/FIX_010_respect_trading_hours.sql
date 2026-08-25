@@ -219,7 +219,13 @@ grant execute on function public.place_public_order(text, text, text, text, json
 
 
 -- ── Tell the page, so it can say so before anyone fills a cart ───────────────
-create or replace function public.get_public_kitchen(p_code text)
+-- Dropped first, not replaced. This adds is_open to the returned columns, and
+-- Postgres refuses to change a function's OUT parameters through CREATE OR
+-- REPLACE -- the row type is part of its identity. Nothing depends on it in the
+-- database, so dropping is safe; the grant is reissued below.
+drop function if exists public.get_public_kitchen(text);
+
+create function public.get_public_kitchen(p_code text)
 returns table (
   business_id     text,
   business_name   text,

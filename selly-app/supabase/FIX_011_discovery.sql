@@ -2,6 +2,10 @@
 -- SELLY — customers find a kitchen near them.  Run in the SQL Editor.
 -- ═══════════════════════════════════════════════════════════════════════════════
 --
+-- RUN FIX_010 FIRST. The functions here call kitchen_is_open, which FIX_010
+-- creates; run them the other way round and this one fails on a missing
+-- function rather than doing anything useful.
+--
 -- Until now a customer needed a particular kitchen's link. This is the Selly
 -- front door: tell us where you are, see the kitchens that can reach you, pick
 -- one, order.
