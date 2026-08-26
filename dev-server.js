@@ -147,30 +147,59 @@ function serveStatic(req, res, url) {
   res.end(fs.readFileSync(file));
 }
 
-http
-  .createServer(async (req, res) => {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
-    serveStatic(req, res, url);
-  })
-  .listen(PORT, () => {
-    const key = process.env.SUPABASE_SERVICE_KEY || "";
-    console.log(`\n  Selly running at http://localhost:${PORT}\n`);
-    console.log(`    demo phone   http://localhost:${PORT}/demo.html`);
-    console.log(`    order page   http://localhost:${PORT}/find.html`);
-    console.log(`    kitchen app  http://localhost:${PORT}/\n`);
-    if (fromFile) console.log(`  Read ${fromFile} setting(s) from .env.local`);
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://localhost:${server.address().port}`);
+  if (url.pathname.startsWith("/api/")) return handleApi(req, res, url);
+  serveStatic(req, res, url);
+});
 
-    if (!key) {
-      console.log("  No SUPABASE_SERVICE_KEY. Pages work; the demo phone cannot text.");
-      console.log("  Put this in a file called .env.local next to this script:\n");
-      console.log("      SUPABASE_SERVICE_KEY=eyJ...your service_role key...\n");
-    } else if (!key.startsWith("eyJ")) {
-      // A service key is a JWT and always starts eyJ. Anything else is usually
-      // the anon key, the project ref, or a paste that picked up a stray
-      // character -- all of which fail later with "Invalid API key".
-      console.log("  SUPABASE_SERVICE_KEY does not look like a key (should start 'eyJ').\n");
-    } else {
-      console.log("  Service key found — the demo phone can text.\n");
-    }
-  });
+function ready() {
+  const port = server.address().port;
+  const key  = process.env.SUPABASE_SERVICE_KEY || "";
+
+  // PUBLIC_BASE_URL is what goes inside the link in the reply message, so it
+  // has to name the port we actually got, not the one we asked for.
+  if (/^http:\/\/localhost:\d+$/.test(process.env.PUBLIC_BASE_URL)) {
+    process.env.PUBLIC_BASE_URL = `http://localhost:${port}`;
+  }
+
+  console.log(`\n  Selly running at http://localhost:${port}\n`);
+  console.log(`    demo phone   http://localhost:${port}/demo.html`);
+  console.log(`    order page   http://localhost:${port}/find.html`);
+  console.log(`    kitchen app  http://localhost:${port}/\n`);
+  if (fromFile) console.log(`  Read ${fromFile} setting(s) from .env.local`);
+
+  if (!key) {
+    console.log("  No SUPABASE_SERVICE_KEY. Pages work; the demo phone cannot text.");
+    console.log("  Put this in a file called .env.local next to this script:\n");
+    console.log("      SUPABASE_SERVICE_KEY=eyJ...your service_role key...\n");
+  } else if (!key.startsWith("eyJ")) {
+    // A service key is a JWT and always starts eyJ. Anything else is usually
+    // the anon key, the project ref, or a paste that picked up a stray
+    // character -- all of which fail later with "Invalid API key".
+    console.log("  SUPABASE_SERVICE_KEY does not look like a key (should start 'eyJ').\n");
+  } else {
+    console.log("  Service key found — the demo phone can text.\n");
+  }
+}
+
+/**
+ * A busy port is not a reason to stop.
+ *
+ * Something else is often already sitting on 4300 -- a previous run of this,
+ * an editor's own preview. Crashing with a stack trace for that is unhelpful,
+ * so step along to the next free port and say clearly which one was taken.
+ */
+let port = PORT;
+server.on("error", (e) => {
+  if (e.code !== "EADDRINUSE") throw e;
+  if (port - PORT >= 12) {
+    console.error(`\n  Ports ${PORT}-${port} are all busy. Free one, or set PORT.\n`);
+    process.exit(1);
+  }
+  console.log(`  Port ${port} is busy — trying ${port + 1}`);
+  server.listen(++port);
+});
+// Registered once rather than passed to listen(), so it still fires on a retry.
+server.on("listening", ready);
+server.listen(port);

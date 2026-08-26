@@ -18,7 +18,7 @@
 //   it is the fix if that ever matters.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { rpc, sendSms, link, TEMPLATES } from "./_sms.js";
+import { rpc, sendSms, link, shortId, TEMPLATES } from "./_sms.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       return res.status(404).json({ ok: false, error: "no such order" });
     }
 
-    const shortId = String(orderId).slice(-5);
+    const shown   = shortId(orderId);
     const total   = Math.round(Number(o.total) || 0);
 
     // The payment link is built by the page, because it is the only thing that
@@ -48,8 +48,8 @@ export default async function handler(req, res) {
     const useCod = o.payment_mode !== "upi" || !payLink;
     const tpl    = useCod ? TEMPLATES.confirmedCod : TEMPLATES.confirmedPay;
     const text   = useCod
-      ? tpl.text(shortId, total)
-      : tpl.text(shortId, total, payLink);
+      ? tpl.text(shown, total)
+      : tpl.text(shown, total, payLink);
 
     const out = await sendSms(o.mobile, text, tpl.env);
     return res.status(200).json({

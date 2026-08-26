@@ -178,3 +178,15 @@ export async function rest(path) {
   }
   return data || [];
 }
+
+/**
+ * The order number as a person should read it.
+ *
+ * Order ids are timestamps -- thirteen digits. Nobody reads one out, nobody
+ * types one back, and in a message every character is billed against a 160
+ * character segment. The last five are unique enough for a customer and a
+ * kitchen to agree which order they are talking about.
+ */
+export function shortId(id) {
+  return String(id == null ? "" : id).slice(-5);
+}

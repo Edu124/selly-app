@@ -16,7 +16,7 @@
  * phone. On stage that is the moment worth showing.
  */
 
-import { rest, link, TEMPLATES } from "./_sms.js";
+import { rest, link, shortId, TEMPLATES } from "./_sms.js";
 import { demoMobile, demoIsOff } from "./_demo.js";
 
 export default async function handler(req, res) {
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         orderId: o.id,
         at     : o.created_at,
         text   : TEMPLATES.delivered.text(
-          o.id,
+          shortId(o.id),
           link(`/rate.html?t=${o.rating_token}`)
         ),
       });

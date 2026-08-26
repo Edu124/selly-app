@@ -225,16 +225,6 @@
   try { known = JSON.parse(localStorage.getItem("selly_customer") || "{}"); } catch (e) {}
 
   var sess = new URLSearchParams(location.search).get("s");
-  if (sess) {
-    rpc("session_context", { p_token: sess })
-      .then(function (rows) {
-        var c = rows && rows[0];
-        if (c) known = Object.assign({}, known, {
-          name: c.name, mobile: c.mobile, address: c.address,
-        });
-      })
-      .catch(function () {});
-  }
 
   function api(path, opts) {
     return fetch(SUPABASE_URL + path, Object.assign({
@@ -250,6 +240,21 @@
   var rpc = function (fn, body) {
     return api("/rest/v1/rpc/" + fn, { method: "POST", body: JSON.stringify(body) });
   };
+
+  // Anything the customer told the Selly find page, so this one does not ask
+  // twice. Has to sit BELOW rpc: `var rpc = function…` hoists as undefined, so
+  // calling it any earlier throws and takes the whole page down with it.
+  // Resolves long before the checkout sheet reads `known`.
+  if (sess) {
+    rpc("session_context", { p_token: sess })
+      .then(function (rows) {
+        var c = rows && rows[0];
+        if (c) known = Object.assign({}, known, {
+          name: c.name, mobile: c.mobile, address: c.address,
+        });
+      })
+      .catch(function () {});
+  }
 
   function show(which) {
     ["load","bad","app","done"].forEach(function (id) {
@@ -551,7 +556,7 @@
             window.parent.postMessage({
               selly   : "order-placed",
               orderId : r.order_id,
-              total   : (r.bill && r.bill.total) || 0,
+              total   : orderTotal(r),
               payMode : payMode,
               payLink : lastPayLink,
             }, window.location.origin);
@@ -564,12 +569,24 @@
       });
   };
 
+  /**
+   * What the order came to, from whichever shape the server used.
+   *
+   * place_public_order returns a flat `total`. An earlier revision of it
+   * returned a priced-up `bill` instead, and a database that has not had every
+   * migration applied can still be on that one. Both are read here so the
+   * confirmation and the message can never disagree about the money, and so a
+   * half-migrated database shows a price rather than NaN.
+   */
+  function orderTotal(r) {
+    if (!r) return 0;
+    if (r.total != null) return Number(r.total) || 0;
+    if (r.bill && r.bill.total != null) return Number(r.bill.total) || 0;
+    return 0;
+  }
+
   function showDone(r) {
-    // The server puts the money in the bill, not at the top level — it is the
-    // priced-up version of what was ordered, and the only figure either side
-    // should trust. Reading r.total instead left the confirmation showing a
-    // blank total and the UPI link asking for NaN rupees.
-    var total = Number(r.bill && r.bill.total != null ? r.bill.total : r.total) || 0;
+    var total = orderTotal(r);
 
     $("doneSub").textContent = "Order #" + String(r.order_id).slice(-5) +
                               " with " + (kitchen.business_name || "the kitchen");
