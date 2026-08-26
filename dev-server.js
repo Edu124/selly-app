@@ -33,6 +33,39 @@ const DIST = path.join(HERE, "selly-app", "dist");
 const API  = path.join(HERE, "api");
 const PORT = Number(process.env.PORT || 4300);
 
+/**
+ * Read .env.local, if there is one.
+ *
+ * Putting a secret in the command line means getting the quoting right for
+ * whichever shell you happen to have open, and then leaving the key sitting in
+ * that shell's history. A gitignored file is easier to get right and easier to
+ * forget about safely. Anything already set in the real environment wins, so
+ * this never overrides a deliberate choice.
+ */
+function loadEnvFile() {
+  const file = path.join(HERE, ".env.local");
+  if (!fs.existsSync(file)) return false;
+
+  let found = 0;
+  for (let line of fs.readFileSync(file, "utf8").split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const eq = line.indexOf("=");
+    if (eq < 1) continue;
+
+    const key = line.slice(0, eq).trim();
+    // Strip one layer of quotes: pasting a value with them is a common habit
+    // and treating "eyJ..." as a key that literally starts with a quote fails
+    // in a way that is very hard to see.
+    const val = line.slice(eq + 1).trim().replace(/^(['"])(.*)\1$/, "$2");
+
+    if (!(key in process.env)) { process.env[key] = val; found++; }
+  }
+  return found;
+}
+const fromFile = loadEnvFile();
+
 // Sensible local defaults so only the secret has to be supplied by hand.
 process.env.SUPABASE_URL     ||= "https://ekughxkikjzkimadyyuk.supabase.co";
 process.env.PUBLIC_BASE_URL  ||= `http://localhost:${PORT}`;
@@ -121,12 +154,23 @@ http
     serveStatic(req, res, url);
   })
   .listen(PORT, () => {
-    const keyed = !!process.env.SUPABASE_SERVICE_KEY;
+    const key = process.env.SUPABASE_SERVICE_KEY || "";
     console.log(`\n  Selly running at http://localhost:${PORT}\n`);
     console.log(`    demo phone   http://localhost:${PORT}/demo.html`);
     console.log(`    order page   http://localhost:${PORT}/find.html`);
     console.log(`    kitchen app  http://localhost:${PORT}/\n`);
-    console.log(keyed
-      ? "  Service key found — the demo phone can text.\n"
-      : "  No SUPABASE_SERVICE_KEY set. Pages work; the demo phone cannot text.\n");
+    if (fromFile) console.log(`  Read ${fromFile} setting(s) from .env.local`);
+
+    if (!key) {
+      console.log("  No SUPABASE_SERVICE_KEY. Pages work; the demo phone cannot text.");
+      console.log("  Put this in a file called .env.local next to this script:\n");
+      console.log("      SUPABASE_SERVICE_KEY=eyJ...your service_role key...\n");
+    } else if (!key.startsWith("eyJ")) {
+      // A service key is a JWT and always starts eyJ. Anything else is usually
+      // the anon key, the project ref, or a paste that picked up a stray
+      // character -- all of which fail later with "Invalid API key".
+      console.log("  SUPABASE_SERVICE_KEY does not look like a key (should start 'eyJ').\n");
+    } else {
+      console.log("  Service key found — the demo phone can text.\n");
+    }
   });
