@@ -313,7 +313,16 @@
       .then(function (d) {
         typing(false);
         $("send").disabled = false;
-        if (d.error) { push("them", "Demo error: " + d.error); return; }
+        if (d.error) {
+          // Worth being specific. The one thing that goes wrong here is a
+          // missing service key, and "Invalid API key" five minutes before a
+          // pitch is not a helpful thing to read.
+          push("them", /api key/i.test(d.error)
+            ? "Demo not configured: set SUPABASE_SERVICE_KEY (and PUBLIC_BASE_URL) " +
+              "in the environment, then reload."
+            : "Demo error: " + d.error);
+          return;
+        }
 
         state.mobile = d.mobile;
         save();
