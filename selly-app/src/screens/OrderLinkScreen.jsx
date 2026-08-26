@@ -35,6 +35,8 @@ export default function OrderLinkScreen({ navigation }) {
   const [copied,   setCopied]   = useState(false);
   const [listed,   setListed]   = useState(false);
   const [cuisine,  setCuisine]  = useState("");
+  const [area,     setArea]     = useState("");
+  const [city,     setCity]     = useState("");
   const [radius,   setRadius]   = useState("5");
   const [coords,   setCoords]   = useState(null);
   const [locBusy,  setLocBusy]  = useState(false);
@@ -51,6 +53,8 @@ export default function OrderLinkScreen({ navigation }) {
       setSettings(st);
       setListed(!!st.listed);
       setCuisine(st.cuisine || "");
+      setArea(st.area || "");
+      setCity(st.city || "");
       setRadius(String(st.delivery_radius_km ?? 5));
       setCoords(st.lat != null && st.lng != null ? { lat: st.lat, lng: st.lng } : null);
       setDishes(((c && c.products) || []).filter(p => p.inStock !== false).length);
@@ -182,8 +186,29 @@ export default function OrderLinkScreen({ navigation }) {
 
             {listed && (
               <>
-                {/* Without a location nobody can be found by distance, so this
-                    is the one thing that has to be set. */}
+                {/* Where you are, in the words a customer would use. This is
+                    the part that has to be filled in: a pin is precise but
+                    optional, and plenty of owners will not or cannot give one. */}
+                <Text style={styles.fieldLabel}>Your area</Text>
+                <TextInput
+                  style={styles.input} value={area} onChangeText={setArea}
+                  placeholder="Baner"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.fieldLabel}>City</Text>
+                <TextInput
+                  style={styles.input} value={city} onChangeText={setCity}
+                  placeholder="Pune"
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <Text style={styles.listHint}>
+                  The locality people say out loud — Baner, Kothrud, Wakad. Anyone
+                  who names the same area finds you, however far apart the two pins
+                  would have been.
+                </Text>
+
+                {/* Precision on top, for the kitchens that can give it. */}
                 <TouchableOpacity
                   style={[styles.locBtn, coords && styles.locBtnOn]}
                   disabled={locBusy}
@@ -216,13 +241,15 @@ export default function OrderLinkScreen({ navigation }) {
                   />
                   <Text style={[styles.locBtnText, coords && { color: Colors.green }]}>
                     {locBusy ? "Finding you…"
-                      : coords ? `Location set · ${coords.lat}, ${coords.lng}`
-                      : "Set my kitchen's location"}
+                      : coords ? `Pin set · ${coords.lat}, ${coords.lng}`
+                      : "Pin my exact location (optional)"}
                   </Text>
                 </TouchableOpacity>
                 <Text style={styles.listHint}>
-                  Do this standing at the kitchen — it's what "3 km away" is
-                  measured from. Nobody can find you by distance without it.
+                  Optional, and worth doing standing at the kitchen — it's what
+                  "3 km away" is measured from. Without it you're still found by
+                  everyone searching {area.trim() ? `in ${area.trim()}` : "your area"},
+                  just without a distance next to your name.
                 </Text>
 
                 <Text style={styles.fieldLabel}>What you cook</Text>
@@ -249,14 +276,22 @@ export default function OrderLinkScreen({ navigation }) {
             <TouchableOpacity
               style={styles.saveBtn}
               onPress={async () => {
-                if (listed && !coords) {
-                  Alert.alert("Location needed", "Set your kitchen's location first, or customers can't be shown how far away you are.");
+                // Something has to say where this kitchen is, or listing it
+                // means nobody can match on anything. A pin, an area or a city
+                // will each do — we are not fussy about which.
+                if (listed && !coords && !area.trim() && !city.trim()) {
+                  Alert.alert(
+                    "Where are you?",
+                    "Type your area — Baner, Kothrud — or pin your location. Without one of them customers have nothing to match against."
+                  );
                   return;
                 }
                 try {
                   await saveBusinessSettings({
                     listed,
                     cuisine: cuisine.trim(),
+                    area: area.trim() || null,
+                    city: city.trim() || null,
                     delivery_radius_km: Number(radius) || 5,
                     lat: coords ? coords.lat : null,
                     lng: coords ? coords.lng : null,

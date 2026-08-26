@@ -157,3 +157,24 @@ export async function sendSms(mobile, text, templateEnv) {
     return { ok: false, error: String(e.message || e) };
   }
 }
+
+/**
+ * Read a table with the service key. Server only.
+ *
+ * Narrower than it looks: callers pass a complete PostgREST query string, and
+ * every one of them constrains by something the caller has already proven they
+ * are entitled to. This is not a general-purpose door into the database.
+ */
+export async function rest(path) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey        : SERVICE_KEY,
+      Authorization : `Bearer ${SERVICE_KEY}`,
+    },
+  });
+  const data = await r.json().catch(() => null);
+  if (!r.ok) {
+    throw new Error((data && (data.message || data.hint)) || "read failed");
+  }
+  return data || [];
+}

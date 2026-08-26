@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#08080f">
+<title>Selly · live demo</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  :root{
+    --bg:#08080f;--panel:#12121c;--card:#181826;--line:#25253a;
+    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#5f5f78;
+    --violet:#7c5cff;--green:#22c55e;--blue:#0b84ff;
+  }
+  html,body{background:var(--bg);color:var(--tx);min-height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding:28px 20px 48px}
+
+  .shell{max-width:1060px;margin:0 auto;display:grid;gap:38px;
+    grid-template-columns:minmax(0,340px) minmax(0,1fr);align-items:start}
+  @media(max-width:860px){.shell{grid-template-columns:1fr;gap:28px}}
+
+  /* ── the phone ── */
+  .phone{width:340px;max-width:100%;margin:0 auto;background:#000;border-radius:44px;
+    padding:11px;box-shadow:0 40px 80px -20px rgba(0,0,0,.9),0 0 0 1px #2a2a3d;
+    position:sticky;top:28px}
+  @media(max-width:860px){.phone{position:static}}
+  .screen{background:var(--bg);border-radius:34px;overflow:hidden;height:660px;
+    display:flex;flex-direction:column;position:relative}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);
+    width:96px;height:26px;background:#000;border-radius:14px;z-index:9}
+  .status{display:flex;align-items:center;padding:13px 22px 6px;font-size:11.5px;
+    font-weight:700;color:var(--tx2);flex:none}
+  .status .r{margin-left:auto;letter-spacing:1px}
+
+  .navbar{display:flex;align-items:center;gap:11px;padding:8px 15px 12px;
+    border-bottom:1px solid var(--line);flex:none;background:var(--panel)}
+  .navbar .av{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-size:15px;font-weight:800;color:#fff;background:linear-gradient(135deg,#7c5cff,#22c55e)}
+  .navbar b{font-size:14px;font-weight:700;display:block;line-height:1.25}
+  .navbar small{font-size:10.5px;color:var(--tx3)}
+  .navbar .back{background:none;border:none;color:var(--blue);font-size:15px;
+    font-weight:600;cursor:pointer;padding:0;display:none}
+  .navbar.inPage .back{display:block}
+
+  .thread{flex:1;overflow-y:auto;padding:16px 13px 8px;display:flex;
+    flex-direction:column;gap:9px}
+  .day{text-align:center;font-size:10.5px;color:var(--tx3);font-weight:700;margin:2px 0 6px}
+  .b{max-width:82%;padding:9px 13px;border-radius:19px;font-size:13.5px;line-height:1.5;
+    word-break:break-word;animation:pop .26s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes pop{from{opacity:0;transform:translateY(9px) scale(.96)}to{opacity:1;transform:none}}
+  .b.them{align-self:flex-start;background:var(--card);border-bottom-left-radius:6px}
+  .b.me{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:6px}
+  .b a{color:var(--violet);font-weight:700;text-decoration:none;word-break:break-all}
+  .b.me a{color:#dce9ff}
+  .b .tap{display:block;margin-top:5px;font-size:10.5px;color:var(--tx3);font-weight:600}
+  .typing{align-self:flex-start;background:var(--card);border-radius:19px;
+    border-bottom-left-radius:6px;padding:12px 15px;display:flex;gap:4px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--tx3);
+    animation:blink 1.3s infinite}
+  .typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+  .composer{flex:none;border-top:1px solid var(--line);background:var(--panel);
+    padding:10px 13px 15px;display:flex;gap:9px;align-items:center}
+  .composer input{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:19px;
+    padding:10px 15px;color:var(--tx);font-size:13.5px;font-family:inherit;outline:none}
+  .composer input:focus{border-color:var(--blue)}
+  .composer button{background:var(--blue);border:none;color:#fff;width:34px;height:34px;
+    border-radius:50%;font-size:15px;cursor:pointer;flex:none}
+  .composer button:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  iframe{border:0;width:100%;flex:1;background:var(--bg)}
+  #page{display:none;flex:1;flex-direction:column}
+
+  /* ── the narration ── */
+  h1{font-size:27px;font-weight:800;letter-spacing:-.6px}
+  .lede{color:var(--tx2);font-size:14.5px;line-height:1.7;margin-top:12px;max-width:52ch}
+  .steps{margin-top:26px;display:flex;flex-direction:column;gap:2px}
+  .step{display:flex;gap:14px;padding:13px 15px;border-radius:13px;
+    border:1px solid transparent;transition:.2s}
+  .step.on{background:var(--panel);border-color:var(--line)}
+  .step .n{width:23px;height:23px;border-radius:50%;flex:none;display:grid;place-items:center;
+    font-size:11.5px;font-weight:800;background:var(--card);color:var(--tx3);
+    border:1px solid var(--line)}
+  .step.on .n{background:var(--violet);color:#fff;border-color:var(--violet)}
+  .step.done .n{background:var(--green);color:#04220f;border-color:var(--green)}
+  .step b{font-size:13.5px;font-weight:700;display:block}
+  .step p{font-size:12.5px;color:var(--tx2);line-height:1.6;margin-top:3px}
+
+  .note{margin-top:26px;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:15px 17px}
+  .note b{font-size:12px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--tx3);display:block;margin-bottom:7px}
+  .note p{font-size:12.5px;color:var(--tx2);line-height:1.7}
+  .note code{background:var(--card);border-radius:5px;padding:1px 6px;font-size:11.5px}
+  .tools{display:flex;gap:9px;margin-top:18px;flex-wrap:wrap}
+  .tools button{background:var(--card);border:1px solid var(--line);color:var(--tx2);
+    border-radius:10px;padding:9px 15px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .tools button:hover{border-color:var(--violet);color:var(--tx)}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ══ phone ══ -->
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+
+      <div class="status"><span id="clock">9:41</span><span class="r">▮▮▮ ▮</span></div>
+
+      <div class="navbar" id="navbar">
+        <button class="back" id="backBtn">‹ Messages</button>
+        <div class="av">S</div>
+        <div>
+          <b>Selly</b>
+          <small id="navSub">Text to order</small>
+        </div>
+      </div>
+
+      <div class="thread" id="thread"></div>
+
+      <div id="page">
+        <iframe id="frame" allow="geolocation" referrerpolicy="same-origin"></iframe>
+      </div>
+
+      <div class="composer" id="composer">
+        <input id="msg" placeholder="Message" autocomplete="off">
+        <button id="send" title="Send">↑</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ narration ══ -->
+  <div>
+    <h1>Ordering, start to finish</h1>
+    <p class="lede">
+      A customer texts, and everything else happens in a link. This is the real
+      product — a real session, a real menu, a real order landing in a real
+      kitchen's queue. Only the text messages are simulated, because the phone
+      number is still being provisioned.
+    </p>
+
+    <div class="steps" id="steps">
+      <div class="step" data-k="1">
+        <div class="n">1</div>
+        <div><b>They text us</b>
+          <p>Anything at all. No app to install, no account to make.</p></div>
+      </div>
+      <div class="step" data-k="2">
+        <div class="n">2</div>
+        <div><b>One link comes back</b>
+          <p>Where they are, asked once. Typed area or a live pin — either works.</p></div>
+      </div>
+      <div class="step" data-k="3">
+        <div class="n">3</div>
+        <div><b>Kitchens that serve them</b>
+          <p>Ranked by distance where we can measure it, by area where we can't.</p></div>
+      </div>
+      <div class="step" data-k="4">
+        <div class="n">4</div>
+        <div><b>Menu, cart, payment</b>
+          <p>The kitchen's own prices, live. Pay by UPI or on delivery.</p></div>
+      </div>
+      <div class="step" data-k="5">
+        <div class="n">5</div>
+        <div><b>It arrives, they rate it</b>
+          <p>Mark the order delivered in the kitchen app — the rating link lands here.</p></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>For whoever is presenting</b>
+      <p id="noteBody">
+        Every order placed here is real and shows up in the kitchen dashboard.
+        The demo number is <code id="dn">—</code>, which begins 55 and therefore
+        cannot collide with a real customer. Mark the order delivered in the app
+        and the last message turns up on this phone within a few seconds.
+      </p>
+      <div class="tools">
+        <button id="againBtn">Text again as the same customer</button>
+        <button id="resetBtn">Start over as somebody new</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "selly_demo_v1";
+
+  var state = { mobile: null, msgs: [], seen: {} };
+  try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ── clock ────────────────────────────────────────────────────────────────
+  function tick() {
+    var d = new Date(), h = d.getHours();
+    $("clock").textContent = (h % 12 || 12) + ":" +
+      String(d.getMinutes()).padStart(2, "0");
+  }
+  tick(); setInterval(tick, 20000);
+
+  // ── steps ────────────────────────────────────────────────────────────────
+  function step(n) {
+    [].forEach.call($("steps").children, function (el) {
+      var k = Number(el.getAttribute("data-k"));
+      el.classList.toggle("on", k === n);
+      el.classList.toggle("done", k < n);
+    });
+  }
+
+  // ── the thread ───────────────────────────────────────────────────────────
+  // Links are the entire point of the product, so a bubble containing one gets
+  // it turned into something tappable rather than left as text to squint at.
+  function bubble(m) {
+    var el = document.createElement("div");
+    el.className = "b " + (m.from === "me" ? "me" : "them");
+
+    var html = esc(m.text).replace(/https?:\/\/\S+/g, function (u) {
+      return '<a href="#" data-url="' + esc(u) + '">' + esc(u) + "</a>";
+    });
+    if (m.from !== "me" && /https?:\/\//.test(m.text)) {
+      html += '<span class="tap">Tap the link</span>';
+    }
+    el.innerHTML = html;
+    return el;
+  }
+
+  function paint() {
+    var t = $("thread");
+    t.innerHTML = '<div class="day">Today</div>';
+    state.msgs.forEach(function (m) { t.appendChild(bubble(m)); });
+    t.scrollTop = t.scrollHeight;
+  }
+
+  function push(from, text) {
+    state.msgs.push({ from: from, text: text });
+    save(); paint();
+  }
+
+  function typing(on) {
+    var t = $("thread"), old = t.querySelector(".typing");
+    if (old) old.remove();
+    if (on) {
+      var d = document.createElement("div");
+      d.className = "typing";
+      d.innerHTML = "<i></i><i></i><i></i>";
+      t.appendChild(d);
+      t.scrollTop = t.scrollHeight;
+    }
+  }
+
+  // ── opening a link inside the phone ──────────────────────────────────────
+  // The link opens in the phone rather than a new tab. On a projector, losing
+  // the thread means losing the thread of the story too.
+  $("thread").addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-url]");
+    if (!a) return;
+    e.preventDefault();
+    openPage(a.getAttribute("data-url"));
+  });
+
+  function openPage(url) {
+    $("frame").src = url;
+    $("thread").style.display = "none";
+    $("composer").style.display = "none";
+    $("page").style.display = "flex";
+    $("navbar").classList.add("inPage");
+    $("navSub").textContent = "selly.app";
+    step(2);
+  }
+
+  function closePage() {
+    $("page").style.display = "none";
+    $("frame").src = "about:blank";
+    $("thread").style.display = "flex";
+    $("composer").style.display = "flex";
+    $("navbar").classList.remove("inPage");
+    $("navSub").textContent = "Text to order";
+    paint();
+  }
+
+  $("backBtn").onclick = closePage;
+
+  // ── texting in ───────────────────────────────────────────────────────────
+  function textIn(sameCustomer) {
+    $("send").disabled = true;
+    typing(true);
+    step(1);
+
+    fetch("/api/demo-session", {
+      method : "POST",
+      headers: { "Content-Type": "application/json" },
+      body   : JSON.stringify(sameCustomer && state.mobile ? { mobile: state.mobile } : {}),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        typing(false);
+        $("send").disabled = false;
+        if (d.error) { push("them", "Demo error: " + d.error); return; }
+
+        state.mobile = d.mobile;
+        save();
+        $("dn").textContent = d.mobile;
+
+        // A short pause before the reply. Instant is accurate and reads as fake.
+        setTimeout(function () { push("them", d.message); step(2); }, 550);
+      })
+      .catch(function () {
+        typing(false);
+        $("send").disabled = false;
+        push("them", "Couldn't reach the demo service. Is /api deployed?");
+      });
+  }
+
+  $("send").onclick = function () {
+    var v = $("msg").value.trim() || "I want to order";
+    $("msg").value = "";
+    push("me", v);
+    textIn(!!state.mobile);
+  };
+  $("msg").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") $("send").click();
+  });
+
+  $("againBtn").onclick = function () {
+    if (!state.mobile) { $("send").click(); return; }
+    closePage();
+    push("me", "I want to order");
+    textIn(true);
+  };
+
+  $("resetBtn").onclick = function () {
+    state = { mobile: null, msgs: [], seen: {} };
+    save();
+    closePage();
+    paint();
+    step(1);
+    $("dn").textContent = "—";
+  };
+
+  // ── the order lands ──────────────────────────────────────────────────────
+  // order.html tells us the moment it succeeds. Same origin only: a message
+  // from anywhere else is ignored outright.
+  window.addEventListener("message", function (e) {
+    if (e.origin !== window.location.origin) return;
+    var d = e.data;
+    if (!d || d.selly !== "order-placed") return;
+
+    var id = String(d.orderId).slice(-5);
+    var text = d.payMode === "upi" && d.payLink
+      ? "Order " + id + " confirmed. Total Rs " + d.total + ". Pay here: " + d.payLink
+      : "Order " + id + " confirmed. Total Rs " + d.total + " cash on delivery.";
+
+    // Let them see the kitchen's own confirmation screen first, then come back
+    // to the thread as the message arrives.
+    setTimeout(function () {
+      closePage();
+      push("them", text);
+      step(5);
+    }, 2200);
+  });
+
+  // ── the delivered message, which arrives later ───────────────────────────
+  setInterval(function () {
+    if (!state.mobile) return;
+    fetch("/api/demo-thread?mobile=" + encodeURIComponent(state.mobile))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        (d.messages || []).forEach(function (m) {
+          if (state.seen[m.id]) return;
+          state.seen[m.id] = 1;
+          push("them", m.text);
+          step(5);
+        });
+      })
+      .catch(function () {});
+  }, 6000);
+
+  // ── first paint ──────────────────────────────────────────────────────────
+  if (!state.msgs.length) {
+    state.msgs = [{ from: "them", text: "Text us anything to start an order." }];
+  }
+  if (state.mobile) $("dn").textContent = state.mobile;
+  paint();
+  step(1);
+})();
+</script>
+</body>
+</html>

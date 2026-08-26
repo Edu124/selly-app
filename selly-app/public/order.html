@@ -541,6 +541,22 @@
             body   : JSON.stringify({ orderId: r.order_id, payLink: lastPayLink }),
           }).catch(function () {});
         } catch (e) {}
+
+        // When this page is running inside the demo phone, tell it what was
+        // ordered so the confirmation can appear in the thread. Only the parent
+        // frame ever hears this, and only on our own origin — a page opened
+        // normally has no parent and this does nothing at all.
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              selly   : "order-placed",
+              orderId : r.order_id,
+              total   : (r.bill && r.bill.total) || 0,
+              payMode : payMode,
+              payLink : lastPayLink,
+            }, window.location.origin);
+          }
+        } catch (e) {}
       })
       .catch(function (e) {
         err.textContent = e.message; err.classList.add("on");
@@ -549,6 +565,12 @@
   };
 
   function showDone(r) {
+    // The server puts the money in the bill, not at the top level — it is the
+    // priced-up version of what was ordered, and the only figure either side
+    // should trust. Reading r.total instead left the confirmation showing a
+    // blank total and the UPI link asking for NaN rupees.
+    var total = Number(r.bill && r.bill.total != null ? r.bill.total : r.total) || 0;
+
     $("doneSub").textContent = "Order #" + String(r.order_id).slice(-5) +
                               " with " + (kitchen.business_name || "the kitchen");
     $("doneCard").innerHTML =
@@ -557,20 +579,20 @@
                '<span>' + inr(l.price * l.qty) + '</span></div>';
       }).join("") +
       '<div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">' +
-        '<span><b style="color:var(--tx)">Total</b></span><span>' + inr(r.total) + '</span></div>';
+        '<span><b style="color:var(--tx)">Total</b></span><span>' + inr(total) + '</span></div>';
 
     // Straight to their UPI app with the amount filled in. Only when they chose
     // it, and only when the kitchen actually has a UPI id.
     if (payMode === "upi" && kitchen.upi_id) {
       var link = "upi://pay?pa=" + encodeURIComponent(kitchen.upi_id) +
                  "&pn=" + encodeURIComponent(kitchen.business_name || "Kitchen") +
-                 "&am=" + Number(r.total).toFixed(2) + "&cu=INR" +
+                 "&am=" + total.toFixed(2) + "&cu=INR" +
                  "&tn=" + encodeURIComponent("Order " + String(r.order_id).slice(-5)) +
                  "&tr=" + encodeURIComponent("SELLY" + String(r.order_id).replace(/\D/g, "").slice(-8));
       lastPayLink = link;
       $("payBtn").href = link;
       $("payBtn").style.display = "block";
-      $("payBtn").textContent = "💳 Pay " + inr(r.total) + " now";
+      $("payBtn").textContent = "💳 Pay " + inr(total) + " now";
     }
     show("done");
     $("bar").classList.remove("on");

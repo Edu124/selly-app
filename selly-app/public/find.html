@@ -35,6 +35,9 @@
     background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:13px;
     color:var(--tx);font-size:13.5px;font-weight:700;cursor:pointer;margin-top:9px}
   .locBtn.got{border-color:rgba(34,197,94,.4);color:var(--green)}
+  .orRow{display:flex;align-items:center;gap:12px;margin:20px 0 14px;
+    color:var(--muted);font-size:12px;white-space:nowrap}
+  .orRow::before,.orRow::after{content:"";flex:1;height:1px;background:var(--line)}
 
   .go{width:100%;background:var(--violet);border:none;color:#fff;border-radius:13px;
     padding:17px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:22px}
@@ -102,14 +105,23 @@
     <label for="ad">Delivery address</label>
     <textarea id="ad" rows="3" placeholder="Flat 302, B wing, Shanti Residency, near D-Mart, Baner" autocomplete="street-address"></textarea>
 
-    <button class="locBtn" id="locBtn">📍 Use my current location</button>
-    <div class="hint" id="locHint">
-      Sharing your location finds kitchens by real distance. Without it we can
-      only match on your city.
-    </div>
+    <label for="ar">Your area</label>
+    <input id="ar" placeholder="Baner" autocomplete="address-level3">
 
     <label for="ct">City</label>
     <input id="ct" placeholder="Pune" autocomplete="address-level2">
+    <div class="hint">
+      The locality you'd say out loud. Kitchens serving your area are shown
+      whether they're one street or six kilometres away.
+    </div>
+
+    <div class="orRow"><span>or, to sort them by distance</span></div>
+
+    <button class="locBtn" id="locBtn">📍 Use my current location</button>
+    <div class="hint" id="locHint">
+      Entirely optional. It puts a real distance next to each kitchen — it
+      doesn't unlock any you can't already see.
+    </div>
 
     <div class="err" id="err"></div>
     <button class="go" id="goBtn">Find kitchens near me</button>
@@ -184,6 +196,7 @@
         }
         if (c.name    && !$("nm").value) $("nm").value = c.name;
         if (c.address && !$("ad").value) $("ad").value = c.address;
+        if (c.area    && !$("ar").value) $("ar").value = c.area;
         if (c.city    && !$("ct").value) $("ct").value = c.city;
         if (c.lat != null && c.lng != null) {
           me.lat = Number(c.lat); me.lng = Number(c.lng);
@@ -199,6 +212,7 @@
   if (saved.name)    $("nm").value = saved.name;
   if (saved.mobile)  $("ph").value = saved.mobile;
   if (saved.address) $("ad").value = saved.address;
+  if (saved.area)    $("ar").value = saved.area;
   if (saved.city)    $("ct").value = saved.city;
   if (saved.lat && saved.lng) {
     me.lat = saved.lat; me.lng = saved.lng;
@@ -215,7 +229,7 @@
   $("locBtn").onclick = function () {
     var b = this;
     if (!navigator.geolocation) {
-      $("locHint").textContent = "This browser can't share a location. We'll match on your city instead.";
+      $("locHint").textContent = "This browser can't share a location — type your area above instead.";
       return;
     }
     b.textContent = "📍 Finding you…";
@@ -232,7 +246,7 @@
         // Not an error. Plenty of people say no, and the city fallback exists
         // exactly so that saying no is not a dead end.
         $("locHint").textContent =
-          "No problem — we'll match on your city instead. Distances won't show.";
+          "No problem — your area finds the same kitchens. Distances just won't show.";
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
@@ -244,21 +258,28 @@
     var name = $("nm").value.trim();
     var ph   = $("ph").value.replace(/\D/g, "");
     var ad   = $("ad").value.trim();
+    var area = $("ar").value.trim();
     var city = $("ct").value.trim();
 
     if (ph.length !== 10) { err.textContent = "Please enter a 10-digit mobile number."; err.classList.add("on"); return; }
     if (!ad)              { err.textContent = "Please enter your delivery address.";    err.classList.add("on"); return; }
-    if (!me.lat && !city) { err.textContent = "Either share your location or type your city."; err.classList.add("on"); return; }
+    // Any one of the three is enough to match on. We ask for the area because
+    // it is the one people answer without thinking, not because the others
+    // are worth less.
+    if (!me.lat && !area && !city) {
+      err.textContent = "Type your area — Baner, Kothrud — or share your location.";
+      err.classList.add("on"); return;
+    }
     err.classList.remove("on");
 
-    var who = { name: name, mobile: ph, address: ad, city: city, lat: me.lat, lng: me.lng };
+    var who = { name: name, mobile: ph, address: ad, area: area, city: city, lat: me.lat, lng: me.lng };
     try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
 
     // Saved against their number too, so the next text can skip straight to
     // kitchens even from a different phone.
     if (sess) {
       rpc("save_session_details", {
-        p_token: sess, p_name: name, p_address: ad, p_city: city,
+        p_token: sess, p_name: name, p_address: ad, p_area: area, p_city: city,
         p_lat: me.lat, p_lng: me.lng,
       }).catch(function () {});
     }
@@ -267,9 +288,13 @@
     $("whoAddr").textContent = ad;
     show("loading");
 
-    var call = me.lat
-      ? rpc("kitchens_near", { p_lat: me.lat, p_lng: me.lng, p_max_km: 5 })
-      : rpc("kitchens_in_city", { p_city: city });
+    // One call whatever they gave us. It matches on distance where it can, on
+    // area regardless of distance, and falls back to the city when there is
+    // nothing to measure.
+    var call = rpc("kitchens_for", {
+      p_lat: me.lat || null, p_lng: me.lng || null,
+      p_area: area || null, p_city: city || null, p_max_km: 5,
+    });
 
     call.then(render).catch(function (e) {
       show("step1");
@@ -299,8 +324,13 @@
       a.href = "order.html?k=" + encodeURIComponent(k.public_code) +
                (sess ? "&s=" + encodeURIComponent(sess) : "&from=find");
 
+      // A distance when we can measure one, otherwise the area — which is why
+      // this kitchen is in the list at all. Never an empty corner.
       var dist = (k.distance_km != null)
-        ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>' : "";
+        ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>'
+        : (k.area
+            ? '<div class="kDist"><b>' + esc(k.area) + '</b><span>serves here</span></div>'
+            : "");
 
       a.innerHTML =
         '<div class="kTop">' +
