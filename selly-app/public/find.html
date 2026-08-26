@@ -137,6 +137,9 @@
   var SUPABASE_URL  = "https://ekughxkikjzkimadyyuk.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdWdoeGtpa2p6a2ltYWR5eXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODkxNzQsImV4cCI6MjA5MjE2NTE3NH0.RMROZ2GAcDC6yxY8YjLW3RmyUk2c5G6HnzQry4qA2xs";
   var KEY = "selly_customer";
+  // Present when they arrived from a text we sent. It identifies them, so the
+  // page already knows their number and whatever they told us last time.
+  var sess = new URLSearchParams(location.search).get("s");
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
@@ -167,6 +170,32 @@
   // ── remember them, so this is typed once and never again ──────────────────
   var saved = {};
   try { saved = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+
+  // The session wins over anything cached on this device. Somebody opening the
+  // link on a second phone should still be themselves.
+  if (sess) {
+    rpc("session_context", { p_token: sess })
+      .then(function (rows) {
+        var c = rows && rows[0];
+        if (!c) return;
+        if (c.mobile  && !$("ph").value) {
+          var d = String(c.mobile).replace(/\D/g, "").slice(0, 10);
+          $("ph").value = d.length > 5 ? d.slice(0, 5) + " " + d.slice(5) : d;
+        }
+        if (c.name    && !$("nm").value) $("nm").value = c.name;
+        if (c.address && !$("ad").value) $("ad").value = c.address;
+        if (c.city    && !$("ct").value) $("ct").value = c.city;
+        if (c.lat != null && c.lng != null) {
+          me.lat = Number(c.lat); me.lng = Number(c.lng);
+          $("locBtn").classList.add("got");
+          $("locBtn").textContent = "\ud83d\udccd Location saved";
+        }
+        // Everything already known: show them kitchens rather than a form they
+        // have filled in before.
+        if (c.has_location) $("goBtn").click();
+      })
+      .catch(function () {});
+  }
   if (saved.name)    $("nm").value = saved.name;
   if (saved.mobile)  $("ph").value = saved.mobile;
   if (saved.address) $("ad").value = saved.address;
@@ -225,6 +254,15 @@
     var who = { name: name, mobile: ph, address: ad, city: city, lat: me.lat, lng: me.lng };
     try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
 
+    // Saved against their number too, so the next text can skip straight to
+    // kitchens even from a different phone.
+    if (sess) {
+      rpc("save_session_details", {
+        p_token: sess, p_name: name, p_address: ad, p_city: city,
+        p_lat: me.lat, p_lng: me.lng,
+      }).catch(function () {});
+    }
+
     $("whoName").textContent = name || "Your order";
     $("whoAddr").textContent = ad;
     show("loading");
@@ -258,7 +296,8 @@
       var a = document.createElement("a");
       a.className = "kit" + (k.is_open ? "" : " shut");
       // Their details ride along, so the menu page does not ask again.
-      a.href = "order.html?k=" + encodeURIComponent(k.public_code) + "&from=find";
+      a.href = "order.html?k=" + encodeURIComponent(k.public_code) +
+               (sess ? "&s=" + encodeURIComponent(sess) : "&from=find");
 
       var dist = (k.distance_km != null)
         ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>' : "";

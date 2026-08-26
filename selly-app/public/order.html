@@ -214,12 +214,27 @@
   var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
 
   var kitchen = null, menu = [], cart = {}, payMode = "cod";
+  // Built when the order lands, and handed to the SMS endpoint so the message
+  // and the button on screen carry the same link rather than two versions of it.
+  var lastPayLink = null;
 
   // Details already given on the Selly find page. Filled in here rather than
   // asked again — a customer who typed their address two screens ago and is
   // asked for it a second time concludes the thing is broken.
   var known = {};
   try { known = JSON.parse(localStorage.getItem("selly_customer") || "{}"); } catch (e) {}
+
+  var sess = new URLSearchParams(location.search).get("s");
+  if (sess) {
+    rpc("session_context", { p_token: sess })
+      .then(function (rows) {
+        var c = rows && rows[0];
+        if (c) known = Object.assign({}, known, {
+          name: c.name, mobile: c.mobile, address: c.address,
+        });
+      })
+      .catch(function () {});
+  }
 
   function api(path, opts) {
     return fetch(SUPABASE_URL + path, Object.assign({
@@ -515,6 +530,17 @@
         } catch (e) {}
         closeSheet();
         showDone(r);
+
+        // The confirmation text is sent server-side: the aggregator key cannot
+        // live in a page. Never blocks and never fails the order — the food is
+        // already ordered whether or not the message goes.
+        try {
+          fetch("/api/sms-order", {
+            method : "POST",
+            headers: { "Content-Type": "application/json" },
+            body   : JSON.stringify({ orderId: r.order_id, payLink: lastPayLink }),
+          }).catch(function () {});
+        } catch (e) {}
       })
       .catch(function (e) {
         err.textContent = e.message; err.classList.add("on");
@@ -541,6 +567,7 @@
                  "&am=" + Number(r.total).toFixed(2) + "&cu=INR" +
                  "&tn=" + encodeURIComponent("Order " + String(r.order_id).slice(-5)) +
                  "&tr=" + encodeURIComponent("SELLY" + String(r.order_id).replace(/\D/g, "").slice(-8));
+      lastPayLink = link;
       $("payBtn").href = link;
       $("payBtn").style.display = "block";
       $("payBtn").textContent = "💳 Pay " + inr(r.total) + " now";
