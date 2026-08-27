@@ -5,8 +5,9 @@
 
 import * as Updates from "expo-updates";
 
-const VERSION_CHECK_URL =
-  "https://instagram-bot-production-04ae.up.railway.app/api/app/version";
+// The minimum APK version, from Supabase. Readable before sign-in, because the
+// force-update gate runs before anybody has signed in. Requires FIX_014.
+import { supabase } from "./supabase";
 
 // Current APK version — keep in sync with app.json "version" field.
 // Update this string every time you cut a new APK build.
@@ -62,24 +63,20 @@ export async function checkForceUpdate() {
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(VERSION_CHECK_URL, {
-      method : "GET",
-      headers: { "Content-Type": "application/json" },
-      signal : controller.signal,
-    });
+    const { data, error } = await supabase.rpc("app_version");
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      console.warn("[ForceUpdate] Server returned", response.status, "— skipping gate");
+    if (error) {
+      console.warn("[ForceUpdate] Version check failed —", error.message, "— skipping gate");
       return { required: false };
     }
 
-    const data = await response.json();
-    const { min_version, apk_url, release_notes, latest_version } = data;
+    const { min_version, apk_url, release_notes, latest_version } = data || {};
 
     if (!min_version) {
-      // Endpoint exists but Railway env vars not configured yet — skip
+      // Nothing published yet. An unconfigured check must never lock somebody
+      // out of an app that works.
       return { required: false };
     }
 

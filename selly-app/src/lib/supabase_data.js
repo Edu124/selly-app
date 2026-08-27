@@ -861,3 +861,239 @@ export async function markOrderPaid(orderId, { ref, paid = true } = {}) {
   if (error) throw new Error(error.message);
   return data ? _toOrder(data) : null;
 }
+
+/**
+ * The delivery OTP for one order.
+ *
+ * Railway used to serve this, and returned two codes: a `cod_otp` for cash
+ * collection and a separate `delivery_otp`. This product has one. It is issued
+ * by assign_delivery_token when a rider is given the packet, and the rider
+ * clears it on handover.
+ *
+ * The shape below keeps the two-slot response the Orders screen was written
+ * against, so the single real code lands in the slot the screen labels
+ * "Delivery OTP" and the second box simply does not render. Returning one code
+ * under two names would be worse: it would look like two independent checks
+ * when there is only one.
+ */
+export async function fetchOrderOTPs(orderId) {
+  const bid = await _bid();
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("delivery_otp, otp_verified_at")
+    .eq("business_id", bid)
+    .eq("id", String(orderId))
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!data) return { otps: null };
+
+  // No OTP issued yet means no rider has been given the packet. That is not an
+  // error and the screen should show nothing rather than an empty box.
+  if (!data.delivery_otp) return { otps: null };
+
+  return {
+    otps: {
+      cod_otp              : data.delivery_otp,
+      cod_otp_verified     : !!data.otp_verified_at,
+      delivery_otp         : null,
+      delivery_otp_verified: false,
+    },
+  };
+}
+
+/**
+ * Add a batch of contacts the kitchen typed or pasted in.
+ *
+ * Upsert rather than insert: importing the same list twice is a thing people do
+ * by accident, and it should update the names rather than fail on a duplicate
+ * or quietly create a second row for the same phone.
+ *
+ * Returns { imported, skipped } because that is what the screen shows -- and
+ * "skipped" is worth surfacing, since the usual cause is a pasted column that
+ * was never a phone number.
+ */
+export async function importContacts(contacts) {
+  const bid = await _bid();
+
+  const seen = new Set();
+  const rows = [];
+  let skipped = 0;
+
+  for (const c of contacts || []) {
+    const mobile = String((c && (c.phone || c.mobile)) || "").replace(/\D/g, "").slice(-10);
+    // Ten digits or it is not a number anybody can be reached on.
+    if (mobile.length !== 10) { skipped++; continue; }
+    // Within one paste, keep the first mention. Upsert cannot resolve two rows
+    // with the same key in a single statement.
+    if (seen.has(mobile)) { skipped++; continue; }
+    seen.add(mobile);
+
+    rows.push({
+      business_id: bid,
+      mobile,
+      name: (c && c.name ? String(c.name).trim() : "") || null,
+    });
+  }
+
+  if (!rows.length) return { imported: 0, skipped };
+
+  const { data, error } = await supabase
+    .from("customer_contacts")
+    .upsert(rows, { onConflict: "business_id,mobile" })
+    .select("mobile");
+
+  if (error) throw new Error(error.message);
+  return { imported: (data || []).length, skipped };
+}
+
+// ── Accounting ────────────────────────────────────────────────────────────────
+// Requires migration FIX_014.
+
+export async function fetchExpenses({ category, limit = 100 } = {}) {
+  const bid = await _bid();
+  let q = supabase
+    .from("expenses")
+    .select("*")
+    .eq("business_id", bid)
+    .order("spent_on", { ascending: false })
+    .limit(limit);
+  if (category) q = q.eq("category", category);
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return { expenses: data || [] };
+}
+
+export async function addExpense({ amount, category, description, vendor, date }) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert({
+      business_id: bid,
+      amount     : Number(amount) || 0,
+      category   : category    || null,
+      description: description || null,
+      vendor     : vendor      || null,
+      // The screen may or may not offer a date. Today is the sane default and
+      // the column requires one.
+      spent_on   : date || new Date().toISOString().slice(0, 10),
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return { expense: data };
+}
+
+export async function deleteExpense(id) {
+  const bid = await _bid();
+  const { error } = await supabase
+    .from("expenses").delete().eq("business_id", bid).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function fetchAccountingSummary(period = "30d") {
+  const days = Number(String(period).replace(/\D/g, "")) || 30;
+  const { data, error } = await supabase.rpc("accounting_summary", { p_days: days });
+  if (error) throw new Error(error.message);
+  return { summary: data || {} };
+}
+
+// ── Payroll ───────────────────────────────────────────────────────────────────
+
+export async function fetchEmployees() {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("employees").select("*")
+    .eq("business_id", bid).eq("active", true)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return { employees: data || [] };
+}
+
+export async function addEmployee({ name, role, salary, mobile }) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("employees")
+    .insert({
+      business_id: bid,
+      name       : String(name || "").trim(),
+      role       : role   || null,
+      salary     : Number(salary) || 0,
+      mobile     : mobile ? String(mobile).replace(/\D/g, "").slice(-10) : null,
+    })
+    .select().single();
+  if (error) throw new Error(error.message);
+  return { employee: data };
+}
+
+export async function updateEmployee(id, payload) {
+  const bid = await _bid();
+  const { data, error } = await supabase
+    .from("employees").update(payload)
+    .eq("business_id", bid).eq("id", id)
+    .select().single();
+  if (error) throw new Error(error.message);
+  return { employee: data };
+}
+
+/**
+ * Deactivate rather than delete.
+ *
+ * A payroll run already issued references this person. Deleting the row would
+ * either break that reference or silently blank a payslip that was correct when
+ * it was made.
+ */
+export async function deleteEmployee(id) {
+  const bid = await _bid();
+  const { error } = await supabase
+    .from("employees").update({ active: false })
+    .eq("business_id", bid).eq("id", id);
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function fetchAttendance(date) {
+  const bid = await _bid();
+  const day = date || new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("attendance").select("employee_id, status")
+    .eq("business_id", bid).eq("on_date", day);
+  if (error) throw new Error(error.message);
+  return { records: data || [] };
+}
+
+export async function markAttendance(employeeId, date, status) {
+  const bid = await _bid();
+  const { error } = await supabase
+    .from("attendance")
+    .upsert({
+      business_id: bid,
+      employee_id: employeeId,
+      on_date    : date || new Date().toISOString().slice(0, 10),
+      status,
+    }, { onConflict: "business_id,employee_id,on_date" });
+  if (error) throw new Error(error.message);
+  return { ok: true };
+}
+
+export async function fetchPayrollReport(month) {
+  const bid = await _bid();
+  const m = month || new Date().toISOString().slice(0, 7);
+  const { data, error } = await supabase
+    .from("payroll_runs").select("*")
+    .eq("business_id", bid).eq("month", m)
+    .order("employee_name");
+  if (error) throw new Error(error.message);
+  return { records: data || [] };
+}
+
+export async function processPayroll(month) {
+  const m = month || new Date().toISOString().slice(0, 7);
+  const { data, error } = await supabase.rpc("process_payroll", { p_month: m });
+  if (error) throw new Error(error.message);
+  return data || {};
+}

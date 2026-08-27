@@ -44,19 +44,13 @@ import RatingsScreen         from "../screens/RatingsScreen";
 import DeliveryScreen        from "../screens/DeliveryScreen";
 import OrderLinkScreen       from "../screens/OrderLinkScreen";
 import CustomersScreen       from "../screens/CustomersScreen";
-import PromotionsScreen      from "../screens/PromotionsScreen";
 import BillingScreen         from "../screens/BillingScreen";
 import SettingsScreen        from "../screens/SettingsScreen";
-import PhotoInquiriesScreen  from "../screens/PhotoInquiriesScreen";
-import QueryInboxScreen      from "../screens/QueryInboxScreen";
 import ReturnsScreen         from "../screens/ReturnsScreen";
-import AdminScreen           from "../screens/AdminScreen";
 import BusinessTypeSetupScreen from "../screens/BusinessTypeSetupScreen";
 // Finance screens
 import AccountingScreen      from "../screens/AccountingScreen";
 import PayrollScreen         from "../screens/PayrollScreen";
-
-const ADMIN_EMAIL = "codeforeai.app@gmail.com";
 
 const Drawer     = createDrawerNavigator();
 const RootStack  = createStackNavigator();
@@ -97,9 +91,6 @@ function MoreStack({ industry }) {
       <MoreStack_.Screen name="Dashboard"      component={DashboardScreen}           options={{ title: "Dashboard" }} />
 
       {/* Marketing & CRM */}
-      <MoreStack_.Screen name="Promotions"     component={PromotionsScreen}          options={{ title: "Promotions" }} />
-      <MoreStack_.Screen name="QueryInbox"     component={QueryInboxScreen}          options={{ title: "Query Inbox" }} />
-      <MoreStack_.Screen name="PhotoInquiries" component={PhotoInquiriesScreen}      options={{ title: "Photo Inquiries" }} />
       <MoreStack_.Screen name="Returns"        component={ReturnsScreen}             options={{ title: "Complaints & Refunds" }} />
 
       {/* Finance */}
@@ -109,7 +100,6 @@ function MoreStack({ industry }) {
       {/* Account */}
       <MoreStack_.Screen name="Billing"        component={BillingScreen}             options={{ title: "Billing" }} />
       <MoreStack_.Screen name="Profile"        component={ProfileScreen}             options={{ title: "My Profile" }} />
-      <MoreStack_.Screen name="Admin"          component={AdminScreen}               options={{ title: "Admin Panel" }} />
     </MoreStack_.Navigator>
   );
 }
@@ -118,7 +108,6 @@ function MoreStack({ industry }) {
 function MoreHubScreen() {
   const nav = useNavigation();
   const { user, profile, industry } = useAuth();
-  const isAdminUser = user?.email === ADMIN_EMAIL;
   const cfg         = typeConfig(industry);
 
   const sections = [
@@ -129,12 +118,14 @@ function MoreHubScreen() {
         { icon: "🏠", label: "Dashboard",      desc: "Sales summary, revenue charts, quick stats",          screen: "Dashboard"      },
       ],
     },
+    // Promotions, Query Inbox and Photo Inquiries used to sit here. All three
+    // read Instagram DMs and WhatsApp broadcasts through the old bot server —
+    // nothing in the SMS product writes to any of them, so they were three
+    // doors onto permanently empty rooms. Feedback now arrives through Ratings,
+    // and anything that went wrong through Complaints.
     {
-      title: "Marketing",
+      title: "Customer care",
       items: [
-        { icon: "⚡", label: "Promotions",      desc: "Flash sale, segments, abandoned cart",               screen: "Promotions"     },
-        { icon: "💬", label: "Query Inbox",     desc: "Customer questions & product requests",              screen: "QueryInbox"     },
-        { icon: "📷", label: "Photo Inquiries", desc: "Customer image search requests",                     screen: "PhotoInquiries" },
         { icon: "⚠️", label: "Complaints",      desc: "Problems with an order — refund, credit or remake",  screen: "Returns"        },
       ],
     },
@@ -150,7 +141,6 @@ function MoreHubScreen() {
       items: [
         { icon: "💳", label: "Billing",         desc: "Subscription, commissions, payments",                screen: "Billing"        },
         { icon: "👤", label: "My Profile",      desc: "Business ID, plan, webhook URL",                    screen: "Profile"        },
-        ...(isAdminUser ? [{ icon: "🔐", label: "Admin Panel", desc: "Manage client subscriptions", screen: "Admin" }] : []),
       ],
     },
   ];

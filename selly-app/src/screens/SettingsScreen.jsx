@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Colors } from "../constants/colors";
-import { getServerUrl, saveServerUrl, fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
+import { fetchBusinessSettings, saveBusinessSettings } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
 import { scheduleConfig } from "../lib/scheduling";
@@ -43,10 +43,6 @@ const INDUSTRY_OPTIONS = BUSINESS_TYPE_LIST.map(t => ({
 
 export default function SettingsScreen() {
   const { industry: activeIndustry, updateIndustry, profile } = useAuth();
-  const [serverUrl, setServerUrl]   = useState("");
-  const [saved, setSaved]           = useState(false);
-  const [testing, setTesting]       = useState(false);
-  const [testResult, setTestResult] = useState(null);
   const [industrySaving, setIndustrySaving] = useState(false);
   const [industryError, setIndustryError] = useState(null);
 
@@ -55,7 +51,6 @@ export default function SettingsScreen() {
   const [bizSaved, setBizSaved]   = useState(false);
 
   useEffect(() => {
-    getServerUrl().then(url => setServerUrl(url));
     // profile.business_name comes from Supabase auth metadata (set at signup)
     // and is used as a fallback if business_settings hasn't been written yet.
     const profileName = profile?.business_name || "";
@@ -138,93 +133,16 @@ export default function SettingsScreen() {
     }
   };
 
-  const save = async () => {
-    const url = serverUrl.trim().replace(/\/$/, "");
-    await saveServerUrl(url);
-    setSaved(true);
-    setTestResult(null);
-    setTimeout(() => setSaved(false), 2000);
-  };
 
-  const testConnection = async () => {
-    const url = serverUrl.trim().replace(/\/$/, "");
-    setTesting(true);
-    setTestResult(null);
-    try {
-      const resp = await fetch(`${url}/`);
-      if (resp.ok) {
-        setTestResult({ ok: true, msg: "✅ Connected successfully!" });
-      } else {
-        setTestResult({ ok: false, msg: `❌ Server responded with ${resp.status}` });
-      }
-    } catch (e) {
-      setTestResult({ ok: false, msg: "❌ " + friendlyError(e) });
-    } finally {
-      setTesting(false);
-    }
-  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.pageTitle}>Settings</Text>
 
-      {/* Server config */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>🌐 Server URL</Text>
-        <Text style={styles.cardDesc}>
-          Your Selly server URL. This is pre-configured — only change it if instructed by support.
-        </Text>
-
-        <Text style={styles.fieldLabel}>Backend URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="http://localhost:3000"
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
-
-        {testResult && (
-          <View style={[styles.testResult, { backgroundColor: testResult.ok ? Colors.green + "22" : Colors.red + "22" }]}>
-            <Text style={{ color: testResult.ok ? Colors.green : Colors.red, fontWeight: "600" }}>
-              {testResult.msg}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.testBtn, testing && styles.btnDisabled]}
-            onPress={testConnection}
-            disabled={testing}
-          >
-            {testing ? <ActivityIndicator color={Colors.primary} size="small" /> : <Text style={styles.testBtnText}>Test</Text>}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.saveBtn, saved && { backgroundColor: Colors.green }]}
-            onPress={save}
-          >
-            <Text style={styles.saveBtnText}>{saved ? "Saved ✓" : "Save"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={async () => {
-            const { getServerUrl: _ , saveServerUrl } = await import("../lib/api");
-            const DEFAULT = "https://instagram-bot-production-04ae.up.railway.app";
-            await saveServerUrl(DEFAULT);
-            setServerUrl(DEFAULT);
-            setTestResult({ ok: true, msg: "✅ Reset to default server URL" });
-          }}
-        >
-          <Text style={styles.resetBtnText}>↺ Reset to Default</Text>
-        </TouchableOpacity>
-      </View>
+      {/* A "Server URL" card sat here, with Test / Save / Reset buttons and a
+          Railway address behind them. There is no server address to configure:
+          the app talks to Supabase and nothing else, and an editable backend
+          field is a way to break the app, not to fix it. */}
 
       {/* Business Settings */}
       <View style={styles.card}>

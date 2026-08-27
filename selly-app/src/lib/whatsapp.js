@@ -3,7 +3,6 @@
 // approved in the demos lives in exactly one file.
 //
 // There is a single send path available to the app:
-//     sendMessageToCustomer(customerId, text)  →  POST /api/customers/:id/message
 // It takes a bot_customers id, not a phone number — so anything we send has to
 // be resolved to a saved customer first. resolveCustomer() does that by matching
 // the last 10 digits of the order's mobile.
@@ -16,7 +15,6 @@
 // Copy source: cafe-demo/artifact.html and cakeshop-demo/artifact.html.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { sendMessageToCustomer } from "./api";
 
 export const inr = n => "₹" + Number(n || 0).toLocaleString("en-IN");
 
@@ -43,20 +41,10 @@ export function resolveCustomer(order, customers = []) {
   return customers.find(c => tail10(c.mobile) === digits) || null;
 }
 
-/**
- * Resolve then send. Throws with a readable message when there is nobody to
- * send to, so callers can surface it rather than failing silently.
- */
-export async function sendToOrderCustomer(order, customers, text) {
-  const cust = resolveCustomer(order, customers);
-  if (!cust) {
-    throw new Error(
-      "This order isn't linked to a saved customer, so there's no WhatsApp number to send to."
-    );
-  }
-  await sendMessageToCustomer(cust.id, text);
-  return cust;
-}
+// sendToOrderCustomer lived here: it resolved an order to a saved customer and
+// pushed a WhatsApp message through the old bot server. Nothing called it, and
+// there is no bot to push through. Messages now go out via lib/messaging.js,
+// which sends SMS by default.
 
 // ── Shared bits ───────────────────────────────────────────────────────────────
 

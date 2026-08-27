@@ -6,7 +6,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "../constants/colors";
-import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchTracking, fetchCustomers } from "../lib/api";
+import { fetchOrders, updateOrderStatus, fetchOrderOTPs, fetchCustomers } from "../lib/api";
 import { notifyOrderStatus, notifyTarget, canNotifyStatus } from "../lib/whatsapp";
 import { friendlyError } from "../lib/errors";
 import { useAuth } from "../context/AuthContext";
@@ -58,8 +58,6 @@ export default function OrdersScreen({ navigation, route }) {
   const [trackNum, setTrackNum]   = useState("");
   const [trackUrl, setTrackUrl]   = useState("");
   const [orderOTPs, setOrderOTPs] = useState(null);  // OTP data for selected order
-  const [tracking, setTracking]   = useState(null);  // live tracking data
-  const [trackLoading, setTrackLoading] = useState(false);
   const [customers, setCustomers] = useState([]);    // needed to resolve a WhatsApp send
   const [notice,    setNotice]    = useState(null);  // result of the last status change
   const [notifying, setNotifying] = useState(false);
@@ -116,7 +114,6 @@ export default function OrdersScreen({ navigation, route }) {
     setTrackNum(order.trackingNumber || "");
     setTrackUrl(order.trackingUrl || "");
     setOrderOTPs(null);
-    setTracking(null);
     setNotice(null);
     // Load OTPs for COD orders
     if (order.paymentMode === "cod") {
@@ -124,18 +121,6 @@ export default function OrdersScreen({ navigation, route }) {
     }
   };
 
-  const loadTracking = async () => {
-    if (!selected?.trackingNumber) return;
-    setTrackLoading(true);
-    try {
-      const d = await fetchTracking(selected.trackingNumber, "shiprocket", selected.id);
-      setTracking(d.tracking || null);
-    } catch {
-      setTracking(null);
-    } finally {
-      setTrackLoading(false);
-    }
-  };
 
   // Send the message for whatever status the order is on now — a deliberate
   // action, separate from advancing, so a failed or mis-sent update can be retried
@@ -385,39 +370,10 @@ export default function OrdersScreen({ navigation, route }) {
                   </View>
                 ) : null}
 
-                {cfg.showTracking && selected.trackingNumber && (selected.status === "shipped" || selected.status === "out_for_delivery") ? (
-                  <View style={styles.trackingBox}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <Text style={styles.subTitle}>Live Tracking</Text>
-                      <TouchableOpacity onPress={loadTracking} disabled={trackLoading}>
-                        <Text style={{ color: Colors.primary, fontSize: 12, fontWeight: "700" }}>
-                          {trackLoading ? "Loading..." : "Refresh ↻"}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                    {tracking ? (
-                      <View style={styles.liveTrackBox}>
-                        <Text style={styles.liveStatus}>{tracking.statusText || tracking.status}</Text>
-                        <Text style={styles.liveCarrier}>{tracking.carrier} · AWB: {tracking.awb}</Text>
-                        {tracking.estimatedDate ? (
-                          <Text style={styles.liveEta}>ETA: {tracking.estimatedDate}</Text>
-                        ) : null}
-                        {(tracking.events || []).slice(0, 3).map((e, i) => (
-                          <View key={i} style={styles.eventRow}>
-                            <Text style={styles.eventDot}>•</Text>
-                            <Text style={styles.eventText}>{e.status} {e.location ? `— ${e.location}` : ""}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : (
-                      <TouchableOpacity style={styles.liveTrackBtn} onPress={loadTracking}>
-                        <Text style={{ color: Colors.primary, fontWeight: "600", fontSize: 13 }}>
-                          🔍 Fetch Live Tracking
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ) : null}
+                {/* A "Live Tracking" panel sat here that queried Shiprocket through
+                    the old bot server for an AWB number. A cloud kitchen delivers
+                    with its own rider — that journey is the Delivery screen, with a
+                    packet token and a handover OTP. There is no courier to ask. */}
 
                 {/* Customer updates — who a message reaches, and a deliberate
                     way to send one. This used to happen only as a side effect of
