@@ -12,8 +12,14 @@
 // way to write rows that belong to no signed-in user.
 //
 // ── THESE ARE NOT REAL ───────────────────────────────────────────────────────
-// Every id is prefixed "demo-", which is what makes them removable in one
-// statement and tells anyone reading the table what they are looking at. They
+// Each one gets a real auth user with a demo+<name>@selly.test address, and
+// that user's id is the kitchen's business_id. Not decoration: placing an order
+// writes a customer_contacts row whose business_id is a uuid referencing
+// auth.users, so a kitchen with a made-up text id can be browsed and can never
+// be ordered from. The demo has to survive an actual order.
+//
+// Those addresses are also how the demo kitchens are identified later, which is
+// why cleanup can find every one of them without keeping a list. They
 // sit in the same tables as the real kitchen because the point is to see the
 // real discovery, ordering and menu code working at a realistic size — a
 // separate demo table would prove nothing.
@@ -82,6 +88,8 @@ const AREA = {
 };
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const EMAIL = (s) => `demo+${slug(s)}@selly.test`;
+const IS_DEMO = /^demo\+.*@selly\.test$/;
 const hash = (s) => crypto.createHash("sha1").update(s).digest("hex");
 
 /** Deterministic small offset, so re-running does not move a kitchen. */
@@ -92,23 +100,74 @@ function jitter(seed, i) {
 
 const OPEN_ALL_DAY = { open: "09:00", close: "23:30" };
 
+// ── The users behind the kitchens ───────────────────────────────────────────
+
+async function auth(method, p, body) {
+  const r = await fetch(`${URL}/auth/v1/${p}`, {
+    method, headers: H, body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await r.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch {}
+  return { ok: r.ok, status: r.status, json, text };
+}
+
+/** Every demo user currently in the project, keyed by email. */
+async function demoUsers() {
+  const found = {};
+  for (let page = 1; page <= 20; page++) {
+    const r = await auth("GET", `admin/users?page=${page}&per_page=200`);
+    if (!r.ok) throw new Error("could not list users: " + r.text.slice(0, 200));
+    const users = (r.json && r.json.users) || [];
+    users.forEach((u) => { if (u.email && IS_DEMO.test(u.email)) found[u.email] = u.id; });
+    if (users.length < 200) break;
+  }
+  return found;
+}
+
 async function main() {
   const clear = process.argv.includes("--clear");
 
   if (clear) {
-    const a = await send("DELETE", "catalog?business_id=like.demo-*", null, "return=representation");
-    const b = await send("DELETE", "business_settings?business_id=like.demo-*", null, "return=representation");
-    console.log(`removed ${b.length} demo kitchens and ${a.length} dishes`);
+    const users = await demoUsers();
+    const ids = Object.values(users);
+    if (!ids.length) { console.log("no demo kitchens found"); return; }
+
+    const list = "(" + ids.join(",") + ")";
+    const a = await send("DELETE", "catalog?business_id=in." + list, null, "return=representation");
+    const b = await send("DELETE", "business_settings?business_id=in." + list, null, "return=representation");
+    // Orders and contacts belonging to a demo kitchen go too, or the next
+    // kitchen to be given that uuid would inherit somebody else's history.
+    const o = await send("DELETE", "orders?business_id=in." + list, null, "return=representation");
+    for (const id of ids) await auth("DELETE", "admin/users/" + id);
+
+    console.log(`removed ${b.length} kitchens, ${a.length} dishes, ${o.length} orders, ${ids.length} users`);
     return;
   }
 
   const data = JSON.parse(fs.readFileSync(path.join(__dirname, "demo-kitchens.json"), "utf8"));
 
+  // One auth user per kitchen. Re-running reuses the ones already there, so ids
+  // stay stable and a refresh does not orphan the orders placed against them.
+  const existing = await demoUsers();
+  const idOf = {};
+  for (const k of data) {
+    const email = EMAIL(k.name);
+    if (existing[email]) { idOf[k.name] = existing[email]; continue; }
+    const r = await auth("POST", "admin/users", { email, email_confirm: true });
+    if (!r.ok || !r.json || !r.json.id) {
+      throw new Error(`could not create ${email}: ${r.status} ${r.text.slice(0, 200)}`);
+    }
+    idOf[k.name] = r.json.id;
+  }
+  console.log(`${Object.keys(idOf).length} kitchen accounts ready`);
+
   const settings = [];
   const dishes   = [];
 
   data.forEach((k) => {
-    const id = "demo-" + slug(k.name);
+    const id = idOf[k.name];
+    const seed = slug(k.name);            // stable across user recreation
     const centre = AREA[k.area] || AREA["Baner"];
 
     settings.push({
@@ -119,15 +178,15 @@ async function main() {
       area         : k.area,
       cuisine      : k.cuisine,
       // A short code because it goes in a link somebody may read aloud.
-      public_code  : hash(id).slice(0, 8),
+      public_code  : hash(seed).slice(0, 8),
       listed       : true,
-      lat          : +(centre[0] + jitter(id, 0)).toFixed(6),
-      lng          : +(centre[1] + jitter(id, 1)).toFixed(6),
+      lat          : +(centre[0] + jitter(seed, 0)).toFixed(6),
+      lng          : +(centre[1] + jitter(seed, 1)).toFixed(6),
       delivery_radius_km: 5,
       // Varied, because a list where every kitchen charges the same reads as
       // seeded data. Deterministic from the name so it does not shuffle.
-      delivery_charge: [0, 0, 20, 25, 30][parseInt(hash(id).slice(8, 10), 16) % 5],
-      free_above     : [299, 399, 499, 999][parseInt(hash(id).slice(10, 12), 16) % 4],
+      delivery_charge: [0, 0, 20, 25, 30][parseInt(hash(seed).slice(8, 10), 16) % 5],
+      free_above     : [299, 399, 499, 999][parseInt(hash(seed).slice(10, 12), 16) % 4],
       store_config: {
         acceptingOrders: true,
         deliveryRadiusKm: 5,
@@ -141,7 +200,7 @@ async function main() {
 
     k.items.forEach((it, i) => {
       dishes.push({
-        id          : id + "-" + String(i + 1).padStart(2, "0"),
+        id          : seed + "-" + String(i + 1).padStart(2, "0"),
         business_id : id,
         name        : it.name,
         price       : it.price,
