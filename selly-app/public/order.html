@@ -112,6 +112,21 @@
     0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}
     70%{box-shadow:0 0 0 18px rgba(239,68,68,0)}
     100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+  .orbWrap{display:flex;flex-direction:column;align-items:center;gap:11px;padding:10px 0 18px}
+  .orb{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;font-size:34px;
+    background:var(--elev);border:1px solid var(--line);transition:.25s;cursor:pointer}
+  .orb.listen{background:rgba(239,68,68,.14);border-color:var(--red);animation:orbPulse 1.5s infinite}
+  .orb.speak{background:rgba(124,92,255,.16);border-color:var(--violet);animation:orbGlow 1.9s infinite}
+  .orb.think{background:rgba(245,165,36,.14);border-color:var(--amber)}
+  @keyframes orbPulse{
+    0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}
+    70%{box-shadow:0 0 0 26px rgba(239,68,68,0)}
+    100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+  @keyframes orbGlow{
+    0%,100%{box-shadow:0 0 22px 2px rgba(124,92,255,.35)}
+    50%{box-shadow:0 0 34px 8px rgba(124,92,255,.55)}}
+  .vStatus{font-size:13px;color:var(--tx2);font-weight:700;text-align:center;min-height:19px}
+
   .heard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
     font-size:14px;color:var(--tx);line-height:1.55;min-height:46px}
   .heard em{color:var(--tx3);font-style:normal}
@@ -198,7 +213,12 @@
   <div class="in">
     <div class="sh-h"><b>Order by voice</b><button class="x" id="vClose">✕</button></div>
 
-    <div class="heard" id="vHeard"><em>Listening…</em></div>
+    <div class="orbWrap">
+      <div class="orb" id="vOrb"><span id="vOrbIcon">🎤</span></div>
+      <div class="vStatus" id="vStatus">Starting…</div>
+    </div>
+
+    <div class="heard" id="vHeard"><em>…</em></div>
     <div id="vParsed"></div>
     <div class="vMiss" id="vMiss" style="display:none"></div>
 
@@ -209,11 +229,11 @@
     </div>
 
     <div class="vBtns">
-      <button class="vAgain" id="vAgain">🎤 Say it again</button>
+      <button class="vAgain" id="vAgain">🎤 Listen</button>
       <button class="vAdd" id="vAdd" disabled>Add to order</button>
     </div>
     <p class="foot" id="vFoot">
-      Nothing is added until you tap Add — so a misheard word costs a tap, not a wrong dinner.
+      Say a dish, then answer yes or no. Nothing is added until you agree to it.
     </p>
   </div>
 </div>
@@ -679,36 +699,67 @@
     cart = {};
   }
 
-  /* ══ Ordering by voice ═══════════════════════════════════════════════════
+  /* ══ Talking to the kitchen ══════════════════════════════════════════════
    *
-   * WHY THIS EXISTS
-   *   Typing is the last barrier in the journey. Someone who cannot type
-   *   comfortably — older, in a hurry, one hand full, or simply not literate in
-   *   English — can still say "do thali". The rest of the product already asks
-   *   nothing of them: no app, no account, no password.
+   * A spoken conversation: it asks, you answer, it repeats the order back and
+   * waits for a yes before anything is added.
    *
-   * WHAT IT DOES NOT DO
-   *   It never adds anything on its own. Speech recognition is confident and
-   *   frequently wrong, and the cost of a mistake here is somebody's dinner and
-   *   money. So it shows what it understood and waits to be told yes. A wrong
-   *   guess costs a tap.
+   * WHY THE FIRST VERSION WENT DEAF
+   *   Chrome's SpeechRecognition ends a session constantly — after every
+   *   result, and after a few seconds of quiet. The first version treated each
+   *   of those as "the user is finished" and stopped. Worse, granting the
+   *   microphone permission aborts the session that asked for it, so the very
+   *   first allow could never work.
    *
-   * MATCHING
-   *   The candidate set is closed — this kitchen's menu, usually a handful of
-   *   dishes — which is what makes loose matching safe here when it would not
-   *   be for an address. "Non Veg Thali" is tried before "Thali" so the longer,
-   *   more specific name wins and consumes its words, rather than one order
-   *   producing both.
+   *   So intent and session are now separate things. `wantEar` is what we mean
+   *   to be doing; a session ending while it is true simply starts another.
+   *
+   * ECHO
+   *   The microphone hears the speaker. Recognition is aborted before we say
+   *   anything and only restarted once speaking has finished, or the assistant
+   *   spends the conversation transcribing itself.
    * ═══════════════════════════════════════════════════════════════════════ */
 
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var vLang = "en-IN";
-  var vPicks = [];
-  var rec = null, listening = false;
+  var SR  = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var TTS = window.speechSynthesis;
 
-  // Spoken quantities. Hindi words as people actually say them, plus Devanagari
-  // because hi-IN returns that script. "a"/"an" are deliberately absent: they
-  // appear constantly in ordinary speech and one is the default anyway.
+  var vLang    = "en-IN";
+  var vPicks   = [];            // understood, not yet agreed to
+  var awaiting = "order";       // order | confirm
+  var rec = null, wantEar = false, recGen = 0, vOpen = false;
+
+  var PHRASE = {
+    "en-IN": {
+      greet : "What would you like to order?",
+      ask   : function (s) { return s + ". Shall I add that?"; },
+      added : "Added. Anything else?",
+      undo  : "Alright. Tell me again.",
+      none  : "I couldn't find that on the menu. Try naming a dish.",
+      bye   : "Opening your order.",
+      yes   : ["yes","yeah","yep","yup","ok","okay","sure","correct","right","add","confirm",
+               "haan","han","haa","ha","ji","theek","thik","sahi"],
+      no    : ["no","nope","nah","cancel","wrong","remove","nahi","nahin","na","galat"],
+      done  : ["checkout","check out","place order","place the order","thats all","that's all",
+               "finish","done","bas","bus","complete"]
+    },
+    "hi-IN": {
+      greet : "आप क्या मंगवाना चाहेंगे?",
+      ask   : function (s) { return s + ". जोड़ दूँ?"; },
+      added : "जोड़ दिया. और कुछ?",
+      undo  : "ठीक है. फिर से बताइए.",
+      none  : "यह मेन्यू में नहीं मिला. कोई डिश का नाम बोलिए.",
+      bye   : "आपका ऑर्डर खोल रहे हैं.",
+      yes   : ["हाँ","हां","जी","ठीक","सही","ठीक है","haan","han","ji","yes","ok","okay","theek"],
+      no    : ["नहीं","ना","नही","रहने","galat","no","nahi","cancel"],
+      done  : ["ऑर्डर","चेकआउट","बस","हो गया","checkout","place order","bas","done"]
+    }
+  };
+  var P = function () { return PHRASE[vLang] || PHRASE["en-IN"]; };
+
+  // ── the parser ────────────────────────────────────────────────────────────
+  // Spoken quantities. Hindi as people say it, plus Devanagari because hi-IN
+  // returns that script. "a"/"an" are deliberately absent: they appear
+  // constantly in ordinary speech and one is the default anyway.
   var NUMW = {
     "one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,
     "ek":1,"do":2,"teen":3,"tin":3,"char":4,"chaar":4,"panch":5,"paanch":5,
@@ -741,9 +792,8 @@
 
   function parseOrder(transcript) {
     var tokens = words(transcript);
-    var used = {};                      // token index -> taken
+    var used = {};
 
-    // Longest dish names first, so the specific one claims its words.
     var cands = menu.map(function (it) {
       return { it: it, keys: nameKeys(it.name) };
     }).sort(function (a, b) { return b.keys.length - a.keys.length; });
@@ -801,7 +851,6 @@
       var first = Math.min.apply(null, hits);
       var q = qtyBefore(tokens, first);
 
-      // Which portion, if the dish has them and one was named.
       var vs = variantsOf(c.it);
       var variant = vs[0];
       if (vs.length > 1) {
@@ -820,8 +869,6 @@
       picks.push({ item: c.it, variant: variant, qty: q ? q.n : 1 });
     });
 
-    // Anything left that was not filler — worth showing, because "and a coke"
-    // silently vanishing is how somebody ends up with a missing drink.
     var leftover = tokens.filter(function (t, i) {
       return !used[i] && t.length >= 3 &&
         ["and","the","please","with","for","order","want","give","chahiye","dena","aur"].indexOf(t) < 0;
@@ -830,11 +877,28 @@
     return { picks: picks, leftover: leftover };
   }
 
+  // ── what it looks like it is doing ────────────────────────────────────────
+  function vMode(m, status) {
+    var orb = $("vOrb");
+    if (!orb) return;
+    orb.className = "orb" + (m === "idle" ? "" : " " + m);
+    $("vOrbIcon").textContent =
+      m === "listen" ? "🎙" : m === "speak" ? "🔊" : m === "think" ? "⋯" : "🎤";
+    if (status != null) $("vStatus").textContent = status;
+  }
+
+  function summarise(picks) {
+    var names = picks.map(function (p) {
+      return p.qty + " " + p.item.name + (p.variant.portion ? " " + p.variant.portion : "");
+    }).join(", ");
+    var total = picks.reduce(function (n, p) { return n + p.variant.price * p.qty; }, 0);
+    return names + ". " + total + " rupees";
+  }
+
   function renderVoice(transcript) {
-    $("vHeard").textContent = transcript || "";
+    if (transcript != null) $("vHeard").textContent = transcript;
     var box = $("vParsed");
     box.innerHTML = "";
-
     vPicks.forEach(function (p) {
       var row = document.createElement("div");
       row.className = "vLine";
@@ -846,96 +910,214 @@
         '<span class="vp">' + inr(p.variant.price * p.qty) + '</span>';
       box.appendChild(row);
     });
-
     $("vAdd").disabled = !vPicks.length;
     $("vAdd").textContent = vPicks.length
       ? "Add " + vPicks.reduce(function (n, p) { return n + p.qty; }, 0) + " to order"
       : "Add to order";
   }
 
-  function openVoice() {
-    $("vScrim").classList.add("on"); $("vSheet").classList.add("on");
+  // ── speaking ──────────────────────────────────────────────────────────────
+  function speak(text, then) {
+    stopEar();                       // never listen to ourselves
+    vMode("speak", text);
+
+    if (!TTS) { if (then) then(); return; }
+
+    try { TTS.cancel(); } catch (e) {}
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang = vLang;
+    u.rate = 1.0;
+
+    var voices = TTS.getVoices() || [];
+    var match = voices.filter(function (v) { return v.lang === vLang; })[0] ||
+                voices.filter(function (v) { return v.lang.indexOf(vLang.slice(0, 2)) === 0; })[0];
+    if (match) u.voice = match;
+
+    var went = false;
+    var go = function () { if (went) return; went = true; if (then) then(); };
+    u.onend = go;
+    u.onerror = go;
+    // Some browsers never fire onend. The conversation must not stall on it.
+    setTimeout(go, Math.min(1200 + text.length * 90, 9000));
+
+    try { TTS.speak(u); } catch (e) { go(); }
   }
-  function closeVoice() {
-    $("vScrim").classList.remove("on"); $("vSheet").classList.remove("on");
-    stopListening();
+
+  // ── listening ─────────────────────────────────────────────────────────────
+  function stopEar() {
+    wantEar = false;
+    recGen++;
+    if (rec) { try { rec.abort(); } catch (e) {} }
+    rec = null;
   }
 
-  function stopListening() {
-    listening = false;
-    $("micBtn").classList.remove("on");
-    if (rec) { try { rec.stop(); } catch (e) {} }
-  }
+  function startEar(what) {
+    if (!SR || !vOpen) return;
+    if (what) awaiting = what;
 
-  function listen() {
-    if (!SR) return;
-    stopListening();
+    stopEar();
+    wantEar = true;
+    var gen = ++recGen;
 
-    rec = new SR();
-    rec.lang = vLang;
-    rec.interimResults = true;
-    rec.maxAlternatives = 1;
-    rec.continuous = false;
+    var r = new SR();
+    rec = r;
+    r.lang = vLang;
+    r.interimResults = true;
+    r.continuous = false;
+    r.maxAlternatives = 1;
 
-    vPicks = [];
-    $("vMiss").style.display = "none";
-    $("vHeard").innerHTML = "<em>Listening…</em>";
-    $("vParsed").innerHTML = "";
-    $("vAdd").disabled = true;
-    listening = true;
-    $("micBtn").classList.add("on");
+    r.onstart      = function () { if (gen === recGen) vMode("listen", "Listening…"); };
+    r.onspeechstart = function () { if (gen === recGen) vMode("listen", "Go on…"); };
 
-    rec.onresult = function (e) {
+    r.onresult = function (e) {
+      if (gen !== recGen) return;
       var txt = "";
       for (var i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
       txt = txt.trim();
+      if (!txt) return;
 
-      // Interim text is shown as it arrives, so it is obvious the mic is
-      // working, but only a final result is parsed into an order.
       if (!e.results[e.results.length - 1].isFinal) {
         $("vHeard").textContent = txt;
         return;
       }
+      stopEar();
+      vMode("think", "…");
+      heard(txt);
+    };
 
-      var out = parseOrder(txt);
+    r.onerror = function (e) {
+      if (gen !== recGen) return;
+      if (e.error === "aborted") return;             // we caused it
+
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        stopEar();
+        vMode("idle", "Microphone blocked");
+        $("vHeard").innerHTML =
+          "<em>The browser is blocking the microphone. Allow it for this site " +
+          "(the padlock in the address bar), then tap the circle above.</em>";
+        return;
+      }
+      // no-speech, network, audio-capture: a session ending is normal. onend
+      // will start the next one while we still mean to be listening.
+      if (e.error === "no-speech") vMode("listen", "Still listening…");
+    };
+
+    r.onend = function () {
+      if (gen !== recGen) return;
+      // The session finished but we have not changed our mind, so open another.
+      // This is the whole reason the assistant does not go deaf after a pause.
+      if (wantEar) setTimeout(function () {
+        if (gen === recGen && wantEar && vOpen) {
+          try { r.start(); } catch (e) { startEar(); }
+        }
+      }, 220);
+    };
+
+    try { r.start(); }
+    catch (e) {
+      // Already started, or starting too soon after an abort. Try once more.
+      setTimeout(function () { if (gen === recGen && wantEar) { try { r.start(); } catch (e2) {} } }, 320);
+    }
+  }
+
+  // ── the conversation ──────────────────────────────────────────────────────
+  function saidAny(tokens, list) {
+    return list.some(function (w) {
+      var parts = words(w);
+      return parts.length === 1
+        ? tokens.indexOf(parts[0]) >= 0
+        : parts.every(function (x) { return tokens.indexOf(x) >= 0; });
+    });
+  }
+
+  function heard(txt) {
+    var tokens = words(txt);
+    renderVoice(txt);
+    $("vMiss").style.display = "none";
+
+    // "Checkout" ends the conversation whenever it is said.
+    if (saidAny(tokens, P().done) && !vPicks.length) {
+      speak(P().bye, function () {
+        closeVoice();
+        // Only if there is actually something to check out — "that's all" said
+        // to an empty cart should not open a blank order form.
+        if (Object.keys(cart).length) $("goBtn").click();
+      });
+      return;
+    }
+
+    if (awaiting === "confirm") {
+      if (saidAny(tokens, P().yes)) { applyPicks(); return; }
+      if (saidAny(tokens, P().no))  {
+        vPicks = []; renderVoice(txt);
+        speak(P().undo, function () { startEar("order"); });
+        return;
+      }
+      // Neither — they probably just said a different order. Fall through and
+      // re-read it as one, which is what a person would do.
+    }
+
+    var out = parseOrder(txt);
+    if (out.picks.length) {
       vPicks = out.picks;
       renderVoice(txt);
-
-      if (!out.picks.length) {
+      if (out.leftover.length) {
         $("vMiss").style.display = "";
-        $("vMiss").textContent =
-          "Nothing on this menu matched that. Try naming a dish — for example, \"" +
-          (menu[0] ? menu[0].name : "one thali") + "\".";
-      } else if (out.leftover.length) {
-        $("vMiss").style.display = "";
-        $("vMiss").textContent =
-          "Not matched: " + out.leftover.join(", ") +
-          ". Add those by tapping, or say it again.";
+        $("vMiss").textContent = "Not matched: " + out.leftover.join(", ") + ".";
       }
-    };
+      speak(P().ask(summarise(vPicks)), function () { startEar("confirm"); });
+    } else {
+      vPicks = [];
+      renderVoice(txt);
+      speak(P().none, function () { startEar("order"); });
+    }
+  }
 
-    rec.onerror = function (e) {
-      stopListening();
-      var msg = e.error === "not-allowed" || e.error === "service-not-allowed"
-        ? "Microphone permission was refused. Allow it for this site, then tap the mic again."
-        : e.error === "no-speech"
-        ? "Didn't catch anything. Tap the mic and speak a little closer."
-        : "Voice isn't working just now — you can still tap your way through the menu.";
-      $("vHeard").innerHTML = "<em>" + esc(msg) + "</em>";
-    };
+  function applyPicks() {
+    if (!vPicks.length) return;
+    vPicks.forEach(function (p) {
+      cart[p.variant.key] = (cart[p.variant.key] || 0) + p.qty;
+    });
+    vPicks = [];
+    renderMenu(); renderCart(); renderVoice(null);
+    speak(P().added, function () { startEar("order"); });
+  }
 
-    rec.onend = function () { stopListening(); };
+  // ── open / close ──────────────────────────────────────────────────────────
+  function openVoice() {
+    vOpen = true;
+    vPicks = []; awaiting = "order";
+    $("vParsed").innerHTML = "";
+    $("vMiss").style.display = "none";
+    $("vHeard").innerHTML = "<em>…</em>";
+    $("vAdd").disabled = true;
+    $("vScrim").classList.add("on");
+    $("vSheet").classList.add("on");
+    speak(P().greet, function () { startEar("order"); });
+  }
 
-    try { rec.start(); }
-    catch (e) { stopListening(); }
+  function closeVoice() {
+    vOpen = false;
+    stopEar();
+    if (TTS) { try { TTS.cancel(); } catch (e) {} }
+    vMode("idle", "");
+    $("vScrim").classList.remove("on");
+    $("vSheet").classList.remove("on");
   }
 
   if (SR) {
     $("micBtn").style.display = "grid";
-    $("micBtn").onclick = function () { openVoice(); listen(); };
-    $("vClose").onclick  = closeVoice;
-    $("vScrim").onclick  = closeVoice;
-    $("vAgain").onclick  = listen;
+    $("micBtn").onclick = openVoice;
+    $("vClose").onclick = closeVoice;
+    $("vScrim").onclick = closeVoice;
+
+    // The circle is the control: tap to listen, tap again to stop.
+    $("vOrb").onclick = function () {
+      if (wantEar) { stopEar(); vMode("idle", "Paused — tap to listen"); }
+      else startEar(awaiting);
+    };
+    $("vAgain").onclick = function () { startEar(awaiting); };
+    $("vAdd").onclick = applyPicks;
 
     [].forEach.call(document.querySelectorAll(".langOpt"), function (o) {
       o.onclick = function () {
@@ -944,17 +1126,15 @@
         });
         o.classList.add("on");
         vLang = o.getAttribute("data-lang");
-        listen();
+        speak(P().greet, function () { startEar("order"); });
       };
     });
 
-    $("vAdd").onclick = function () {
-      vPicks.forEach(function (p) {
-        cart[p.variant.key] = (cart[p.variant.key] || 0) + p.qty;
-      });
-      renderMenu(); renderCart();
-      closeVoice();
-    };
+    // Chrome loads voices asynchronously; without this the first sentence can
+    // come out in the wrong accent or not at all.
+    if (TTS && TTS.getVoices && !TTS.getVoices().length) {
+      TTS.onvoiceschanged = function () { TTS.onvoiceschanged = null; };
+    }
   }
 })();
 </script>

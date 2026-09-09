@@ -329,7 +329,11 @@
       var dist = (k.distance_km != null)
         ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>'
         : (k.area
-            ? '<div class="kDist"><b>' + esc(k.area) + '</b><span>serves here</span></div>'
+            // "serves here" is only true when the kitchen is in the area they
+            // named. On a city-wide fallback it would be a claim we cannot make,
+            // so that case says what it actually is.
+            ? '<div class="kDist"><b>' + esc(k.area) + '</b><span>' +
+              (k.match_reason === "city" ? "same city" : "serves here") + '</span></div>'
             : "");
 
       a.innerHTML =

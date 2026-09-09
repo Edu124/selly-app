@@ -1,0 +1,2042 @@
+[
+ {
+  "name": "Sattvik Rasoi",
+  "area": "Baner",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 260.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 170.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Maharashtrian Aangan",
+  "area": "Baner",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Misal Pav",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Tambda Rassa",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": false
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Masale Bhaat",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Ghar Ka Swad",
+  "area": "Baner",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 220.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Annapurna Kitchen",
+  "area": "Baner",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 170.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Desi Zaika",
+  "area": "Baner",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Paneer Tikka Masala",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Bukhara",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Paneer Lababdar",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Lauki Kofta",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Corn",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Kashmiri Dum Aloo",
+    "category": "Main Course",
+    "price": 260.0,
+    "veg": true
+   },
+   {
+    "name": "Kashmiri Pulao",
+    "category": "Rice",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Lachha Paratha",
+    "category": "Indian Bread",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Moong Dal Halwa",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Wakad Annapurna",
+  "area": "Wakad",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 285.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Mitti Kitchen",
+  "area": "Wakad",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 260.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Aai's Rasoi",
+  "area": "Wakad",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Swaad Ghar",
+  "area": "Wakad",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Sahyadri Bhojan",
+  "area": "Wakad",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Misal Pav",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Tambda Rassa",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": false
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Masale Bhaat",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Kothrud Gharana",
+  "area": "Kothrud",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 330.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Puneri Rasoi",
+  "area": "Kothrud",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 340.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 190.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Sanskriti Kitchen",
+  "area": "Kothrud",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Aamchi Rasoi",
+  "area": "Kothrud",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Maharashtra Bhojan",
+  "area": "Kothrud",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Misal Pav",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Tambda Rassa",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": false
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Masale Bhaat",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Viman Swaad",
+  "area": "Viman Nagar",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 330.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Dakshin Rasoi",
+  "area": "Viman Nagar",
+  "city": "Pune",
+  "cuisine": "South Indian",
+  "items": [
+   {
+    "name": "Masala Dosa",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Paneer Dosa",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Idli Sambar",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Vada Sambar",
+    "category": "Main Course",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Uttapam",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Curd Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Lemon Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Tamarind Rice",
+    "category": "Rice",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Medu Vada",
+    "category": "Indian Snack",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Payasam",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Gharonda Kitchen",
+  "area": "Viman Nagar",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Utsav Bhojan",
+  "area": "Viman Nagar",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Tadka Ghar",
+  "area": "Viman Nagar",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 330.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 260.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 190.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Hadapsar Annapurna",
+  "area": "Hadapsar",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Desi Bhoj",
+  "area": "Hadapsar",
+  "city": "Pune",
+  "cuisine": "Rajasthani",
+  "items": [
+   {
+    "name": "Rajasthani Dal Baati",
+    "category": "Main Course",
+    "price": 350.0,
+    "veg": true
+   },
+   {
+    "name": "Gatte Ki Sabzi",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Ker Sangri",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Paneer Rajasthani",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Panchmel Dal",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bajra Roti",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Missi Roti",
+    "category": "Indian Bread",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Kesar Rice",
+    "category": "Rice",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Churma",
+    "category": "Dessert",
+    "price": 200.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Aai's Kitchen",
+  "area": "Hadapsar",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Swaadisht Rasoi",
+  "area": "Hadapsar",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Madhur Bhojan",
+  "area": "Hadapsar",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 330.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 260.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 190.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Kharadi Rasoi",
+  "area": "Kharadi",
+  "city": "Pune",
+  "cuisine": "Indian",
+  "items": [
+   {
+    "name": "Paneer Butter Masala",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Makhani",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Palak Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Kolhapuri",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Kaju Masala",
+    "category": "Main Course",
+    "price": 330.0,
+    "veg": true
+   },
+   {
+    "name": "Kadhi Pakora",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Vegetable Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Butter Naan",
+    "category": "Indian Bread",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Gulab Jamun",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Ghar Ka Khana",
+  "area": "Kharadi",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 340.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 190.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Sattvik Bhojan",
+  "area": "Kharadi",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Shahi Paneer",
+    "category": "Main Course",
+    "price": 300.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Tadka",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Matar Paneer",
+    "category": "Main Course",
+    "price": 280.0,
+    "veg": true
+   },
+   {
+    "name": "Aloo Gobi",
+    "category": "Main Course",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Chana Masala",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Rajma Masala",
+    "category": "Main Course",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Peas Pulao",
+    "category": "Rice",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Steamed Rice",
+    "category": "Rice",
+    "price": 160.0,
+    "veg": true
+   },
+   {
+    "name": "Tandoori Roti",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Rasmalai",
+    "category": "Dessert",
+    "price": 230.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Swaad Aangan",
+  "area": "Kharadi",
+  "city": "Pune",
+  "cuisine": "North Indian",
+  "items": [
+   {
+    "name": "Kadai Paneer",
+    "category": "Main Course",
+    "price": 310.0,
+    "veg": true
+   },
+   {
+    "name": "Dal Fry",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Malai Kofta",
+    "category": "Main Course",
+    "price": 320.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Aloo",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Mix Veg Curry",
+    "category": "Main Course",
+    "price": 240.0,
+    "veg": true
+   },
+   {
+    "name": "Chole Masala",
+    "category": "Main Course",
+    "price": 220.0,
+    "veg": true
+   },
+   {
+    "name": "Veg Biryani",
+    "category": "Rice",
+    "price": 290.0,
+    "veg": true
+   },
+   {
+    "name": "Jeera Rice",
+    "category": "Rice",
+    "price": 170.0,
+    "veg": true
+   },
+   {
+    "name": "Garlic Naan",
+    "category": "Indian Bread",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Kheer",
+    "category": "Dessert",
+    "price": 180.0,
+    "veg": true
+   }
+  ]
+ },
+ {
+  "name": "Deccan Kitchen",
+  "area": "Kharadi",
+  "city": "Pune",
+  "cuisine": "Maharashtrian",
+  "items": [
+   {
+    "name": "Maharashtrian Thali",
+    "category": "Main Course",
+    "price": 350.0,
+    "veg": true
+   },
+   {
+    "name": "Bharli Vangi",
+    "category": "Main Course",
+    "price": 250.0,
+    "veg": true
+   },
+   {
+    "name": "Pithla Bhakri",
+    "category": "Main Course",
+    "price": 270.0,
+    "veg": true
+   },
+   {
+    "name": "Matki Usal",
+    "category": "Main Course",
+    "price": 210.0,
+    "veg": true
+   },
+   {
+    "name": "Masala Bhaat",
+    "category": "Rice",
+    "price": 230.0,
+    "veg": true
+   },
+   {
+    "name": "Varan Bhaat",
+    "category": "Rice & Dal",
+    "price": 190.0,
+    "veg": true
+   },
+   {
+    "name": "Amti Dal",
+    "category": "Main Course",
+    "price": 200.0,
+    "veg": true
+   },
+   {
+    "name": "Batata Bhaji",
+    "category": "Main Course",
+    "price": 180.0,
+    "veg": true
+   },
+   {
+    "name": "Bhakri",
+    "category": "Indian Bread",
+    "price": 150.0,
+    "veg": true
+   },
+   {
+    "name": "Puran Poli",
+    "category": "Dessert",
+    "price": 190.0,
+    "veg": true
+   }
+  ]
+ }
+]
