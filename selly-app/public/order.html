@@ -102,6 +102,36 @@
     padding:12px 8px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer}
   .payOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:#b7a5ff;font-weight:800}
 
+  /* ── voice ordering ── */
+  .mic{position:fixed;right:16px;bottom:98px;z-index:45;width:56px;height:56px;border-radius:50%;
+    border:none;background:var(--violet);color:#fff;font-size:22px;cursor:pointer;
+    box-shadow:0 10px 26px rgba(124,92,255,.42);display:grid;place-items:center}
+  .mic:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
+  .mic.on{background:var(--red);animation:micPulse 1.4s infinite}
+  @keyframes micPulse{
+    0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}
+    70%{box-shadow:0 0 0 18px rgba(239,68,68,0)}
+    100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+  .heard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
+    font-size:14px;color:var(--tx);line-height:1.55;min-height:46px}
+  .heard em{color:var(--tx3);font-style:normal}
+  .vLine{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);
+    border-radius:11px;padding:10px 12px;margin-top:8px}
+  .vLine .vq{background:var(--violet);color:#fff;border-radius:7px;font-size:12px;font-weight:800;
+    padding:3px 8px;flex:none}
+  .vLine .vn{flex:1;font-size:13.5px;min-width:0}
+  .vLine .vp{font-size:13px;font-weight:700;color:var(--tx2);flex:none}
+  .vMiss{color:var(--amber);font-size:12px;margin-top:11px;line-height:1.55}
+  .vBtns{display:flex;gap:9px;margin-top:16px}
+  .vBtns button{flex:1;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer}
+  .vAdd{background:var(--green);color:#04220f;border:none}
+  .vAdd:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+  .vAgain{background:var(--elev);border:1px solid var(--line);color:var(--tx2)}
+  .langRow{display:flex;gap:8px;margin-top:13px}
+  .langOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px;
+    text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer}
+  .langOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:#b7a5ff;font-weight:800}
+
   .place{width:100%;background:var(--violet);border:none;color:#fff;border-radius:13px;
     padding:16px;font-size:15px;font-weight:800;cursor:pointer;margin-top:18px}
   .place:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
@@ -155,6 +185,36 @@
   <div class="in">
     <div><div class="n" id="cartN">0 items</div><div class="t" id="cartT">₹0</div></div>
     <button class="go" id="goBtn">Checkout →</button>
+  </div>
+</div>
+
+<!-- Voice ordering. Hidden entirely on browsers without speech recognition —
+     a mic that does nothing is worse than no mic at all. -->
+<button class="mic" id="micBtn" style="display:none" aria-label="Order by voice" title="Order by voice">🎤</button>
+
+<div class="scrim" id="vScrim"></div>
+<div class="sheet" id="vSheet">
+  <div class="grab"></div>
+  <div class="in">
+    <div class="sh-h"><b>Order by voice</b><button class="x" id="vClose">✕</button></div>
+
+    <div class="heard" id="vHeard"><em>Listening…</em></div>
+    <div id="vParsed"></div>
+    <div class="vMiss" id="vMiss" style="display:none"></div>
+
+    <label>Speak in</label>
+    <div class="langRow">
+      <div class="langOpt on" data-lang="en-IN">English</div>
+      <div class="langOpt" data-lang="hi-IN">हिंदी</div>
+    </div>
+
+    <div class="vBtns">
+      <button class="vAgain" id="vAgain">🎤 Say it again</button>
+      <button class="vAdd" id="vAdd" disabled>Add to order</button>
+    </div>
+    <p class="foot" id="vFoot">
+      Nothing is added until you tap Add — so a misheard word costs a tap, not a wrong dinner.
+    </p>
   </div>
 </div>
 
@@ -319,6 +379,9 @@
 
   function renderMenu() {
     var el = $("menu");
+    // Nothing to say to a kitchen with no dishes up yet.
+    var mic = $("micBtn");
+    if (mic) mic.disabled = !menu.length;
     if (!menu.length) {
       el.innerHTML = '<p style="color:var(--tx2);font-size:13.5px">' +
                      'This kitchen hasn\'t put a menu up yet.</p>';
@@ -614,6 +677,284 @@
     show("done");
     $("bar").classList.remove("on");
     cart = {};
+  }
+
+  /* ══ Ordering by voice ═══════════════════════════════════════════════════
+   *
+   * WHY THIS EXISTS
+   *   Typing is the last barrier in the journey. Someone who cannot type
+   *   comfortably — older, in a hurry, one hand full, or simply not literate in
+   *   English — can still say "do thali". The rest of the product already asks
+   *   nothing of them: no app, no account, no password.
+   *
+   * WHAT IT DOES NOT DO
+   *   It never adds anything on its own. Speech recognition is confident and
+   *   frequently wrong, and the cost of a mistake here is somebody's dinner and
+   *   money. So it shows what it understood and waits to be told yes. A wrong
+   *   guess costs a tap.
+   *
+   * MATCHING
+   *   The candidate set is closed — this kitchen's menu, usually a handful of
+   *   dishes — which is what makes loose matching safe here when it would not
+   *   be for an address. "Non Veg Thali" is tried before "Thali" so the longer,
+   *   more specific name wins and consumes its words, rather than one order
+   *   producing both.
+   * ═══════════════════════════════════════════════════════════════════════ */
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var vLang = "en-IN";
+  var vPicks = [];
+  var rec = null, listening = false;
+
+  // Spoken quantities. Hindi words as people actually say them, plus Devanagari
+  // because hi-IN returns that script. "a"/"an" are deliberately absent: they
+  // appear constantly in ordinary speech and one is the default anyway.
+  var NUMW = {
+    "one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10,
+    "ek":1,"do":2,"teen":3,"tin":3,"char":4,"chaar":4,"panch":5,"paanch":5,
+    "che":6,"chhe":6,"cheh":6,"saat":7,"sat":7,"aath":8,"ath":8,"nau":9,"das":10,"dus":10,
+    "एक":1,"दो":2,"तीन":3,"चार":4,"पांच":5,"पाँच":5,"छह":6,"छे":6,
+    "सात":7,"आठ":8,"नौ":9,"दस":10
+  };
+
+  function words(s) {
+    return String(s || "").toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/).filter(Boolean);
+  }
+
+  /** The parts of a dish name worth matching on. Short filler words are noise. */
+  function nameKeys(name) {
+    var all = words(name);
+    var sig = all.filter(function (w) { return w.length >= 3; });
+    return sig.length ? sig : all;
+  }
+
+  function qtyBefore(tokens, at) {
+    for (var i = at - 1; i >= 0 && i >= at - 3; i--) {
+      var t = tokens[i];
+      if (/^\d+$/.test(t)) return { n: Math.min(parseInt(t, 10), 30), at: i };
+      if (NUMW[t] != null)  return { n: NUMW[t], at: i };
+    }
+    return null;
+  }
+
+  function parseOrder(transcript) {
+    var tokens = words(transcript);
+    var used = {};                      // token index -> taken
+
+    // Longest dish names first, so the specific one claims its words.
+    var cands = menu.map(function (it) {
+      return { it: it, keys: nameKeys(it.name) };
+    }).sort(function (a, b) { return b.keys.length - a.keys.length; });
+
+    // How many dishes each word appears in. A word belonging to exactly one
+    // dish identifies it on its own: nobody says "paneer" at a kitchen with one
+    // paneer dish and means anything else. Short words are excluded because
+    // "veg" and "non" are categories, not names.
+    var spread = {};
+    cands.forEach(function (c) {
+      var seen = {};
+      c.keys.forEach(function (k) {
+        if (seen[k]) return;
+        seen[k] = 1;
+        spread[k] = (spread[k] || 0) + 1;
+      });
+    });
+
+    var picks = [];
+    cands.forEach(function (c) {
+      var hits = [], matchedKeys = [];
+      c.keys.forEach(function (k) {
+        for (var i = 0; i < tokens.length; i++) {
+          if (used[i]) continue;
+          if (tokens[i] === k || (k.length >= 5 && tokens[i].indexOf(k) === 0)) {
+            hits.push(i); matchedKeys.push(k); return;
+          }
+        }
+      });
+      if (!hits.length) return;
+
+      // If another dish's name is contained inside this one — "Thali" inside
+      // "Non Veg Thali" — then a partial match is ambiguous between the two,
+      // and this one is only allowed on a complete match.
+      //
+      // This exists because of what the ambiguity costs. "veg thali" overlaps
+      // two of the three words in "Non Veg Thali" and would otherwise clear a
+      // 60% bar, and a vegetarian would be sent meat. Under-matching asks the
+      // customer to repeat themselves; over-matching here is unforgivable.
+      var mustBeExact = cands.some(function (d) {
+        return d !== c && d.keys.length < c.keys.length &&
+          d.keys.every(function (k) { return c.keys.indexOf(k) >= 0; });
+      });
+
+      if (mustBeExact) {
+        if (hits.length !== c.keys.length) return;
+      } else {
+        var enough = hits.length / c.keys.length >= 0.6;
+        var named  = matchedKeys.some(function (k) {
+          return k.length >= 5 && spread[k] === 1;
+        });
+        if (!enough && !named) return;
+      }
+
+      var first = Math.min.apply(null, hits);
+      var q = qtyBefore(tokens, first);
+
+      // Which portion, if the dish has them and one was named.
+      var vs = variantsOf(c.it);
+      var variant = vs[0];
+      if (vs.length > 1) {
+        for (var v = 0; v < vs.length; v++) {
+          var pk = words(vs[v].portion);
+          var said = pk.length && pk.every(function (w) {
+            return tokens.some(function (t, i) { return !used[i] && t === w; });
+          });
+          if (said) { variant = vs[v]; break; }
+        }
+      }
+
+      hits.forEach(function (i) { used[i] = 1; });
+      if (q) used[q.at] = 1;
+
+      picks.push({ item: c.it, variant: variant, qty: q ? q.n : 1 });
+    });
+
+    // Anything left that was not filler — worth showing, because "and a coke"
+    // silently vanishing is how somebody ends up with a missing drink.
+    var leftover = tokens.filter(function (t, i) {
+      return !used[i] && t.length >= 3 &&
+        ["and","the","please","with","for","order","want","give","chahiye","dena","aur"].indexOf(t) < 0;
+    });
+
+    return { picks: picks, leftover: leftover };
+  }
+
+  function renderVoice(transcript) {
+    $("vHeard").textContent = transcript || "";
+    var box = $("vParsed");
+    box.innerHTML = "";
+
+    vPicks.forEach(function (p) {
+      var row = document.createElement("div");
+      row.className = "vLine";
+      row.innerHTML =
+        '<span class="vq">' + p.qty + '×</span>' +
+        '<span class="vn">' + esc(p.item.name) +
+          (p.variant.portion ? ' <span style="color:var(--tx3)">· ' + esc(p.variant.portion) + '</span>' : "") +
+        '</span>' +
+        '<span class="vp">' + inr(p.variant.price * p.qty) + '</span>';
+      box.appendChild(row);
+    });
+
+    $("vAdd").disabled = !vPicks.length;
+    $("vAdd").textContent = vPicks.length
+      ? "Add " + vPicks.reduce(function (n, p) { return n + p.qty; }, 0) + " to order"
+      : "Add to order";
+  }
+
+  function openVoice() {
+    $("vScrim").classList.add("on"); $("vSheet").classList.add("on");
+  }
+  function closeVoice() {
+    $("vScrim").classList.remove("on"); $("vSheet").classList.remove("on");
+    stopListening();
+  }
+
+  function stopListening() {
+    listening = false;
+    $("micBtn").classList.remove("on");
+    if (rec) { try { rec.stop(); } catch (e) {} }
+  }
+
+  function listen() {
+    if (!SR) return;
+    stopListening();
+
+    rec = new SR();
+    rec.lang = vLang;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    rec.continuous = false;
+
+    vPicks = [];
+    $("vMiss").style.display = "none";
+    $("vHeard").innerHTML = "<em>Listening…</em>";
+    $("vParsed").innerHTML = "";
+    $("vAdd").disabled = true;
+    listening = true;
+    $("micBtn").classList.add("on");
+
+    rec.onresult = function (e) {
+      var txt = "";
+      for (var i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+      txt = txt.trim();
+
+      // Interim text is shown as it arrives, so it is obvious the mic is
+      // working, but only a final result is parsed into an order.
+      if (!e.results[e.results.length - 1].isFinal) {
+        $("vHeard").textContent = txt;
+        return;
+      }
+
+      var out = parseOrder(txt);
+      vPicks = out.picks;
+      renderVoice(txt);
+
+      if (!out.picks.length) {
+        $("vMiss").style.display = "";
+        $("vMiss").textContent =
+          "Nothing on this menu matched that. Try naming a dish — for example, \"" +
+          (menu[0] ? menu[0].name : "one thali") + "\".";
+      } else if (out.leftover.length) {
+        $("vMiss").style.display = "";
+        $("vMiss").textContent =
+          "Not matched: " + out.leftover.join(", ") +
+          ". Add those by tapping, or say it again.";
+      }
+    };
+
+    rec.onerror = function (e) {
+      stopListening();
+      var msg = e.error === "not-allowed" || e.error === "service-not-allowed"
+        ? "Microphone permission was refused. Allow it for this site, then tap the mic again."
+        : e.error === "no-speech"
+        ? "Didn't catch anything. Tap the mic and speak a little closer."
+        : "Voice isn't working just now — you can still tap your way through the menu.";
+      $("vHeard").innerHTML = "<em>" + esc(msg) + "</em>";
+    };
+
+    rec.onend = function () { stopListening(); };
+
+    try { rec.start(); }
+    catch (e) { stopListening(); }
+  }
+
+  if (SR) {
+    $("micBtn").style.display = "grid";
+    $("micBtn").onclick = function () { openVoice(); listen(); };
+    $("vClose").onclick  = closeVoice;
+    $("vScrim").onclick  = closeVoice;
+    $("vAgain").onclick  = listen;
+
+    [].forEach.call(document.querySelectorAll(".langOpt"), function (o) {
+      o.onclick = function () {
+        [].forEach.call(document.querySelectorAll(".langOpt"), function (x) {
+          x.classList.remove("on");
+        });
+        o.classList.add("on");
+        vLang = o.getAttribute("data-lang");
+        listen();
+      };
+    });
+
+    $("vAdd").onclick = function () {
+      vPicks.forEach(function (p) {
+        cart[p.variant.key] = (cart[p.variant.key] || 0) + p.qty;
+      });
+      renderMenu(); renderCart();
+      closeVoice();
+    };
   }
 })();
 </script>

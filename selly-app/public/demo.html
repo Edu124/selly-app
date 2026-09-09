@@ -123,7 +123,10 @@
       <div class="thread" id="thread"></div>
 
       <div id="page">
-        <iframe id="frame" allow="geolocation" referrerpolicy="same-origin"></iframe>
+        <!-- microphone is needed for voice ordering. Without it here the mic
+             works on the page directly and silently fails inside the phone,
+             which is the one place it has to work on stage. -->
+        <iframe id="frame" allow="geolocation; microphone" referrerpolicy="same-origin"></iframe>
       </div>
 
       <div class="composer" id="composer">
@@ -162,7 +165,8 @@
       <div class="step" data-k="4">
         <div class="n">4</div>
         <div><b>Menu, cart, payment</b>
-          <p>The kitchen's own prices, live. Pay by UPI or on delivery.</p></div>
+          <p>The kitchen's own prices, live. Tap it, or say it out loud in
+             English or Hindi. Pay by UPI or on delivery.</p></div>
       </div>
       <div class="step" data-k="5">
         <div class="n">5</div>
