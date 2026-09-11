@@ -138,7 +138,7 @@
     <p class="foot">Tap a kitchen to see its menu and order.</p>
   </div>
 
-  <div id="loading" class="state"><div class="em">🍲</div><p>Looking for kitchens near you…</p></div>
+  <div id="loading" class="state"><div class="em">🍲</div><p id="loadMsg">Looking for kitchens near you…</p></div>
 
 </div>
 
@@ -156,7 +156,11 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
   var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
-  var me = { lat: null, lng: null };
+  // src says where the coordinates came from. Only a pin shared on this visit
+  // is trusted as-is; anything else is re-derived from whatever address is in
+  // the box now, because saved coordinates go stale the moment somebody orders
+  // to a different address.
+  var me = { lat: null, lng: null, src: null };
 
   function rpc(fn, body) {
     return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
@@ -237,6 +241,7 @@
       function (pos) {
         me.lat = Number(pos.coords.latitude.toFixed(6));
         me.lng = Number(pos.coords.longitude.toFixed(6));
+        me.src = "gps";
         b.classList.add("got");
         b.textContent = "📍 Location saved";
         $("locHint").textContent = "We'll find kitchens by real distance from here.";
@@ -253,6 +258,75 @@
   };
 
   // ── find ──────────────────────────────────────────────────────────────────
+  /* ── Turning a typed address into a place ────────────────────────────────
+   *
+   * "Within 5 km" needs coordinates, and most people will type an address
+   * rather than share a pin. OpenStreetMap's Nominatim geocoder is free and
+   * needs no key.
+   *
+   * WHAT IS SENT, AND WHAT NEVER IS
+   *   A full Indian street address — "Flat 302, Shanti Residency, near D-Mart,
+   *   Baner" — does not geocode at all; the map data has localities, not
+   *   buildings. So we only ever send the parts that locate someone to within
+   *   a neighbourhood: the PIN code, the area they typed, and the tail of the
+   *   address where the locality lives. Any segment with a number in it (a
+   *   flat, a plot, a floor) stays on their phone. Neighbourhood precision is
+   *   plenty for a 5 km radius, and it is more than a third party needs.
+   *
+   * WHICH PUNE
+   *   "Baner" is a place in more than one state. A result is only accepted if
+   *   the geocoder places it in the city the customer named.
+   *
+   * RATE
+   *   Nominatim's policy is one request a second, so attempts are spaced.
+   *   Fine for a demo and a pilot; a busy production service should move to a
+   *   paid geocoder or host its own, and this is the one function to change.
+   * ─────────────────────────────────────────────────────────────────────── */
+  var PIN = /\b[1-9]\d{5}\b/;
+
+  function placeQueries(address, area, city) {
+    var c = city || "Pune";
+    var out = [];
+    var pin = (address.match(PIN) || [])[0];
+    if (pin) out.push(pin + ", India");
+    if (area) out.push(area + ", " + c + ", India");
+
+    var segs = address.split(",")
+      .map(function (s) {
+        return s.trim().replace(/^(near|opp\.?|opposite|behind|beside|next to)\s+/i, "");
+      })
+      .filter(function (s) {
+        return s && !/\d/.test(s) && s.toLowerCase() !== c.toLowerCase();
+      });
+    if (segs.length)     out.push(segs[segs.length - 1] + ", " + c + ", India");
+    if (segs.length > 1) out.push(segs.slice(-2).join(", ") + ", " + c + ", India");
+
+    return out.filter(function (q, i) { return out.indexOf(q) === i; });
+  }
+
+  function geocode(address, area, city) {
+    var qs = placeQueries(address, area, city);
+    var want = (city || "Pune").toLowerCase();
+
+    function attempt(i) {
+      if (i >= qs.length) return Promise.resolve(null);
+      var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1" +
+                "&countrycodes=in&q=" + encodeURIComponent(qs[i]);
+      return fetch(url, { headers: { "Accept-Language": "en" } })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (rows) {
+          var hit = rows && rows[0];
+          if (hit && String(hit.display_name || "").toLowerCase().indexOf(want) >= 0) {
+            return { lat: +hit.lat, lng: +hit.lon, label: qs[i].replace(/, India$/, "") };
+          }
+          return new Promise(function (res) { setTimeout(res, 1100); })
+            .then(function () { return attempt(i + 1); });
+        })
+        .catch(function () { return attempt(i + 1); });
+    }
+    return attempt(0);
+  }
+
   $("goBtn").onclick = function () {
     var err = $("err");
     var name = $("nm").value.trim();
@@ -272,31 +346,54 @@
     }
     err.classList.remove("on");
 
-    var who = { name: name, mobile: ph, address: ad, area: area, city: city, lat: me.lat, lng: me.lng };
-    try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
-
-    // Saved against their number too, so the next text can skip straight to
-    // kitchens even from a different phone.
-    if (sess) {
-      rpc("save_session_details", {
-        p_token: sess, p_name: name, p_address: ad, p_area: area, p_city: city,
-        p_lat: me.lat, p_lng: me.lng,
-      }).catch(function () {});
-    }
-
     $("whoName").textContent = name || "Your order";
     $("whoAddr").textContent = ad;
+    $("loadMsg").textContent = "Finding where you are…";
     show("loading");
 
-    // One call whatever they gave us. It matches on distance where it can, on
-    // area regardless of distance, and falls back to the city when there is
-    // nothing to measure.
-    var call = rpc("kitchens_for", {
-      p_lat: me.lat || null, p_lng: me.lng || null,
-      p_area: area || null, p_city: city || null, p_max_km: 5,
-    });
+    // A pin shared on this visit is exact — use it. Otherwise work the place
+    // out from the address in the box right now, never from coordinates saved
+    // for some earlier address.
+    var locate = me.src === "gps"
+      ? Promise.resolve({ lat: me.lat, lng: me.lng, label: "your location" })
+      : geocode(ad, area, city);
 
-    call.then(render).catch(function (e) {
+    locate.then(function (place) {
+      if (place) {
+        me.lat = place.lat; me.lng = place.lng;
+        if (me.src !== "gps") me.src = "geo";
+      } else if (me.src !== "gps") {
+        // Could not place them. Do not quietly fall back to stale coordinates
+        // from a previous address — match on the area they typed instead, and
+        // say so on the results.
+        me.lat = null; me.lng = null; me.src = null;
+      }
+
+      $("whoAddr").textContent = place
+        ? "Within 5 km of " + place.label
+        : ad + (area ? " — showing kitchens that list " + area : "");
+
+      var who = { name: name, mobile: ph, address: ad, area: area, city: city,
+                  lat: me.lat, lng: me.lng };
+      try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
+
+      // Saved against their number too, so the next text can skip straight to
+      // kitchens even from a different phone.
+      if (sess) {
+        rpc("save_session_details", {
+          p_token: sess, p_name: name, p_address: ad, p_area: area, p_city: city,
+          p_lat: me.lat, p_lng: me.lng,
+        }).catch(function () {});
+      }
+
+      $("loadMsg").textContent = "Looking for kitchens near you…";
+      return rpc("kitchens_for", {
+        p_lat: me.lat || null, p_lng: me.lng || null,
+        p_area: area || null, p_city: city || null, p_max_km: 5,
+      });
+    })
+    .then(render)
+    .catch(function (e) {
       show("step1");
       err.textContent = e.message; err.classList.add("on");
     });
