@@ -5,128 +5,291 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a12">
 <title>Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* ── Selly ordering page ─────────────────────────────────────────────────
+   * Pattern borrowed from the reference: location pill, search, category
+   * chips, dish cards with a pill Add, a sticky cart bar, and a cart that is a
+   * bottom sheet on a phone and a side panel on a wide screen.
+   *
+   * Left out on purpose: star ratings and "bestseller" badges (there is no
+   * per-dish rating data, and invented ones on a real order page would be
+   * dishonest), platform fees and taxes (the customer is charged neither), and
+   * a bottom nav (customers have no accounts to navigate). The veg / non-veg
+   * mark takes the slot a rating would — it is real, and it is what people in
+   * India actually look for.
+   * ─────────────────────────────────────────────────────────────────────── */
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   :root{
-    --bg:#0a0a12;--card:#14141f;--elev:#1c1c2b;--line:#242437;
-    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
-    --violet:#7c5cff;--violet-d:#6a4ae8;--green:#22c55e;--amber:#f5a524;--red:#ef4444;
+    --bg:#0b0b14;--card:#141421;--card2:#1a1a2a;--elev:#202033;--line:#262639;
+    --tx:#f3f3f8;--tx2:#a3a3bd;--tx3:#6b6b86;
+    --violet:#7c5cff;--violet2:#a18bff;--indigo:#5b6cff;
+    --grad:linear-gradient(135deg,#7c5cff 0%,#5b6cff 100%);
+    --green:#22c55e;--red:#ef4444;--amber:#f5a524;
+    --r:18px;
   }
   html,body{background:var(--bg);color:var(--tx);overflow-x:clip}
-  body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    padding-bottom:104px;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:520px;margin:0 auto;padding:0 16px}
+  body{min-height:100vh;
+    font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;padding-bottom:110px}
+  button{font-family:inherit}
+  #load,#bad,#app,#done{display:none}
 
-  header{padding:20px 0 14px}
-  .kt{display:flex;align-items:center;gap:12px}
-  .kt .av{width:48px;height:48px;border-radius:14px;flex:none;display:grid;place-items:center;
-    font-size:24px;background:linear-gradient(135deg,#f5a524,#f97316)}
-  .kt h1{font-size:19px;font-weight:800;letter-spacing:-.3px}
-  .kt .meta{color:var(--tx2);font-size:12px;margin-top:3px;display:flex;align-items:center;gap:6px}
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex:none;box-shadow:0 0 0 3px rgba(34,197,94,.16)}
+  /* ── layout: one column on a phone, menu + cart panel on a wide screen ── */
+  .layout{max-width:1120px;margin:0 auto;padding:0 16px}
+  .main{min-width:0}
+
+  /* ── top: where it is going ── */
+  .top{position:sticky;top:0;z-index:30;background:linear-gradient(var(--bg) 78%,rgba(11,11,20,0));
+    padding:14px 0 10px;display:flex;align-items:center;gap:12px}
+  .top .where{flex:1}
+  .where{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;min-width:0}
+  .where .pin{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;
+    background:rgba(124,92,255,.14);color:var(--violet2);font-size:17px}
+  .where .w1{font-size:11px;color:var(--tx3);font-weight:600;letter-spacing:.2px}
+  .where .w2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:5px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .where .w2 i{font-style:normal;color:var(--violet2);font-size:12px}
+
+  /* ── the kitchen ── */
+  .kitchen{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:16px;margin-top:6px;position:relative;overflow:hidden}
+  .kitchen::after{content:"";position:absolute;right:-60px;top:-60px;width:180px;height:180px;
+    background:radial-gradient(circle,rgba(124,92,255,.22),transparent 70%);pointer-events:none}
+  .kt{display:flex;align-items:center;gap:13px;position:relative;z-index:1}
+  .kt .av{width:54px;height:54px;border-radius:16px;flex:none;display:grid;place-items:center;
+    font-size:26px;background:linear-gradient(135deg,#f5a524,#f97316)}
+  .kt h1{font-size:19px;font-weight:800;letter-spacing:-.3px;line-height:1.2}
+  .kt .meta{color:var(--tx2);font-size:12.5px;margin-top:4px;display:flex;align-items:center;
+    gap:6px;flex-wrap:wrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;
+    box-shadow:0 0 0 3px rgba(34,197,94,.16)}
   .dot.shut{background:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.16)}
+  .facts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;position:relative;z-index:1}
+  .fact{background:var(--elev);border-radius:20px;padding:6px 11px;font-size:11.5px;color:var(--tx2);
+    font-weight:600}
+  .fact.good{background:rgba(34,197,94,.12);color:#4ade80}
+  .shutBar{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:14px;
+    padding:12px 14px;margin-top:12px;font-size:13px;color:#f87171;line-height:1.55}
 
-  .shutBar{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:12px;
-    padding:12px;margin-top:14px;font-size:13px;color:#f87171;line-height:1.55}
+  /* ── search ── */
+  .search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:0 14px;margin-top:14px}
+  .search:focus-within{border-color:var(--violet)}
+  .search span{color:var(--tx3);font-size:15px}
+  .search input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:14.5px;
+    font-family:inherit;padding:13px 0}
+  .search input::placeholder{color:var(--tx3)}
 
-  h2{font-size:11.5px;font-weight:800;color:var(--tx3);letter-spacing:.9px;text-transform:uppercase;margin:22px 0 10px}
+  /* ── category chips ── */
+  .chips{display:flex;gap:9px;overflow-x:auto;padding:14px 0 4px;margin:0 -16px;padding-left:16px;
+    padding-right:16px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .cat{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px;
+    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:11px 10px 9px;
+    cursor:pointer;color:var(--tx2);font-size:11.5px;font-weight:700;transition:.15s}
+  .cat .ic{font-size:21px;line-height:1}
+  .cat.on{background:var(--grad);border-color:transparent;color:#fff;
+    box-shadow:0 8px 22px rgba(124,92,255,.35)}
 
-  .dish{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:13px;margin-bottom:10px}
-  .dTop{display:flex;gap:12px;align-items:flex-start}
-  .dInfo{flex:1;min-width:0}
-  .nm{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .nm b{font-size:14.5px;font-weight:700}
-  .ds{color:var(--tx2);font-size:11.5px;margin-top:4px;line-height:1.45}
-  .pr{font-size:14px;font-weight:800;margin-top:6px}
-  .thumb{width:64px;height:64px;border-radius:12px;flex:none;background:var(--elev);
-    display:grid;place-items:center;font-size:26px;object-fit:cover;overflow:hidden}
-  .thumb img{width:100%;height:100%;object-fit:cover}
+  /* ── dishes ── */
+  .secHead{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 11px}
+  .secHead h2{font-size:17px;font-weight:800;letter-spacing:-.2px}
+  .secHead span{font-size:12px;color:var(--tx3);font-weight:600}
 
-  .add{background:var(--violet);border:none;color:#fff;border-radius:9px;padding:8px 16px;
-    font-size:12.5px;font-weight:800;cursor:pointer}
-  .stepper{display:flex;align-items:center;background:var(--elev);border:1px solid var(--violet);
-    border-radius:9px;overflow:hidden}
-  .stepper button{background:none;border:none;color:var(--violet);font-size:17px;font-weight:700;
-    width:30px;height:33px;cursor:pointer;line-height:1}
-  .stepper span{font-size:13px;font-weight:800;min-width:20px;text-align:center}
+  .dish{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;
+    margin-bottom:11px}
+  .dTop{display:flex;gap:13px}
+  .tile{width:92px;height:92px;border-radius:14px;flex:none;display:grid;place-items:center;
+    font-size:38px;overflow:hidden;position:relative}
+  .tile img{width:100%;height:100%;object-fit:cover}
+  .dInfo{flex:1;min-width:0;display:flex;flex-direction:column}
+  .nm{display:flex;align-items:flex-start;gap:7px}
+  .nm b{font-size:15px;font-weight:700;line-height:1.3}
+  .ds{color:var(--tx2);font-size:12px;margin-top:4px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .dFoot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:9px;gap:8px}
+  .pr{font-size:15.5px;font-weight:800}
+  .from{font-size:11px;color:var(--tx3);font-weight:600}
 
-  .portion{display:flex;align-items:center;gap:10px;padding-top:9px;margin-top:9px;
+  /* The mark Indian menus use: green square and dot for veg, red and triangle
+     for non-veg. Shape as well as colour, so it reads without colour vision. */
+  .vg{width:14px;height:14px;border:1.6px solid var(--green);border-radius:3px;flex:none;
+    display:grid;place-items:center;margin-top:3px}
+  .vg::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .vg.nv{border-color:var(--red)}
+  .vg.nv::after{width:0;height:0;border-radius:0;background:none;
+    border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-bottom:6px solid var(--red)}
+
+  .add{background:var(--grad);border:none;color:#fff;border-radius:11px;padding:9px 16px;
+    font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;
+    box-shadow:0 6px 16px rgba(124,92,255,.3);flex:none}
+  .add:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
+  .stepper{display:flex;align-items:center;background:var(--elev);border:1px solid rgba(124,92,255,.55);
+    border-radius:11px;overflow:hidden;flex:none}
+  .stepper button{background:none;border:none;color:var(--violet2);font-size:17px;font-weight:800;
+    width:32px;height:34px;cursor:pointer;line-height:1}
+  .stepper span{font-size:13.5px;font-weight:800;min-width:20px;text-align:center}
+
+  .portion{display:flex;align-items:center;gap:10px;padding-top:10px;margin-top:10px;
     border-top:1px solid var(--line)}
-  .portion .lb{flex:1;color:var(--tx2);font-size:12.5px}
-  .portion .pp{font-size:13px;font-weight:700}
+  .portion .lb{flex:1;color:var(--tx2);font-size:13px;font-weight:600}
+  .portion .pp{font-size:13.5px;font-weight:800}
 
   .addons{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
   .chip{background:var(--elev);border:1px solid var(--line);border-radius:20px;
-    padding:7px 11px;font-size:11.5px;color:var(--tx2);cursor:pointer}
-  .chip.on{background:rgba(124,92,255,.14);border-color:var(--violet);color:#b7a5ff;font-weight:700}
+    padding:7px 11px;font-size:11.5px;color:var(--tx2);cursor:pointer;font-weight:600}
+  .chip.on{background:rgba(124,92,255,.14);border-color:var(--violet);color:var(--violet2)}
 
-  .bar{position:fixed;left:0;right:0;bottom:0;background:rgba(20,20,31,.97);backdrop-filter:blur(14px);
-    border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));
-    transform:translateY(130%);transition:transform .25s cubic-bezier(.4,0,.2,1);z-index:40}
+  .empty{color:var(--tx2);font-size:13.5px;text-align:center;padding:36px 10px;line-height:1.6}
+
+  /* ── sticky cart bar (phones) ── */
+  .bar{position:fixed;left:12px;right:12px;bottom:12px;z-index:40;
+    background:rgba(24,24,38,.96);backdrop-filter:blur(16px);border:1px solid var(--line);
+    border-radius:18px;padding:10px 10px 10px 12px;
+    transform:translateY(160%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 18px 40px rgba(0,0,0,.5)}
   .bar.on{transform:translateY(0)}
-  .bar .in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:12px}
-  .bar .n{font-size:12px;color:var(--tx2)} .bar .t{font-size:17px;font-weight:800;margin-top:1px}
-  .go{margin-left:auto;background:var(--violet);border:none;color:#fff;border-radius:11px;
-    padding:13px 22px;font-size:14.5px;font-weight:800;cursor:pointer}
+  .bar .in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:11px}
+  .bag{width:42px;height:42px;border-radius:12px;background:var(--elev);display:grid;place-items:center;
+    font-size:19px;position:relative;flex:none}
+  .bag b{position:absolute;top:-6px;right:-6px;background:var(--violet);color:#fff;font-size:10.5px;
+    min-width:19px;height:19px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
+  .bar .n{font-size:12px;color:var(--tx2);font-weight:600}
+  .bar .t{font-size:17px;font-weight:800;margin-top:1px}
+  .go{margin-left:auto;background:var(--grad);border:none;color:#fff;border-radius:13px;
+    padding:13px 18px;font-size:14px;font-weight:800;cursor:pointer;
+    box-shadow:0 8px 20px rgba(124,92,255,.35)}
+  .go:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
 
+  /* ── cart: bottom sheet on a phone ── */
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.64);opacity:0;pointer-events:none;
     transition:opacity .25s;z-index:50}
   .scrim.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:22px 22px 0 0;
+  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;
     border-top:1px solid var(--line);transform:translateY(100%);
-    transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:60;max-height:94vh;overflow-y:auto;
+    transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:60;max-height:92vh;overflow-y:auto;
     padding-bottom:calc(20px + env(safe-area-inset-bottom))}
   .sheet.on{transform:translateY(0)}
   .sheet .in{max-width:520px;margin:0 auto;padding:0 16px}
   .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px}
-  .sh-h{display:flex;align-items:center;padding:8px 0 14px}
-  .sh-h b{font-size:16.5px;font-weight:800}
-  .x{margin-left:auto;background:var(--elev);border:1px solid var(--line);color:var(--tx2);
-    width:30px;height:30px;border-radius:50%;font-size:14px;cursor:pointer}
+  .sh-h{display:flex;align-items:center;gap:11px;padding:10px 0 14px;border-bottom:1px solid var(--line)}
+  .sh-h .bagI{width:40px;height:40px;border-radius:12px;background:rgba(124,92,255,.14);
+    color:var(--violet2);display:grid;place-items:center;font-size:18px;flex:none}
+  .sh-h b{font-size:17px;font-weight:800;display:block}
+  .sh-h small{font-size:12px;color:var(--tx3);font-weight:600}
+  .clr{margin-left:auto;background:none;border:1px solid var(--line);color:var(--violet2);
+    border-radius:20px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .x{background:var(--elev);border:1px solid var(--line);color:var(--tx2);
+    width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;flex:none}
 
-  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:13px 0 6px}
-  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:11px;
+  .cl{display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .cl .tile{width:52px;height:52px;border-radius:12px;font-size:23px}
+  .cl .ci{flex:1;min-width:0}
+  .cl .ci b{font-size:13.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cl .ci span{font-size:12.5px;color:var(--tx2);font-weight:600}
+  .cl.sub{padding:9px 0 9px 20px}
+  .cl.sub b{font-size:12.5px;color:var(--tx2)}
+  .trash{background:none;border:none;color:var(--tx3);font-size:16px;cursor:pointer;padding:6px;flex:none}
+  .trash:hover{color:var(--red)}
+
+  .row{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--line);
+    border-radius:14px;padding:12px 13px;margin-top:14px;cursor:pointer}
+  .row .ri{font-size:17px;flex:none}
+  .row .rt{flex:1;min-width:0;font-size:13px;font-weight:700}
+  .row .rt small{display:block;font-size:11.5px;color:var(--tx3);font-weight:600;margin-top:1px}
+  .row .chev{color:var(--tx3);font-size:14px}
+
+  .blk{margin-top:18px}
+  .blk h3{font-size:14px;font-weight:800;margin-bottom:9px}
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:11px 0 6px}
+  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;
     padding:12px 13px;color:var(--tx);font-size:15px;font-family:inherit;outline:none}
   input:focus,textarea:focus{border-color:var(--violet)}
   textarea{resize:none;line-height:1.5}
   .hint{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5}
 
-  .lines{background:var(--bg);border-radius:12px;padding:12px}
-  .ln{display:flex;gap:10px;font-size:13.5px;padding:4px 0}
-  .ln b{color:#b7a5ff;min-width:26px} .ln span:last-child{margin-left:auto;font-weight:700}
-  .tot{display:flex;border-top:1px solid var(--line);margin-top:8px;padding-top:10px;font-size:15px;font-weight:800}
-  .tot span:last-child{margin-left:auto}
+  .dcard{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--line);
+    border-radius:14px;padding:12px 13px}
+  .dcard .ri{font-size:17px;flex:none}
+  .dcard .dct{flex:1;min-width:0}
+  .dcard .dct b{display:block;font-size:13.5px;font-weight:800}
+  .dcard .dct span{display:block;font-size:12px;color:var(--tx2);margin-top:2px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .chg{background:none;border:none;color:var(--violet2);font-size:12.5px;font-weight:800;cursor:pointer;flex:none}
 
-  .payRow{display:flex;gap:8px;margin-top:8px}
-  .payOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:11px;
-    padding:12px 8px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer}
-  .payOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:#b7a5ff;font-weight:800}
+  .payRow{display:flex;gap:8px}
+  .payOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:13px;
+    padding:13px 8px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:700}
+  .payOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:var(--violet2)}
+
+  .bill{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
+  .bl{display:flex;align-items:center;font-size:13px;color:var(--tx2);padding:4px 0;gap:8px}
+  .bl span:last-child{margin-left:auto;color:var(--tx);font-weight:700}
+  .bl s{color:var(--tx3);font-weight:600}
+  .free{background:rgba(124,92,255,.16);color:var(--violet2);font-size:10.5px;font-weight:800;
+    padding:2px 8px;border-radius:6px;letter-spacing:.3px}
+  .bl.tot{border-top:1px solid var(--line);margin-top:8px;padding-top:11px;font-size:16px;color:var(--tx);font-weight:800}
+  .bl.tot span:last-child{font-size:19px}
+  .nudge{font-size:11.5px;color:var(--amber);margin-top:8px;font-weight:600}
+
+  .place{width:100%;background:var(--grad);border:none;color:#fff;border-radius:15px;
+    padding:16px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:18px;
+    box-shadow:0 10px 26px rgba(124,92,255,.38)}
+  .place:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed;box-shadow:none}
+  .err{color:#f87171;font-size:12.5px;margin-top:11px;display:none;line-height:1.5}
+  .err.on{display:block}
+  .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:18px;line-height:1.7}
+  .cartEmpty{text-align:center;padding:34px 10px;color:var(--tx2);font-size:13px;line-height:1.6}
+  .cartEmpty .em{font-size:36px;display:block;margin-bottom:8px}
+
+  /* ── wide screens: the cart is a panel that is always there ── */
+  @media (min-width:900px){
+    body{padding-bottom:40px}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:26px;align-items:start}
+    .bar,#scrim{display:none!important}
+    .sheet{position:sticky;top:16px;transform:none!important;border-radius:22px;
+      border:1px solid var(--line);max-height:calc(100vh - 32px);margin-top:16px;
+      transition:none;z-index:1}
+    .sheet .grab,.sheet .x{display:none}
+    .sheet .in{padding:0 18px}
+  }
+
+  /* ── states ── */
+  .state{text-align:center;padding:72px 20px}
+  .state .em{font-size:48px}
+  .state h1{margin-top:18px;font-size:22px;font-weight:800}
+  .state p{color:var(--tx2);font-size:13.5px;margin-top:10px;line-height:1.6}
+  .tick{width:74px;height:74px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
+    background:rgba(34,197,94,.14);font-size:34px;animation:pop .45s cubic-bezier(.2,.9,.3,1.3)}
+  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+  .doneCard{background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:18px;
+    padding:16px;margin:22px auto 0;text-align:left;max-width:440px}
+  .doneCard .row2{display:flex;font-size:13.5px;padding:5px 0;color:var(--tx2)}
+  .doneCard .row2 span:last-child{margin-left:auto;color:var(--tx);font-weight:700}
+  .payBtn{display:block;max-width:440px;margin:16px auto 0;background:var(--green);color:#04220f;
+    text-decoration:none;border-radius:15px;padding:16px;font-size:15px;font-weight:800;text-align:center}
 
   /* ── voice ordering ── */
-  .mic{position:fixed;right:16px;bottom:98px;z-index:45;width:56px;height:56px;border-radius:50%;
-    border:none;background:var(--violet);color:#fff;font-size:22px;cursor:pointer;
-    box-shadow:0 10px 26px rgba(124,92,255,.42);display:grid;place-items:center}
+  /* In the top bar, not floating: a floating button sat on top of the Add
+     button of whichever dish happened to be beneath it. */
+  .mic{width:42px;height:42px;border-radius:13px;flex:none;border:none;background:var(--grad);
+    color:#fff;font-size:18px;cursor:pointer;box-shadow:0 6px 16px rgba(124,92,255,.35);
+    display:grid;place-items:center}
   .mic:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
-  .mic.on{background:var(--red);animation:micPulse 1.4s infinite}
-  @keyframes micPulse{
-    0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}
-    70%{box-shadow:0 0 0 18px rgba(239,68,68,0)}
-    100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
-  .orbWrap{display:flex;flex-direction:column;align-items:center;gap:11px;padding:10px 0 18px}
+  .orbWrap{display:flex;flex-direction:column;align-items:center;gap:11px;padding:14px 0 18px}
   .orb{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;font-size:34px;
     background:var(--elev);border:1px solid var(--line);transition:.25s;cursor:pointer}
   .orb.listen{background:rgba(239,68,68,.14);border-color:var(--red);animation:orbPulse 1.5s infinite}
   .orb.speak{background:rgba(124,92,255,.16);border-color:var(--violet);animation:orbGlow 1.9s infinite}
   .orb.think{background:rgba(245,165,36,.14);border-color:var(--amber)}
-  @keyframes orbPulse{
-    0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}
-    70%{box-shadow:0 0 0 26px rgba(239,68,68,0)}
+  @keyframes orbPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%{box-shadow:0 0 0 26px rgba(239,68,68,0)}
     100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
-  @keyframes orbGlow{
-    0%,100%{box-shadow:0 0 22px 2px rgba(124,92,255,.35)}
+  @keyframes orbGlow{0%,100%{box-shadow:0 0 22px 2px rgba(124,92,255,.35)}
     50%{box-shadow:0 0 34px 8px rgba(124,92,255,.55)}}
   .vStatus{font-size:13px;color:var(--tx2);font-weight:700;text-align:center;min-height:19px}
-
   .heard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
     font-size:14px;color:var(--tx);line-height:1.55;min-height:46px}
   .heard em{color:var(--tx3);font-style:normal}
@@ -142,30 +305,20 @@
   .vAdd{background:var(--green);color:#04220f;border:none}
   .vAdd:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
   .vAgain{background:var(--elev);border:1px solid var(--line);color:var(--tx2)}
-  .langRow{display:flex;gap:8px;margin-top:13px}
+  .langRow{display:flex;gap:8px}
   .langOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px;
-    text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer}
-  .langOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:#b7a5ff;font-weight:800}
-
-  .place{width:100%;background:var(--violet);border:none;color:#fff;border-radius:13px;
-    padding:16px;font-size:15px;font-weight:800;cursor:pointer;margin-top:18px}
-  .place:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
-  .err{color:#f87171;font-size:12.5px;margin-top:11px;display:none;line-height:1.5}
-  .err.on{display:block}
-
-  .state{text-align:center;padding:72px 20px}
-  .state .em{font-size:46px}
-  .state h1{margin-top:18px;font-size:21px}
-  .state p{color:var(--tx2);font-size:13.5px;margin-top:10px;line-height:1.6}
-  #load,#bad,#done{display:none}
-
-  .doneCard{background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:16px;
-    padding:16px;margin-top:20px;text-align:left}
-  .doneCard .row{display:flex;font-size:13.5px;padding:4px 0;color:var(--tx2)}
-  .doneCard .row span:last-child{margin-left:auto;color:var(--tx);font-weight:700}
-  .payBtn{display:block;width:100%;background:var(--green);color:#04220f;text-decoration:none;
-    border-radius:13px;padding:16px;font-size:15px;font-weight:800;text-align:center;margin-top:16px}
-  .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:24px;line-height:1.7}
+    text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:700}
+  .langOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:var(--violet2)}
+  /* The voice sheet is always a sheet, even on a wide screen where the cart
+     sheet has become a panel. */
+  @media (min-width:900px){
+    #vSheet{position:fixed;left:auto;right:24px;bottom:24px;width:420px;border-radius:22px;
+      max-height:86vh;transform:translateY(120%)!important;transition:transform .3s cubic-bezier(.4,0,.2,1)!important;
+      z-index:70;margin:0}
+    #vSheet.on{transform:translateY(0)!important}
+    #vSheet .x{display:block}
+    #vScrim{display:block!important}
+  }
 </style>
 </head>
 <body>
@@ -178,40 +331,133 @@
   <p id="badBody">Ask the kitchen for their ordering link again.</p>
 </div>
 
-<div id="app" style="display:none">
-  <div class="wrap">
-    <header>
-      <div class="kt">
-        <div class="av">🍲</div>
-        <div>
-          <h1 id="ktName">Kitchen</h1>
-          <div class="meta"><span class="dot" id="ktDot"></span><span id="ktMeta"></span></div>
+<div id="app">
+  <div class="layout">
+    <div class="main">
+
+      <div class="top">
+        <a class="where" id="where" href="find.html">
+          <span class="pin">📍</span>
+          <span style="min-width:0">
+            <span class="w1" id="whereLbl">Delivering to</span>
+            <span class="w2"><span id="whereTxt" style="overflow:hidden;text-overflow:ellipsis">Set your location</span><i>▾</i></span>
+          </span>
+        </a>
+        <button class="mic" id="micBtn" style="display:none" aria-label="Order by voice" title="Order by voice">🎤</button>
+      </div>
+
+      <div class="kitchen">
+        <div class="kt">
+          <div class="av">🍲</div>
+          <div style="min-width:0">
+            <h1 id="ktName">Kitchen</h1>
+            <div class="meta"><span class="dot" id="ktDot"></span><span id="ktMeta"></span></div>
+          </div>
+        </div>
+        <div class="facts" id="facts"></div>
+        <div class="shutBar" id="shutBar" style="display:none"></div>
+      </div>
+
+      <label class="search" for="q" style="margin-top:14px;display:flex">
+        <span>🔍</span>
+        <input id="q" placeholder="Search dishes…" autocomplete="off" enterkeyhint="search">
+      </label>
+
+      <div class="chips" id="cats"></div>
+
+      <div id="menu"></div>
+      <p class="foot">Prices are set by the kitchen and update the moment they change them.</p>
+    </div>
+
+    <!-- The cart. A bottom sheet on a phone; on a wide screen the same element
+         becomes a panel that is always visible beside the menu. -->
+    <div class="sheet" id="sheet">
+      <div class="grab"></div>
+      <div class="in">
+        <div class="sh-h">
+          <span class="bagI">🛍</span>
+          <span><b>Your order</b><small id="shCount">Nothing yet</small></span>
+          <button class="clr" id="clearCart" style="display:none">Clear</button>
+          <button class="x" id="closeSheet">✕</button>
+        </div>
+
+        <div id="lines"></div>
+
+        <div id="checkout">
+          <div class="row" id="noteRow">
+            <span class="ri">✏️</span>
+            <span class="rt">Cooking instructions<small id="noteSum">Less spicy, no onion…</small></span>
+            <span class="chev">›</span>
+          </div>
+          <div id="noteBox" style="display:none">
+            <input id="nt" placeholder="less spicy, no onion…" style="margin-top:8px">
+          </div>
+
+          <div class="blk">
+            <h3>Deliver to</h3>
+            <!-- They gave all of this on the page before. Asking again, as three
+                 full-width fields, made the cart the most crowded screen. -->
+            <div class="dcard" id="dcard" style="display:none">
+              <span class="ri">📍</span>
+              <div class="dct"><b id="dcName"></b><span id="dcAddr"></span></div>
+              <button class="chg" id="dcEdit" type="button">Change</button>
+            </div>
+            <div id="dfields">
+            <label for="nm">Name</label>
+            <input id="nm" placeholder="Your name" autocomplete="name">
+            <label for="ph">Mobile number</label>
+            <input id="ph" placeholder="98765 43210" inputmode="numeric" autocomplete="tel" maxlength="11">
+            <div class="hint">The kitchen sends your updates here.</div>
+            <label for="ad">Address</label>
+            <textarea id="ad" rows="2" placeholder="Flat 302, B wing, Shanti Residency, Baner" autocomplete="street-address"></textarea>
+            </div>
+          </div>
+
+          <div class="blk">
+            <h3>Pay with</h3>
+            <div class="payRow">
+              <div class="payOpt on" data-pay="cod">💵 Cash on delivery</div>
+              <div class="payOpt" data-pay="upi">⚡ UPI now</div>
+            </div>
+          </div>
+
+          <div class="blk">
+            <h3>Bill details</h3>
+            <div class="bill" id="bill"></div>
+            <div class="nudge" id="nudge"></div>
+          </div>
+
+          <div class="err" id="err"></div>
+          <button class="place" id="placeBtn">Place order</button>
+          <p class="foot">No account, no app. You'll get updates by message.</p>
         </div>
       </div>
-      <div class="shutBar" id="shutBar" style="display:none"></div>
-    </header>
-    <h2>Menu</h2>
-    <div id="menu"></div>
-    <p class="foot">Prices are set by the kitchen and update the moment they change them.</p>
+    </div>
   </div>
 </div>
 
 <div class="bar" id="bar">
   <div class="in">
+    <div class="bag">🛒<b id="barCount">0</b></div>
     <div><div class="n" id="cartN">0 items</div><div class="t" id="cartT">₹0</div></div>
-    <button class="go" id="goBtn">Checkout →</button>
+    <button class="go" id="goBtn">View cart →</button>
   </div>
 </div>
+<div class="scrim" id="scrim"></div>
 
-<!-- Voice ordering. Hidden entirely on browsers without speech recognition —
-     a mic that does nothing is worse than no mic at all. -->
-<button class="mic" id="micBtn" style="display:none" aria-label="Order by voice" title="Order by voice">🎤</button>
+<!-- Voice ordering. The button lives in the top bar and stays hidden on
+     browsers without speech recognition — a mic that does nothing is worse
+     than no mic at all. -->
 
 <div class="scrim" id="vScrim"></div>
 <div class="sheet" id="vSheet">
   <div class="grab"></div>
   <div class="in">
-    <div class="sh-h"><b>Order by voice</b><button class="x" id="vClose">✕</button></div>
+    <div class="sh-h" style="border:none;padding-bottom:4px">
+      <span class="bagI">🎙</span>
+      <span><b>Order by voice</b><small>Say a dish, then yes or no</small></span>
+      <button class="x" id="vClose" style="margin-left:auto">✕</button>
+    </div>
 
     <div class="orbWrap">
       <div class="orb" id="vOrb"><span id="vOrbIcon">🎤</span></div>
@@ -233,52 +479,18 @@
       <button class="vAdd" id="vAdd" disabled>Add to order</button>
     </div>
     <p class="foot" id="vFoot">
-      Say a dish, then answer yes or no. Nothing is added until you agree to it.
+      Nothing is added until you agree to it.
     </p>
   </div>
 </div>
 
-<div class="scrim" id="scrim"></div>
-<div class="sheet" id="sheet">
-  <div class="grab"></div>
-  <div class="in">
-    <div class="sh-h"><b>Your order</b><button class="x" id="closeSheet">✕</button></div>
-    <div class="lines" id="lines"></div>
-
-    <label for="nm">Your name</label>
-    <input id="nm" placeholder="Your name" autocomplete="name">
-
-    <label for="ph">Mobile number</label>
-    <input id="ph" placeholder="98765 43210" inputmode="numeric" autocomplete="tel" maxlength="11">
-    <div class="hint">The kitchen sends your updates here.</div>
-
-    <label for="ad">Delivery address</label>
-    <textarea id="ad" rows="3" placeholder="Flat 302, B wing, Shanti Residency, near D-Mart, Baner" autocomplete="street-address"></textarea>
-
-    <label for="nt">Anything for the kitchen? (optional)</label>
-    <input id="nt" placeholder="less spicy, no onion…">
-
-    <label>How you'll pay</label>
-    <div class="payRow">
-      <div class="payOpt on" data-pay="cod">💵 Cash on delivery</div>
-      <div class="payOpt" data-pay="upi">💳 Pay now by UPI</div>
-    </div>
-
-    <div class="err" id="err"></div>
-    <button class="place" id="placeBtn">Place order</button>
-    <p class="foot">No account, no app. You'll get updates by message.</p>
-  </div>
-</div>
-
 <div id="done" class="state">
-  <div class="em">✅</div>
+  <div class="tick">✓</div>
   <h1>Order placed</h1>
   <p id="doneSub"></p>
-  <div class="wrap">
-    <div class="doneCard" id="doneCard"></div>
-    <a class="payBtn" id="payBtn" style="display:none">💳 Pay now</a>
-    <p class="foot">The kitchen will message you as it's cooked and sent out.</p>
-  </div>
+  <div class="doneCard" id="doneCard"></div>
+  <a class="payBtn" id="payBtn" style="display:none">💳 Pay now</a>
+  <p class="foot">The kitchen will message you as it's cooked and sent out.</p>
 </div>
 
 <script>
@@ -362,7 +574,11 @@
         var c = rows && rows[0];
         if (c) known = Object.assign({}, known, {
           name: c.name, mobile: c.mobile, address: c.address,
+          area: c.area || known.area, city: c.city || known.city,
         });
+        renderWhere();
+        prefill();
+        if (typeof syncDeliver === "function" && $("dcard")) syncDeliver();
       })
       .catch(function () {});
   }
@@ -408,107 +624,275 @@
         // and the kitchen's timezone. Working it out here from the raw config
         // would be a second implementation to disagree with the first.
         var open = kitchen.is_open !== false;
+        closed = !open;
         $("ktDot").className = "dot" + (open ? "" : " shut");
-        $("ktMeta").textContent = (open ? "Open" : "Closed") +
-          (kitchen.city ? " · " + kitchen.city : "");
+        $("ktMeta").textContent = [open ? "Open now" : "Closed",
+                                   kitchen.cuisine, kitchen.area || kitchen.city]
+                                  .filter(Boolean).join(" · ");
+
+        var facts = [];
+        if (cfg.defaultPrepMinutes) facts.push(["", "⏱ ~" + cfg.defaultPrepMinutes + " min"]);
+        var charge = Number(kitchen.delivery_charge || 0), freeAt = Number(kitchen.free_above || 0);
+        if (!charge) facts.push(["good", "🛵 Free delivery"]);
+        else {
+          facts.push(["", "🛵 " + inr(charge) + " delivery"]);
+          if (freeAt) facts.push(["good", "Free over " + inr(freeAt)]);
+        }
+        facts.push(["", "🍽 " + menu.length + (menu.length === 1 ? " dish" : " dishes")]);
+        $("facts").innerHTML = facts.map(function (f) {
+          return '<span class="fact' + (f[0] ? " " + f[0] : "") + '">' + esc(f[1]) + '</span>';
+        }).join("");
+
         if (!open) {
           $("shutBar").style.display = "block";
           $("shutBar").textContent = cfg.closedMessage ||
             "This kitchen isn't taking orders right now. Do come back later.";
-          // Menu stays visible -- people like to look -- but there is no point
-          // letting somebody build a cart the checkout will refuse.
-          $("goBtn").disabled = true;
-          $("goBtn").textContent = "Closed";
-          $("goBtn").style.background = "var(--line)";
-          $("goBtn").style.color = "var(--tx3)";
+          $("placeBtn").disabled = true;
+          $("placeBtn").textContent = "Kitchen is closed";
         }
+        renderWhere();
+        prefill();
+        syncDeliver();
+        renderCats();
         renderMenu();
+        renderCart();
         show("app");
       })
       .catch(function () { show("bad"); });
   }
 
-  function renderMenu() {
-    var el = $("menu");
-    // Nothing to say to a kitchen with no dishes up yet.
-    var mic = $("micBtn");
-    if (mic) mic.disabled = !menu.length;
-    if (!menu.length) {
-      el.innerHTML = '<p style="color:var(--tx2);font-size:13.5px">' +
-                     'This kitchen hasn\'t put a menu up yet.</p>';
-      return;
+  // ── how a dish looks when it has no photo ────────────────────────────────
+  // Most kitchens will not have photographed their menu, and a grey box reads
+  // as broken. A tile coloured and marked by what kind of food it is reads as
+  // intentional. Any photo the kitchen uploads replaces it.
+  var LOOKS = [
+    [/dessert|sweet|mithai|kheer|halwa/i, "🍮", "#3f1f33,#7a3a5d"],
+    [/bread|naan|roti|paratha|kulcha/i,   "🫓", "#4a3818,#8d6a2a"],
+    [/dal/i,                              "🍲", "#43230f,#7a4418"],
+    [/rice|biryani|pulao/i,               "🍚", "#3a3320,#6d5b2c"],
+    [/snack|starter|chaat|tikka|vada/i,   "🥟", "#3d2c14,#7c5420"],
+    [/beverage|drink|juice|lassi|tea|coffee|shake/i, "🥤", "#123040,#1f5a6e"],
+    [/chinese|noodle|manchurian/i,        "🍜", "#3a1d12,#7a3316"],
+    [/thali|meal|combo/i,                 "🍱", "#2f2748,#56458a"],
+    [/main|curry|sabzi|masala|paneer/i,   "🍛", "#4a2511,#8a3f14"],
+  ];
+  function lookOf(it) {
+    var s = (it.category || "") + " " + (it.name || "");
+    for (var i = 0; i < LOOKS.length; i++) if (LOOKS[i][0].test(s)) return LOOKS[i];
+    return [null, "🍽", "#26263a,#3a3a55"];
+  }
+  // Each dish gets its own shade within its category's family, so six curries
+  // in a row do not show six identical tiles — which read as a placeholder
+  // repeated, not as a menu. Picked from the name, so a dish keeps its colour.
+  var SHADES = {
+    warm   : ["#4a2511,#8a3f14","#3f2a12,#7a5220","#4a1d1d,#8a3030","#3a2c10,#72561c",
+              "#452012,#86401f","#3d2417,#7d4a2e"],
+    dessert: ["#3f1f33,#7a3a5d","#3a1d2f,#6e3353","#45233a,#834866"],
+    drink  : ["#123040,#1f5a6e","#10323a,#1d5f63","#162a45,#28517a"],
+  };
+  function shadeFor(it, base) {
+    var fam = base === "🍮" ? "dessert" : base === "🥤" ? "drink" : "warm";
+    var n = 0, s = String(it.name || "");
+    for (var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
+    return SHADES[fam][n % SHADES[fam].length];
+  }
+
+  function tileHtml(it) {
+    if (it && it.image_url) {
+      return '<div class="tile"><img src="' + esc(it.image_url) + '" alt="" loading="lazy"></div>';
     }
-    el.innerHTML = "";
+    var l = lookOf(it || {});
+    return '<div class="tile" style="background:linear-gradient(135deg,' + shadeFor(it || {}, l[1]) + ')">' +
+           l[1] + '</div>';
+  }
+  function catIcon(cat) { return lookOf({ category: cat, name: "" })[1]; }
+
+  // Only when the kitchen said which it is. A guessed veg mark is worse than
+  // none: someone relies on it.
+  function vegMark(it) {
+    var d = String((it.extra_fields && it.extra_fields.diet) || "").toLowerCase();
+    if (!d) return "";
+    var nonveg = d.indexOf("non") >= 0 || d.indexOf("egg") >= 0;
+    return '<span class="vg' + (nonveg ? " nv" : "") + '" title="' +
+           (nonveg ? "Non-vegetarian" : "Vegetarian") + '"></span>';
+  }
+
+  // ── where it is going ────────────────────────────────────────────────────
+  function renderWhere() {
+    var k = known || {};
+    var place = k.area
+      ? k.area + (k.city ? ", " + k.city : "")
+      : (k.address ? String(k.address).split(",").slice(-1)[0].trim() : "");
+    $("whereTxt").textContent = place || "Add your delivery address";
+    $("where").href = "find.html" + (sess ? "?s=" + encodeURIComponent(sess) : "");
+  }
+
+  // ── the menu ─────────────────────────────────────────────────────────────
+  var activeCat = "All", query = "", closed = false;
+
+  // The order a printed Indian menu runs in. The database returns dishes in
+  // whatever order they were typed, which put Dessert at the top of the page.
+  var CAT_ORDER = [/thali|meal|combo/i, /starter|snack|chaat|tikka/i, /main|curry|sabzi/i,
+                   /dal/i, /rice|biryani|pulao/i, /bread|naan|roti|paratha/i,
+                   /chinese|noodle/i, /beverage|drink|juice|lassi/i, /dessert|sweet|mithai/i];
+  function catRank(c) {
+    for (var i = 0; i < CAT_ORDER.length; i++) if (CAT_ORDER[i].test(c)) return i;
+    return 6.5;                          // unknown: after the food, before drinks
+  }
+
+  function categories() {
+    var seen = [], count = {};
     menu.forEach(function (it) {
-      var vs = variantsOf(it);
-      var d = document.createElement("div");
-      d.className = "dish";
+      var c = it.category || "Other";
+      if (!count[c]) { count[c] = 0; seen.push(c); }
+      count[c]++;
+    });
+    seen.sort(function (a, b) { return catRank(a) - catRank(b); });
+    return { list: seen, count: count };
+  }
 
-      var top = document.createElement("div");
-      top.className = "dTop";
-      top.innerHTML =
-        '<div class="dInfo">' +
-          '<div class="nm"><b>' + esc(it.name) + '</b></div>' +
-          (it.description ? '<div class="ds">' + esc(it.description) + '</div>' : "") +
-          (vs.length === 1 ? '<div class="pr">' + inr(vs[0].price) + '</div>' : "") +
-        '</div>' +
-        (it.image_url
-          ? '<div class="thumb"><img src="' + esc(it.image_url) + '" alt=""></div>'
-          : '<div class="thumb">🍽</div>');
-      if (vs.length === 1) top.appendChild(control(vs[0], it));
-      d.appendChild(top);
-
-      if (vs.length > 1) {
-        vs.forEach(function (v) {
-          var row = document.createElement("div");
-          row.className = "portion";
-          row.innerHTML = '<span class="lb">' + esc(v.portion) + '</span>' +
-                          '<span class="pp">' + inr(v.price) + '</span>';
-          row.appendChild(control(v, it));
-          d.appendChild(row);
-        });
-      }
-
-      // Extras only once the dish is in the order.
-      var ao = addOnsOf(it);
-      if (ao.length) {
-        var box = document.createElement("div");
-        box.className = "addons";
-        box.dataset.for = it.id;
-        ao.forEach(function (a) {
-          vs.forEach(function (v) {
-            var k = v.key + "|+|" + a.name;
-            var c = document.createElement("div");
-            c.className = "chip" + (cart[k] ? " on" : "");
-            c.textContent = (cart[k] ? "✓ " : "+ ") + a.name + " " + inr(a.price) +
-                            (vs.length > 1 ? " (" + v.portion + ")" : "");
-            c.style.display = cart[v.key] ? "" : "none";
-            c.onclick = function () { setQty(k, cart[k] ? 0 : (cart[v.key] || 1)); };
-            box.appendChild(c);
-          });
-        });
-        d.appendChild(box);
-      }
-      el.appendChild(d);
+  function renderCats() {
+    var cs = categories();
+    var box = $("cats");
+    box.innerHTML = "";
+    // One category is not a choice; a chip row of one is clutter.
+    if (cs.list.length < 2) { box.style.display = "none"; return; }
+    box.style.display = "";
+    ["All"].concat(cs.list).forEach(function (c) {
+      var b = document.createElement("button");
+      b.className = "cat" + (c === activeCat ? " on" : "");
+      b.innerHTML = '<span class="ic">' + (c === "All" ? "🍽" : catIcon(c)) + '</span>' + esc(c);
+      b.onclick = function () { activeCat = c; renderCats(); renderMenu(); };
+      box.appendChild(b);
     });
   }
 
-  function control(v, it) {
-    var q = cart[v.key] || 0;
-    if (!q) {
-      var b = document.createElement("button");
-      b.className = "add"; b.textContent = "ADD";
-      b.onclick = function () { setQty(v.key, 1); };
-      return b;
+  $("q").addEventListener("input", function (e) {
+    query = e.target.value.trim().toLowerCase();
+    renderMenu();
+  });
+
+  function dishCard(it) {
+    var vs = variantsOf(it);
+    var d = document.createElement("div");
+    d.className = "dish";
+
+    var price = vs.length === 1
+      ? '<span class="pr">' + inr(vs[0].price) + '</span>'
+      : '<span><span class="from">from </span><span class="pr">' +
+        inr(Math.min.apply(null, vs.map(function (v) { return v.price; }))) + '</span></span>';
+
+    var top = document.createElement("div");
+    top.className = "dTop";
+    top.innerHTML = tileHtml(it) +
+      '<div class="dInfo">' +
+        '<div class="nm">' + vegMark(it) + '<b>' + esc(it.name) + '</b></div>' +
+        (it.description ? '<div class="ds">' + esc(it.description) + '</div>' : "") +
+        '<div class="dFoot">' + price + '</div>' +
+      '</div>';
+    if (vs.length === 1) top.querySelector(".dFoot").appendChild(control(vs[0]));
+    d.appendChild(top);
+
+    if (vs.length > 1) {
+      vs.forEach(function (v) {
+        var row = document.createElement("div");
+        row.className = "portion";
+        row.innerHTML = '<span class="lb">' + esc(v.portion) + '</span>' +
+                        '<span class="pp">' + inr(v.price) + '</span>';
+        row.appendChild(control(v));
+        d.appendChild(row);
+      });
     }
+
+    // Extras only once the dish is in the order.
+    var ao = addOnsOf(it);
+    if (ao.length) {
+      var box = document.createElement("div");
+      box.className = "addons";
+      ao.forEach(function (a) {
+        vs.forEach(function (v) {
+          if (!cart[v.key]) return;
+          var k = v.key + "|+|" + a.name;
+          var c = document.createElement("div");
+          c.className = "chip" + (cart[k] ? " on" : "");
+          c.textContent = (cart[k] ? "✓ " : "+ ") + a.name + " " + inr(a.price) +
+                          (vs.length > 1 ? " (" + v.portion + ")" : "");
+          c.onclick = function () { setQty(k, cart[k] ? 0 : (cart[v.key] || 1)); };
+          box.appendChild(c);
+        });
+      });
+      if (box.children.length) d.appendChild(box);
+    }
+    return d;
+  }
+
+  function renderMenu() {
+    var el = $("menu");
+    var mic = $("micBtn");
+    if (mic) mic.disabled = !menu.length;
+    el.innerHTML = "";
+
+    if (!menu.length) {
+      el.innerHTML = '<div class="empty">This kitchen hasn\'t put a menu up yet.</div>';
+      return;
+    }
+
+    var shown = menu.filter(function (it) {
+      if (activeCat !== "All" && (it.category || "Other") !== activeCat) return false;
+      if (!query) return true;
+      return [it.name, it.description, it.category].join(" ").toLowerCase().indexOf(query) >= 0;
+    });
+
+    if (!shown.length) {
+      el.innerHTML = '<div class="empty">Nothing here matches “' + esc(query) + '”.<br>' +
+                     'Try another word, or clear the search.</div>';
+      return;
+    }
+
+    function head(title, n) {
+      var h = document.createElement("div");
+      h.className = "secHead";
+      h.innerHTML = '<h2>' + esc(title) + '</h2><span>' + n + (n === 1 ? " dish" : " dishes") + '</span>';
+      el.appendChild(h);
+    }
+
+    // Searching or filtering: one flat list. Browsing: grouped by category, the
+    // way a printed menu is.
+    if (query || activeCat !== "All") {
+      head(query ? "Results" : activeCat, shown.length);
+      shown.forEach(function (it) { el.appendChild(dishCard(it)); });
+      return;
+    }
+    categories().list.forEach(function (c) {
+      var inCat = shown.filter(function (it) { return (it.category || "Other") === c; });
+      if (!inCat.length) return;
+      head(c, inCat.length);
+      inCat.forEach(function (it) { el.appendChild(dishCard(it)); });
+    });
+  }
+
+  function stepper(key, q) {
     var s = document.createElement("div"); s.className = "stepper";
-    var m = document.createElement("button"); m.textContent = "−";
+    var m = document.createElement("button"); m.textContent = "−"; m.setAttribute("aria-label", "One less");
     var c = document.createElement("span");   c.textContent = q;
-    var p = document.createElement("button"); p.textContent = "+";
-    m.onclick = function () { setQty(v.key, q - 1); };
-    p.onclick = function () { setQty(v.key, q + 1); };
+    var p = document.createElement("button"); p.textContent = "+"; p.setAttribute("aria-label", "One more");
+    m.onclick = function () { setQty(key, q - 1); };
+    p.onclick = function () { setQty(key, q + 1); };
     s.appendChild(m); s.appendChild(c); s.appendChild(p);
     return s;
+  }
+
+  function control(v) {
+    var q = cart[v.key] || 0;
+    if (q) return stepper(v.key, q);
+    var b = document.createElement("button");
+    b.className = "add";
+    b.innerHTML = "Add <span style=\"font-size:15px;line-height:1\">+</span>";
+    // Menu stays browsable when the kitchen is shut — people like to look —
+    // but building a cart the checkout will refuse helps nobody.
+    b.disabled = closed;
+    b.onclick = function () { setQty(v.key, 1); };
+    return b;
   }
 
   function setQty(key, q) {
@@ -561,12 +945,70 @@
     return Number(kitchen.delivery_charge || 0);
   }
 
+  function itemOfKey(key) {
+    var id = key.split("|+|")[0].split("::")[0];
+    return menu.find(function (m) { return String(m.id) === id; });
+  }
+
   function renderCart() {
     var ls = lines();
-    var n = ls.reduce(function (s, l) { return s + l.qty; }, 0);
+    var n = ls.reduce(function (s, l) { return s + (l.key.indexOf("|+|") > -1 ? 0 : l.qty); }, 0);
+    var sub = subtotal(), fee = deliveryFee(), total = sub + fee;
+
+    // the bar
     $("cartN").textContent = n + (n === 1 ? " item" : " items");
-    $("cartT").textContent = inr(subtotal() + deliveryFee());
+    $("cartT").textContent = inr(total);
+    $("barCount").textContent = n;
     $("bar").classList.toggle("on", n > 0);
+
+    // the sheet / panel
+    $("shCount").textContent = n ? n + (n === 1 ? " item" : " items") : "Nothing yet";
+    $("clearCart").style.display = n ? "" : "none";
+    $("checkout").style.display = n ? "" : "none";
+
+    var box = $("lines");
+    box.innerHTML = "";
+    if (!n) {
+      box.innerHTML = '<div class="cartEmpty"><span class="em">🍽</span>' +
+        'Your order is empty.<br>Add something from the menu to get started.</div>';
+      return;
+    }
+
+    ls.forEach(function (l) {
+      var isAddOn = l.key.indexOf("|+|") > -1;
+      var row = document.createElement("div");
+      row.className = "cl" + (isAddOn ? " sub" : "");
+      row.innerHTML = (isAddOn ? "" : tileHtml(itemOfKey(l.key))) +
+        '<div class="ci"><b>' + esc(l.name) + '</b><span>' + inr(l.price) + '</span></div>';
+      row.appendChild(stepper(l.key, l.qty));
+      var t = document.createElement("button");
+      t.className = "trash"; t.textContent = "🗑"; t.setAttribute("aria-label", "Remove");
+      t.onclick = function () { setQty(l.key, 0); };
+      row.appendChild(t);
+      box.appendChild(row);
+    });
+
+    // The bill shows exactly what the server will charge — nothing else. The
+    // reference design had platform fees and taxes; the customer pays neither,
+    // and a line that implies otherwise would be a lie on the one screen where
+    // money is decided.
+    var charge = Number(kitchen.delivery_charge || 0);
+    var freeAt = Number(kitchen.free_above || 0);
+    var feeHtml = fee
+      ? '<span>' + inr(fee) + '</span>'
+      : (charge
+          ? '<span><s>' + inr(charge) + '</s> &nbsp;<span class="free">FREE</span></span>'
+          : '<span><span class="free">FREE</span></span>');
+    $("bill").innerHTML =
+      '<div class="bl"><span>Item total</span><span>' + inr(sub) + '</span></div>' +
+      '<div class="bl"><span>Delivery</span>' + feeHtml + '</div>' +
+      '<div class="bl tot"><span>To pay</span><span>' + inr(total) + '</span></div>';
+
+    $("nudge").textContent = (fee && freeAt > sub)
+      ? "Add " + inr(freeAt - sub) + " more for free delivery."
+      : "";
+
+    if (!closed) $("placeBtn").textContent = "Place order · " + inr(total);
   }
 
   // ── checkout ──────────────────────────────────────────────────────────────
@@ -579,21 +1021,50 @@
     }
   }
 
+  // Everything filled in: show it as one line with a Change link. Anything
+  // missing — or the customer asked to edit — show the fields.
+  var editingDeliver = false;
+  function syncDeliver() {
+    var name = $("nm").value.trim();
+    var ph   = $("ph").value.replace(/\D/g, "");
+    var ad   = $("ad").value.trim();
+    var complete = ph.length === 10 && ad;
+    var asCard = complete && !editingDeliver;
+    $("dcard").style.display   = asCard ? "" : "none";
+    $("dfields").style.display = asCard ? "none" : "";
+    if (asCard) {
+      $("dcName").textContent = (name || "You") + " · " + ph.slice(0, 5) + " " + ph.slice(5);
+      $("dcAddr").textContent = ad;
+    }
+  }
+  function editDeliver() { editingDeliver = true; syncDeliver(); }
+  $("dcEdit").onclick = function () { editDeliver(); $("ad").focus(); };
+
+  // On a phone the cart opens as a sheet; on a wide screen it is always shown
+  // and this button is hidden.
   $("goBtn").onclick = function () {
-    prefill();
-    var ls = lines();
-    $("lines").innerHTML = ls.map(function (l) {
-      return '<div class="ln"><b>' + l.qty + '×</b><span>' + esc(l.name) + '</span>' +
-             '<span>' + inr(l.price * l.qty) + '</span></div>';
-    }).join("") +
-      (deliveryFee() ? '<div class="ln"><b></b><span>Delivery</span><span>' +
-                       inr(deliveryFee()) + '</span></div>' : "") +
-      '<div class="tot"><span>Total</span><span>' + inr(subtotal() + deliveryFee()) + '</span></div>';
+    prefill(); syncDeliver();
     $("scrim").classList.add("on"); $("sheet").classList.add("on");
   };
   function closeSheet() { $("scrim").classList.remove("on"); $("sheet").classList.remove("on"); }
   $("closeSheet").onclick = closeSheet;
   $("scrim").onclick = closeSheet;
+
+  $("clearCart").onclick = function () {
+    cart = {};
+    renderMenu(); renderCart();
+    closeSheet();
+  };
+
+  $("noteRow").onclick = function () {
+    var box = $("noteBox");
+    var open = box.style.display === "none";
+    box.style.display = open ? "" : "none";
+    if (open) $("nt").focus();
+  };
+  $("nt").addEventListener("input", function (e) {
+    $("noteSum").textContent = e.target.value.trim() || "Less spicy, no onion…";
+  });
 
   $("ph").addEventListener("input", function (e) {
     var d = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -613,8 +1084,8 @@
     var ph = $("ph").value.replace(/\D/g, "");
     var ad = $("ad").value.trim();
 
-    if (ph.length !== 10) { err.textContent = "Please enter a 10-digit mobile number."; err.classList.add("on"); return; }
-    if (!ad)              { err.textContent = "Please enter a delivery address.";       err.classList.add("on"); return; }
+    if (ph.length !== 10) { editDeliver(); err.textContent = "Please enter a 10-digit mobile number."; err.classList.add("on"); return; }
+    if (!ad)              { editDeliver(); err.textContent = "Please enter a delivery address.";       err.classList.add("on"); return; }
     err.classList.remove("on");
 
     // Ids and quantities only. Every price is worked out by the database, so
@@ -706,10 +1177,10 @@
                               " with " + (kitchen.business_name || "the kitchen");
     $("doneCard").innerHTML =
       lines().map(function (l) {
-        return '<div class="row"><span>' + l.qty + '× ' + esc(l.name) + '</span>' +
+        return '<div class="row2"><span>' + l.qty + '× ' + esc(l.name) + '</span>' +
                '<span>' + inr(l.price * l.qty) + '</span></div>';
       }).join("") +
-      '<div class="row" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">' +
+      '<div class="row2" style="border-top:1px solid var(--line);margin-top:8px;padding-top:10px">' +
         '<span><b style="color:var(--tx)">Total</b></span><span>' + inr(total) + '</span></div>';
 
     // Straight to their UPI app with the amount filled in. Only when they chose

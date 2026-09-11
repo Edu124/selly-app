@@ -5,79 +5,131 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a12">
 <title>Selly — food near you</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* Same visual language as the ordering page: cards, a location pill, search,
+     chips. Where you are, then who is near you. */
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   :root{
-    --bg:#0a0a12;--card:#14141f;--elev:#1c1c2b;--line:#242437;
-    --tx:#f2f2f7;--tx2:#9a9ab4;--tx3:#63637d;
-    --violet:#7c5cff;--violet-d:#6a4ae8;--green:#22c55e;--amber:#f5a524;--red:#ef4444;
+    --bg:#0b0b14;--card:#141421;--card2:#1a1a2a;--elev:#202033;--line:#262639;
+    --tx:#f3f3f8;--tx2:#a3a3bd;--tx3:#6b6b86;
+    --violet:#7c5cff;--violet2:#a18bff;
+    --grad:linear-gradient(135deg,#7c5cff 0%,#5b6cff 100%);
+    --green:#22c55e;--red:#ef4444;--amber:#f5a524;
   }
   html,body{background:var(--bg);color:var(--tx);overflow-x:clip}
-  body{min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  body{min-height:100vh;
+    font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;padding-bottom:40px}
-  .wrap{max-width:520px;margin:0 auto;padding:0 18px}
+  button{font-family:inherit}
+  .wrap{max-width:560px;margin:0 auto;padding:0 16px}
 
-  .brand{display:flex;align-items:center;gap:9px;padding:22px 0 6px}
-  .brand .logo{font-size:22px;font-weight:900;letter-spacing:-.6px}
+  .brand{display:flex;align-items:center;gap:9px;padding:20px 0 4px}
+  .brand .logo{font-size:23px;font-weight:800;letter-spacing:-.7px}
   .brand .logo span{color:var(--green)}
 
-  h1{font-size:25px;font-weight:800;letter-spacing:-.6px;line-height:1.25;margin-top:14px}
+  h1{font-size:27px;font-weight:800;letter-spacing:-.7px;line-height:1.2;margin-top:16px}
   .sub{color:var(--tx2);font-size:14px;margin-top:9px;line-height:1.6}
 
-  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:16px 0 6px;letter-spacing:.2px}
-  input,textarea{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;
-    padding:14px;color:var(--tx);font-size:15.5px;font-family:inherit;outline:none}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-top:16px}
+  .cardH{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .cardH .ci{width:34px;height:34px;border-radius:11px;background:rgba(124,92,255,.14);
+    display:grid;place-items:center;font-size:16px;flex:none}
+  .cardH b{font-size:15px;font-weight:800}
+
+  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:13px 0 6px;letter-spacing:.2px}
+  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    padding:13px 14px;color:var(--tx);font-size:15px;font-family:inherit;outline:none}
   input:focus,textarea:focus{border-color:var(--violet)}
+  input::placeholder,textarea::placeholder{color:var(--tx3)}
   textarea{resize:none;line-height:1.5}
-  .hint{font-size:11.5px;color:var(--tx3);margin-top:6px;line-height:1.5}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:11.5px;color:var(--tx3);margin-top:7px;line-height:1.5}
+
+  /* Home / Work / Other — so the next order is one tap, not a retyped address */
+  .tags{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .tagBtn{background:var(--bg);border:1px solid var(--line);color:var(--tx2);border-radius:20px;
+    padding:8px 13px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .tagBtn.on{background:rgba(124,92,255,.14);border-color:var(--violet);color:var(--violet2)}
+
+  .saved .lbl{font-size:12px;font-weight:800;color:var(--tx3);letter-spacing:.5px;text-transform:uppercase;
+    margin:20px 0 9px}
+  .sv{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;padding:13px 14px;margin-bottom:9px;cursor:pointer;width:100%;text-align:left;color:inherit}
+  .sv:hover{border-color:var(--violet)}
+  .sv .si{width:38px;height:38px;border-radius:12px;background:var(--elev);display:grid;place-items:center;
+    font-size:17px;flex:none}
+  .sv .st{flex:1;min-width:0}
+  .sv .st b{display:block;font-size:14px;font-weight:800}
+  .sv .st span{display:block;font-size:12px;color:var(--tx2);margin-top:2px;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .sv .go2{color:var(--violet2);font-size:13px;font-weight:800;flex:none}
 
   .locBtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
-    background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:13px;
-    color:var(--tx);font-size:13.5px;font-weight:700;cursor:pointer;margin-top:9px}
-  .locBtn.got{border-color:rgba(34,197,94,.4);color:var(--green)}
-  .orRow{display:flex;align-items:center;gap:12px;margin:20px 0 14px;
-    color:var(--muted);font-size:12px;white-space:nowrap}
-  .orRow::before,.orRow::after{content:"";flex:1;height:1px;background:var(--line)}
+    background:var(--elev);border:1px solid var(--line);border-radius:12px;padding:12px;
+    color:var(--tx);font-size:13.5px;font-weight:700;cursor:pointer;margin-top:14px}
+  .locBtn.got{border-color:rgba(34,197,94,.45);color:var(--green)}
+  .priv{display:flex;gap:7px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.18);
+    border-radius:11px;padding:9px 11px;color:#86efac;margin-top:12px}
 
-  .go{width:100%;background:var(--violet);border:none;color:#fff;border-radius:13px;
-    padding:17px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:22px}
-  .go:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
-
+  .go{width:100%;background:var(--grad);border:none;color:#fff;border-radius:15px;
+    padding:17px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:20px;
+    box-shadow:0 10px 26px rgba(124,92,255,.38)}
+  .go:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
   .err{color:#f87171;font-size:13px;margin-top:12px;display:none;line-height:1.5}
   .err.on{display:block}
 
   /* ── results ── */
-  .backRow{display:flex;align-items:center;gap:9px;padding:20px 0 4px}
-  .back{background:var(--elev);border:1px solid var(--line);color:var(--tx2);
-    width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer}
-  .backRow .who{font-size:12.5px;color:var(--tx2);line-height:1.4}
-  .backRow .who b{color:var(--tx);display:block;font-size:14px}
+  .top{padding:16px 0 6px}
+  .where{display:flex;align-items:center;gap:10px;background:none;border:none;color:inherit;
+    cursor:pointer;text-align:left;padding:0;width:100%}
+  .where .pin{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;
+    background:rgba(124,92,255,.14);font-size:17px}
+  .where .w1{display:block;font-size:11px;color:var(--tx3);font-weight:600}
+  .where .w2{display:flex;align-items:center;gap:6px;font-size:15.5px;font-weight:800;min-width:0}
+  .where .w2 span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .where .w2 i{font-style:normal;color:var(--violet2);font-size:12px}
 
-  .kit{display:block;text-decoration:none;color:inherit;background:var(--card);
-    border:1px solid var(--line);border-radius:16px;padding:15px;margin-bottom:11px}
+  .search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:0 14px;margin-top:12px}
+  .search:focus-within{border-color:var(--violet)}
+  .search span{color:var(--tx3);font-size:15px}
+  .search input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:14.5px;padding:13px 0}
+
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:13px 16px 2px;margin:0 -16px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .cz{flex:none;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px 14px;
+    font-size:12.5px;font-weight:700;color:var(--tx2);cursor:pointer;white-space:nowrap}
+  .cz.on{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 6px 18px rgba(124,92,255,.32)}
+
+  .secHead{display:flex;align-items:baseline;justify-content:space-between;margin:20px 0 11px}
+  .secHead h2{font-size:17px;font-weight:800;letter-spacing:-.2px}
+  .secHead span{font-size:12px;color:var(--tx3);font-weight:600}
+
+  .kit{display:block;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;padding:13px;margin-bottom:11px;transition:border-color .15s}
+  .kit:hover{border-color:rgba(124,92,255,.55)}
   .kit.shut{opacity:.55}
-  .kTop{display:flex;align-items:center;gap:11px}
-  .kAv{width:44px;height:44px;border-radius:13px;flex:none;display:grid;place-items:center;
-    font-size:21px;background:linear-gradient(135deg,#f5a524,#f97316)}
+  .kTop{display:flex;gap:13px;align-items:center}
+  .kAv{width:64px;height:64px;border-radius:16px;flex:none;display:grid;place-items:center;font-size:29px}
   .kName{font-size:16px;font-weight:800;letter-spacing:-.2px}
-  .kMeta{color:var(--tx2);font-size:12px;margin-top:3px}
-  .kDist{margin-left:auto;text-align:right;flex:none}
-  .kDist b{font-size:15px;font-weight:800;display:block}
-  .kDist span{font-size:10.5px;color:var(--tx3)}
-  .kFoot{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap}
-  .tag{background:var(--elev);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--tx2)}
-  .tag.open{background:rgba(34,197,94,.13);color:var(--green);font-weight:700}
-  .tag.shut{background:rgba(239,68,68,.13);color:#f87171;font-weight:700}
+  .kMeta{color:var(--tx2);font-size:12px;margin-top:3px;line-height:1.45}
+  .kDist{margin-left:auto;text-align:right;flex:none;padding-left:8px}
+  .kDist b{font-size:16px;font-weight:800;display:block}
+  .kDist span{font-size:10.5px;color:var(--tx3);font-weight:600}
+  .kFoot{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+  .tag{background:var(--elev);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--tx2);font-weight:600}
+  .tag.open{background:rgba(34,197,94,.13);color:#4ade80}
+  .tag.shut{background:rgba(239,68,68,.13);color:#f87171}
 
   .state{text-align:center;padding:60px 20px}
-  .state .em{font-size:44px}
-  .state h2{font-size:18px;font-weight:800;margin-top:16px}
+  .state .em{font-size:46px}
+  .state h2{font-size:19px;font-weight:800;margin-top:16px}
   .state p{color:var(--tx2);font-size:13.5px;margin-top:9px;line-height:1.6}
-  .linkBtn{background:none;border:none;color:#9d87ff;font-size:13.5px;font-weight:700;
-    cursor:pointer;margin-top:16px;text-decoration:underline}
-
   #step2,#loading{display:none}
-  .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:28px;line-height:1.7}
+  .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:26px;line-height:1.7}
 </style>
 </head>
 <body>
@@ -87,53 +139,82 @@
     <div class="logo">selly<span>.</span></div>
   </div>
 
-  <!-- ── step 1: who and where ── -->
+  <!-- ── step 1: where and who ── -->
   <div id="step1">
-    <h1>Good food,<br>from a kitchen near you</h1>
-    <p class="sub">
-      Tell us where you are and we'll show you the kitchens that actually deliver
-      to you. No app, no account.
-    </p>
+    <h1>Where should we<br>deliver?</h1>
+    <p class="sub">We'll show you kitchens within 5 km that deliver to you. No app, no account.</p>
 
-    <label for="nm">Your name</label>
-    <input id="nm" placeholder="Your name" autocomplete="name">
-
-    <label for="ph">Mobile number</label>
-    <input id="ph" placeholder="98765 43210" inputmode="numeric" autocomplete="tel" maxlength="11">
-    <div class="hint">Your order updates come here.</div>
-
-    <label for="ad">Delivery address</label>
-    <textarea id="ad" rows="3" placeholder="Flat 302, B wing, Shanti Residency, near D-Mart, Baner" autocomplete="street-address"></textarea>
-
-    <label for="ar">Your area</label>
-    <input id="ar" placeholder="Baner" autocomplete="address-level3">
-
-    <label for="ct">City</label>
-    <input id="ct" placeholder="Pune" autocomplete="address-level2">
-    <div class="hint">
-      We'll show kitchens within 5 km of your address. Your flat or house
-      number never leaves your phone — only the locality is used to place you.
+    <div class="saved" id="savedBox" style="display:none">
+      <div class="lbl">Saved addresses</div>
+      <div id="savedList"></div>
     </div>
 
-    <div class="orRow"><span>or, to sort them by distance</span></div>
+    <div class="card">
+      <div class="cardH"><span class="ci">📍</span><b id="addrHead">Delivery address</b></div>
 
-    <button class="locBtn" id="locBtn">📍 Use my current location</button>
-    <div class="hint" id="locHint">
-      Optional. Measures from exactly where you're standing instead of from
-      your locality — useful if you're on the edge of one.
+      <div class="tags" id="tags">
+        <button type="button" class="tagBtn on" data-label="Home">🏠 Home</button>
+        <button type="button" class="tagBtn" data-label="Work">💼 Work</button>
+        <button type="button" class="tagBtn" data-label="Other">📍 Other</button>
+      </div>
+
+      <label for="ad">House / flat, building, street</label>
+      <textarea id="ad" rows="2" placeholder="Flat 302, B wing, Shanti Residency, near D-Mart" autocomplete="street-address"></textarea>
+
+      <div class="two">
+        <div>
+          <label for="ar">Area</label>
+          <input id="ar" placeholder="Baner" autocomplete="address-level3">
+        </div>
+        <div>
+          <label for="ct">City</label>
+          <input id="ct" placeholder="Pune" autocomplete="address-level2">
+        </div>
+      </div>
+
+      <button type="button" class="locBtn" id="locBtn">📍 Use my current location</button>
+      <div class="hint" id="locHint">
+        Optional — measures from exactly where you're standing instead of from your area.
+      </div>
+
+      <div class="hint priv"><span>🔒</span><span>Your flat or house number never leaves your
+        phone. Only the area is used to find kitchens near you.</span></div>
+    </div>
+
+    <div class="card">
+      <div class="cardH"><span class="ci">👤</span><b>Your details</b></div>
+      <label for="nm">Name</label>
+      <input id="nm" placeholder="Your name" autocomplete="name">
+      <label for="ph">Mobile number</label>
+      <input id="ph" placeholder="98765 43210" inputmode="numeric" autocomplete="tel" maxlength="11">
+      <div class="hint">Your order updates come here by SMS.</div>
     </div>
 
     <div class="err" id="err"></div>
-    <button class="go" id="goBtn">Find kitchens near me</button>
+    <button class="go" id="goBtn">Find kitchens near me →</button>
     <p class="foot">We remember this on your phone so you only type it once.</p>
   </div>
 
-  <!-- ── step 2: pick a kitchen ── -->
+  <!-- ── step 2: who is near ── -->
   <div id="step2">
-    <div class="backRow">
-      <button class="back" id="backBtn">←</button>
-      <div class="who"><b id="whoName">You</b><span id="whoAddr"></span></div>
+    <div class="top">
+      <button class="where" id="backBtn" type="button">
+        <span class="pin">📍</span>
+        <span style="min-width:0;flex:1">
+          <span class="w1">Delivering to<span id="whoName"></span></span>
+          <span class="w2"><span id="whoAddr"></span><i>▾</i></span>
+        </span>
+      </button>
     </div>
+
+    <label class="search" for="kq" style="display:flex">
+      <span>🔍</span>
+      <input id="kq" placeholder="Search kitchens or cuisines…" autocomplete="off">
+    </label>
+
+    <div class="chips" id="cuis"></div>
+
+    <div class="secHead"><h2 id="resHead">Kitchens near you</h2><span id="resCount"></span></div>
     <div id="results"></div>
     <p class="foot">Tap a kitchen to see its menu and order.<br>
       <span style="font-size:10.5px">Locality positions © OpenStreetMap contributors</span></p>
@@ -236,11 +317,21 @@
   }
   if (saved.name)    $("nm").value = saved.name;
   if (saved.mobile)  $("ph").value = saved.mobile;
-  if (saved.address) $("ad").value = saved.address;
-  if (saved.area)    $("ar").value = saved.area;
-  if (saved.city)    $("ct").value = saved.city;
-  if (saved.lat && saved.lng) {
-    me.lat = saved.lat; me.lng = saved.lng;
+  // With saved addresses on this phone, the form below them is for a NEW one,
+  // so it starts empty — refilling it with the address already shown in the
+  // card above made the page say "add a new address" over an old one.
+  var hasSaved = false;
+  try { hasSaved = (JSON.parse(localStorage.getItem("selly_addresses") || "[]")).length > 0; } catch (e) {}
+  if (!hasSaved) {
+    if (saved.address) $("ad").value = saved.address;
+    if (saved.area)    $("ar").value = saved.area;
+    if (saved.city)    $("ct").value = saved.city;
+  }
+  // Only a pin they actually shared earns "Location saved". Coordinates worked
+  // out from their area are remembered too, and calling those a saved location
+  // claimed a GPS fix that never happened.
+  if (saved.lat && saved.lng && saved.src === "gps") {
+    me.lat = saved.lat; me.lng = saved.lng; me.src = "gps";
     $("locBtn").classList.add("got");
     $("locBtn").textContent = "📍 Location saved";
   }
@@ -456,7 +547,8 @@
     }
     err.classList.remove("on");
 
-    $("whoName").textContent = name || "Your order";
+    saveAddress({ label: addrLabel, address: ad, area: area, city: city });
+    $("whoName").textContent = name ? " · " + name : "";
     $("whoAddr").textContent = ad;
     $("loadMsg").textContent = "Finding where you are…";
     show("loading");
@@ -480,11 +572,14 @@
       }
 
       $("whoAddr").textContent = place
-        ? "Within 5 km of " + place.label
-        : ad + (area ? " — showing kitchens that list " + area : "");
+        ? (place.label === "your location" ? "Your current location" : place.label)
+        : (area ? area + (city ? ", " + city : "") : ad);
+      $("resHead").textContent = place
+        ? "Kitchens within 5 km"
+        : (area ? "Kitchens that list " + area : "Kitchens in " + (city || "your city"));
 
       var who = { name: name, mobile: ph, address: ad, area: area, city: city,
-                  lat: me.lat, lng: me.lng };
+                  lat: me.lat, lng: me.lng, src: me.src };
       try { localStorage.setItem(KEY, JSON.stringify(who)); } catch (e) {}
 
       // Saved against their number too, so the next text can skip straight to
@@ -511,19 +606,141 @@
 
   $("backBtn").onclick = function () { show("step1"); };
 
+  // ── saved addresses: Home, Work, Other ────────────────────────────────────
+  // Kept on this phone. The next order starts with one tap on "Home" rather
+  // than retyping a flat number, a building and a landmark.
+  var ADDR_KEY = "selly_addresses";
+  var ADDR_ICON = { Home: "🏠", Work: "💼", Other: "📍" };
+  var addrLabel = "Home";
+
+  function savedAddresses() {
+    try { return JSON.parse(localStorage.getItem(ADDR_KEY) || "[]"); } catch (e) { return []; }
+  }
+  function saveAddress(a) {
+    var list = savedAddresses().filter(function (x) { return x.label !== a.label; });
+    list.unshift(a);
+    try { localStorage.setItem(ADDR_KEY, JSON.stringify(list.slice(0, 4))); } catch (e) {}
+  }
+  function setLabel(l) {
+    addrLabel = l;
+    [].forEach.call(document.querySelectorAll(".tagBtn"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-label") === l);
+    });
+  }
+  [].forEach.call(document.querySelectorAll(".tagBtn"), function (b) {
+    b.onclick = function () { setLabel(b.getAttribute("data-label")); };
+  });
+
+  function shortAddr(a) {
+    return [a.address, a.area].filter(Boolean).join(", ");
+  }
+
+  function renderSaved() {
+    var list = savedAddresses();
+    $("savedBox").style.display = list.length ? "" : "none";
+    $("addrHead").textContent = list.length ? "Or add a new address" : "Delivery address";
+    var box = $("savedList");
+    box.innerHTML = "";
+    list.forEach(function (a) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "sv";
+      b.innerHTML = '<span class="si">' + (ADDR_ICON[a.label] || "📍") + '</span>' +
+        '<span class="st"><b>' + esc(a.label) + '</b><span>' + esc(shortAddr(a)) + '</span></span>' +
+        '<span class="go2">Use →</span>';
+      b.onclick = function () {
+        $("ad").value = a.address || "";
+        $("ar").value = a.area || "";
+        $("ct").value = a.city || "";
+        setLabel(a.label);
+        // Known number as well: go straight to the kitchens. That is the whole
+        // point of having saved it.
+        if ($("ph").value.replace(/\D/g, "").length === 10) $("goBtn").click();
+        else $("ph").focus();
+      };
+      box.appendChild(b);
+    });
+  }
+  renderSaved();
+
+  // ── the results ───────────────────────────────────────────────────────────
+  var allRows = [], cuisine = "All", kq = "";
+
+  var CUISINE_ICON = [[/north/i, "🍛"], [/south/i, "🥘"], [/maharash|marathi/i, "🍲"],
+                      [/rajasth/i, "🫓"], [/chinese|asian/i, "🍜"], [/bak|cake/i, "🧁"],
+                      [/cafe|coffee/i, "☕"]];
+  var KIT_SHADES = ["#4a2511,#8a3f14", "#3f2a12,#7a5220", "#4a1d1d,#8a3030", "#3a2c10,#72561c",
+                    "#2f2748,#56458a", "#452012,#86401f"];
+  function kitTile(k) {
+    var icon = "🍱";
+    for (var i = 0; i < CUISINE_ICON.length; i++) {
+      if (CUISINE_ICON[i][0].test(k.cuisine || "")) { icon = CUISINE_ICON[i][1]; break; }
+    }
+    var n = 0, s = String(k.business_name || "");
+    for (var j = 0; j < s.length; j++) n = (n * 31 + s.charCodeAt(j)) >>> 0;
+    return '<div class="kAv" style="background:linear-gradient(135deg,' +
+           KIT_SHADES[n % KIT_SHADES.length] + ')">' + icon + '</div>';
+  }
+
+  $("kq").addEventListener("input", function (e) {
+    kq = e.target.value.trim().toLowerCase();
+    renderResults();
+  });
+
   function render(rows) {
+    allRows = rows || [];
+    cuisine = "All"; kq = ""; $("kq").value = "";
+    renderCuisines();
+    renderResults();
+    show("step2");
+  }
+
+  function renderCuisines() {
+    var seen = [];
+    allRows.forEach(function (k) {
+      if (k.cuisine && seen.indexOf(k.cuisine) < 0) seen.push(k.cuisine);
+    });
+    var box = $("cuis");
+    box.innerHTML = "";
+    // A single cuisine is not a choice.
+    box.style.display = seen.length > 1 ? "" : "none";
+    ["All"].concat(seen).forEach(function (c) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "cz" + (c === cuisine ? " on" : "");
+      b.textContent = c;
+      b.onclick = function () { cuisine = c; renderCuisines(); renderResults(); };
+      box.appendChild(b);
+    });
+  }
+
+  function renderResults() {
     var el = $("results");
-    if (!rows || !rows.length) {
+    $("kq").parentNode.style.display = allRows.length ? "flex" : "none";
+
+    if (!allRows.length) {
+      $("resCount").textContent = "";
       el.innerHTML =
         '<div class="state"><div class="em">🙁</div>' +
         '<h2>Nothing near you yet</h2>' +
         '<p>Selly is new in your area — no kitchen delivers here just now. ' +
         'Do try again in a few days.</p></div>';
-      show("step2");
       return;
     }
 
+    var rows = allRows.filter(function (k) {
+      if (cuisine !== "All" && k.cuisine !== cuisine) return false;
+      if (!kq) return true;
+      return [k.business_name, k.cuisine, k.area].join(" ").toLowerCase().indexOf(kq) >= 0;
+    });
+    $("resCount").textContent = rows.length + (rows.length === 1 ? " kitchen" : " kitchens");
+
     el.innerHTML = "";
+    if (!rows.length) {
+      el.innerHTML = '<div class="state" style="padding:36px 20px"><p>Nothing matches that. ' +
+                     'Try another word, or pick “All”.</p></div>';
+      return;
+    }
+
     rows.forEach(function (k) {
       var a = document.createElement("a");
       a.className = "kit" + (k.is_open ? "" : " shut");
@@ -532,20 +749,17 @@
                (sess ? "&s=" + encodeURIComponent(sess) : "&from=find");
 
       // A distance when we can measure one, otherwise the area — which is why
-      // this kitchen is in the list at all. Never an empty corner.
+      // this kitchen is in the list at all. "serves here" is only true when the
+      // kitchen is in the area they named; a city-wide fallback says so.
       var dist = (k.distance_km != null)
-        ? '<div class="kDist"><b>' + k.distance_km + '</b><span>km away</span></div>'
+        ? '<div class="kDist"><b>' + k.distance_km + ' km</b><span>away</span></div>'
         : (k.area
-            // "serves here" is only true when the kitchen is in the area they
-            // named. On a city-wide fallback it would be a claim we cannot make,
-            // so that case says what it actually is.
             ? '<div class="kDist"><b>' + esc(k.area) + '</b><span>' +
               (k.match_reason === "city" ? "same city" : "serves here") + '</span></div>'
             : "");
 
       a.innerHTML =
-        '<div class="kTop">' +
-          '<div class="kAv">🍲</div>' +
+        '<div class="kTop">' + kitTile(k) +
           '<div style="flex:1;min-width:0">' +
             '<div class="kName">' + esc(k.business_name || "Kitchen") + '</div>' +
             '<div class="kMeta">' +
@@ -557,16 +771,15 @@
         '</div>' +
         '<div class="kFoot">' +
           '<span class="tag ' + (k.is_open ? "open" : "shut") + '">' +
-            (k.is_open ? "Open now" : "Closed") + '</span>' +
+            (k.is_open ? "● Open now" : "Closed") + '</span>' +
           (Number(k.delivery_charge) > 0
-            ? '<span class="tag">' + inr(k.delivery_charge) + ' delivery</span>'
-            : '<span class="tag">Free delivery</span>') +
-          (Number(k.free_above) > 0
+            ? '<span class="tag">🛵 ' + inr(k.delivery_charge) + ' delivery</span>'
+            : '<span class="tag">🛵 Free delivery</span>') +
+          (Number(k.delivery_charge) > 0 && Number(k.free_above) > 0
             ? '<span class="tag">Free over ' + inr(k.free_above) + '</span>' : "") +
         '</div>';
       el.appendChild(a);
     });
-    show("step2");
   }
 })();
 </script>
