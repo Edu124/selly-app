@@ -303,7 +303,14 @@
   $("backBtn").onclick = closePage;
 
   // ── texting in ───────────────────────────────────────────────────────────
-  function textIn(sameCustomer) {
+  // A free Supabase project pauses when idle and takes a minute or two to come
+  // back. That is not a failure the presenter can do anything about except
+  // wait, so the phone waits for them — quietly retrying — instead of printing
+  // an error into the conversation in front of the room.
+  var WAKE_TRIES = 15, WAKE_GAP = 8000;
+
+  function textIn(sameCustomer, attempt) {
+    attempt = attempt || 0;
     $("send").disabled = true;
     typing(true);
     step(1);
@@ -315,8 +322,22 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (d) {
+        if (d.error === "DATABASE_WAKING" && attempt < WAKE_TRIES) {
+          if (attempt === 0) {
+            $("navSub").textContent = "Connecting…";
+          }
+          setTimeout(function () { textIn(sameCustomer, attempt + 1); }, WAKE_GAP);
+          return;                          // typing indicator stays up
+        }
+        $("navSub").textContent = "Text to order";
+
         typing(false);
         $("send").disabled = false;
+        if (d.error === "DATABASE_WAKING") {
+          push("them", "The kitchen system is still starting up. Give it a minute, " +
+                       "then tap “Start over as somebody new”.");
+          return;
+        }
         if (d.error) {
           // Worth being specific. The one thing that goes wrong here is a
           // missing service key, and "Invalid API key" five minutes before a

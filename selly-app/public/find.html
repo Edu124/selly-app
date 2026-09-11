@@ -111,16 +111,16 @@
     <label for="ct">City</label>
     <input id="ct" placeholder="Pune" autocomplete="address-level2">
     <div class="hint">
-      The locality you'd say out loud. Kitchens serving your area are shown
-      whether they're one street or six kilometres away.
+      We'll show kitchens within 5 km of your address. Your flat or house
+      number never leaves your phone — only the locality is used to place you.
     </div>
 
     <div class="orRow"><span>or, to sort them by distance</span></div>
 
     <button class="locBtn" id="locBtn">📍 Use my current location</button>
     <div class="hint" id="locHint">
-      Entirely optional. It puts a real distance next to each kitchen — it
-      doesn't unlock any you can't already see.
+      Optional. Measures from exactly where you're standing instead of from
+      your locality — useful if you're on the edge of one.
     </div>
 
     <div class="err" id="err"></div>
@@ -135,7 +135,8 @@
       <div class="who"><b id="whoName">You</b><span id="whoAddr"></span></div>
     </div>
     <div id="results"></div>
-    <p class="foot">Tap a kitchen to see its menu and order.</p>
+    <p class="foot">Tap a kitchen to see its menu and order.<br>
+      <span style="font-size:10.5px">Locality positions © OpenStreetMap contributors</span></p>
   </div>
 
   <div id="loading" class="state"><div class="em">🍲</div><p id="loadMsg">Looking for kitchens near you…</p></div>
@@ -162,17 +163,37 @@
   // to a different address.
   var me = { lat: null, lng: null, src: null };
 
-  function rpc(fn, body) {
+  // Every call on this page is a read, or an update that is safe to repeat, so
+  // a database that is still waking up is simply waited out. The alternative
+  // was a customer being shown "Unexpected token '<'" — the first character of
+  // the error page a paused Supabase project sends instead of data.
+  var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  function rpc(fn, body, tries) {
+    tries = tries == null ? 6 : tries;
+    var again = function () { return wait(6000).then(function () { return rpc(fn, body, tries - 1); }); };
+
     return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
       method : "POST",
       headers: { "Content-Type": "application/json",
                  "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON },
       body   : JSON.stringify(body)
     }).then(function (r) {
-      return r.json().then(function (d) {
-        if (!r.ok) throw new Error((d && (d.message || d.hint)) || "Something went wrong.");
-        return d;
+      return r.text().then(function (t) {
+        var d = null;
+        try { d = JSON.parse(t); } catch (e) {}
+        if (r.ok) return d;
+
+        var waking = d === null || r.status === 502 || r.status === 503 || r.status === 504;
+        if (waking) {
+          if (tries > 0) return again();
+          throw new Error("Selly is just waking up. Please try again in a minute.");
+        }
+        throw new Error((d && (d.message || d.hint)) || "Something went wrong.");
       });
+    }, function () {
+      if (tries > 0) return again();
+      throw new Error("Couldn't connect. Check your internet and try again.");
     });
   }
 
@@ -304,12 +325,100 @@
     return out.filter(function (q, i) { return out.indexOf(q) === i; });
   }
 
+  /* Pune localities, placed once from OpenStreetMap and kept here.
+   *
+   * Most people name a locality, and a locality does not move. Looking these
+   * up live meant a network round trip to a free service that throttles at one
+   * request a second — and a throttled answer arrives without CORS headers, so
+   * the browser reports only "Failed to fetch" and the search quietly fell
+   * back to the whole city. That happened in testing, and it would happen on
+   * stage. Known places now resolve instantly, privately, and cannot be
+   * throttled; the live lookup is only for places not on this list.
+   *
+   * Positions © OpenStreetMap contributors, ODbL.
+   */
+  var PUNE_PLACES = {
+    "Akurdi":[18.6486,73.7647], "Aundh":[18.5619,73.8102], "Balewadi":[18.582,73.769], "Baner":[18.559,73.7845],
+    "Bavdhan":[18.521,73.7781], "Bhosari":[18.621,73.8501], "Bibwewadi":[18.4752,73.8562],
+    "Boat Club Road":[18.5394,73.8783], "Camp":[18.5216,73.8718], "Chinchwad":[18.6404,73.7917],
+    "Deccan Gymkhana":[18.5159,73.8412], "Dhanori":[18.5907,73.8913], "Dhayari":[18.4374,73.819],
+    "Erandwane":[18.5087,73.8318], "Fatima Nagar":[18.5045,73.9021], "Ghorpadi":[18.5269,73.9001],
+    "Hadapsar":[18.5008,73.9379], "Hinjewadi":[18.592,73.7579], "Kalas":[18.58,73.8764], "Kalyani Nagar":[18.5481,73.9026],
+    "Karve Nagar":[18.4894,73.8213], "Kasba Peth":[18.5214,73.8596], "Katraj":[18.4537,73.8563],
+    "Keshav Nagar":[18.5323,73.9384], "Kharadi":[18.5513,73.9417], "Kondhwa":[18.478,73.8941],
+    "Koregaon Park":[18.5366,73.8933], "Kothrud":[18.5073,73.8057], "Lohegaon":[18.5804,73.9182],
+    "Magarpatta":[18.5112,73.9274], "Manjri":[18.5058,73.9623], "Market Yard":[18.4878,73.8575],
+    "Model Colony":[18.5314,73.8375], "Mundhwa":[18.5343,73.9298], "NIBM":[18.4642,73.9029],
+    "Nigdi":[18.6598,73.7773], "Parvati":[18.4973,73.8469], "Pashan":[18.5387,73.7953], "Pimple Gurav":[18.5874,73.8213],
+    "Pimple Nilakh":[18.5697,73.7941], "Pimple Saudagar":[18.5982,73.7978], "Pimpri":[18.6232,73.802],
+    "Ravet":[18.6433,73.7451], "Sadashiv Peth":[18.5108,73.8502], "Sahakar Nagar":[18.4901,73.8475],
+    "Shivajinagar":[18.5326,73.8513], "Sinhagad Road":[18.4595,73.8106], "Sus":[18.5537,73.7527],
+    "Swargate":[18.5005,73.8529], "Tathawade":[18.6154,73.7502], "Undri":[18.4516,73.8928],
+    "Viman Nagar":[18.5704,73.9133], "Vishrantwadi":[18.5726,73.8782], "Wagholi":[18.5806,73.9833],
+    "Wakad":[18.6022,73.7644], "Wanowrie":[18.4884,73.8987], "Warje":[18.482,73.8002], "Yerwada":[18.5453,73.8867],
+  };
+
+  // Longest first, so "Pimple Saudagar" is found before anything shorter that
+  // happens to sit inside it.
+  var PLACE_NAMES = Object.keys(PUNE_PLACES).sort(function (a, b) { return b.length - a.length; });
+
+  function knownPlace(text) {
+    var t = " " + String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ") + " ";
+    for (var i = 0; i < PLACE_NAMES.length; i++) {
+      var n = PLACE_NAMES[i];
+      if (t.indexOf(" " + n.toLowerCase() + " ") >= 0) {
+        return { lat: PUNE_PLACES[n][0], lng: PUNE_PLACES[n][1], label: n + ", Pune" };
+      }
+    }
+    return null;
+  }
+
+  function localPlace(address, area, city) {
+    if (city && !/pune/i.test(city)) return null;   // the table is only Pune
+    // The area they typed is the clearest statement of where they are, then
+    // the end of the address, where Indian addresses keep the locality.
+    var hit = knownPlace(area);
+    if (hit) return hit;
+    var segs = String(address || "").split(",");
+    for (var i = segs.length - 1; i >= 0; i--) {
+      hit = knownPlace(segs[i]);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  // Live answers are remembered, so the same address is only ever looked up
+  // once per device.
+  var GEO_CACHE = "selly_geo_v1";
+  function cacheGet(q) {
+    try { return (JSON.parse(localStorage.getItem(GEO_CACHE) || "{}"))[q] || null; } catch (e) { return null; }
+  }
+  function cachePut(q, v) {
+    try {
+      var c = JSON.parse(localStorage.getItem(GEO_CACHE) || "{}");
+      c[q] = v; localStorage.setItem(GEO_CACHE, JSON.stringify(c));
+    } catch (e) {}
+  }
+
   function geocode(address, area, city) {
+    var local = localPlace(address, area, city);
+    if (local) return Promise.resolve(local);
+
     var qs = placeQueries(address, area, city);
     var want = (city || "Pune").toLowerCase();
 
+    function next(i) {
+      // Spaced on every path — a miss AND an error. Retrying instantly after a
+      // throttled request is how one refusal becomes several.
+      return new Promise(function (res) { setTimeout(res, 1100); })
+        .then(function () { return attempt(i + 1); });
+    }
+
     function attempt(i) {
       if (i >= qs.length) return Promise.resolve(null);
+      var cached = cacheGet(qs[i]);
+      if (cached) return Promise.resolve(cached);
+
       var url = "https://nominatim.openstreetmap.org/search?format=json&limit=1" +
                 "&countrycodes=in&q=" + encodeURIComponent(qs[i]);
       return fetch(url, { headers: { "Accept-Language": "en" } })
@@ -317,12 +426,13 @@
         .then(function (rows) {
           var hit = rows && rows[0];
           if (hit && String(hit.display_name || "").toLowerCase().indexOf(want) >= 0) {
-            return { lat: +hit.lat, lng: +hit.lon, label: qs[i].replace(/, India$/, "") };
+            var place = { lat: +hit.lat, lng: +hit.lon, label: qs[i].replace(/, India$/, "") };
+            cachePut(qs[i], place);
+            return place;
           }
-          return new Promise(function (res) { setTimeout(res, 1100); })
-            .then(function () { return attempt(i + 1); });
+          return next(i);
         })
-        .catch(function () { return attempt(i + 1); });
+        .catch(function () { return next(i); });
     }
     return attempt(0);
   }

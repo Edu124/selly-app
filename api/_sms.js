@@ -87,7 +87,14 @@ export async function rpc(fn, body) {
   });
   const data = await r.json().catch(() => null);
   if (!r.ok) {
-    throw new Error((data && (data.message || data.hint)) || `rpc ${fn} failed`);
+    // A paused or restoring Supabase project answers with a gateway error or
+    // an HTML page rather than JSON. Reporting that as "rpc failed" sent
+    // somebody looking for a bug in the code when the fix was to wait a
+    // minute, so it is named for what it is.
+    if (!data || r.status === 502 || r.status === 503 || r.status === 504) {
+      throw new Error("DATABASE_WAKING");
+    }
+    throw new Error(data.message || data.hint || `rpc ${fn} failed`);
   }
   return data;
 }
@@ -174,7 +181,10 @@ export async function rest(path) {
   });
   const data = await r.json().catch(() => null);
   if (!r.ok) {
-    throw new Error((data && (data.message || data.hint)) || "read failed");
+    if (!data || r.status === 502 || r.status === 503 || r.status === 504) {
+      throw new Error("DATABASE_WAKING");
+    }
+    throw new Error(data.message || data.hint || "read failed");
   }
   return data || [];
 }

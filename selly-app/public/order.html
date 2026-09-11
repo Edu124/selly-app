@@ -306,18 +306,49 @@
 
   var sess = new URLSearchParams(location.search).get("s");
 
-  function api(path, opts) {
+  var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  // A database that is still waking up is waited out — but only for calls that
+  // are safe to repeat. Placing an order is not: a gateway timeout does not
+  // mean the order failed, only that the answer never arrived, and trying again
+  // is how a customer gets two dinners and two charges. That one call fails
+  // honestly instead and says not to press the button again straight away.
+  function api(path, opts, tries) {
+    tries = tries == null ? 6 : tries;
+    var again = function () { return wait(6000).then(function () { return api(path, opts, tries - 1); }); };
+
     return fetch(SUPABASE_URL + path, Object.assign({
       headers: { "Content-Type": "application/json",
                  "apikey": SUPABASE_ANON, "Authorization": "Bearer " + SUPABASE_ANON }
     }, opts || {})).then(function (r) {
-      return r.json().then(function (d) {
-        if (!r.ok) throw new Error((d && (d.message || d.hint)) || "Something went wrong.");
-        return d;
+      return r.text().then(function (t) {
+        var d = null;
+        try { d = JSON.parse(t); } catch (e) {}
+        if (r.ok) return d;
+
+        var waking = d === null || r.status === 502 || r.status === 503 || r.status === 504;
+        if (waking) {
+          if (tries > 0) return again();
+          throw new Error("Selly is just waking up. Please try again in a minute.");
+        }
+        throw new Error((d && (d.message || d.hint)) || "Something went wrong.");
       });
+    }, function () {
+      if (tries > 0) return again();
+      throw new Error("Couldn't connect. Check your internet and try again.");
     });
   }
   var rpc = function (fn, body) {
+    if (fn === "place_public_order") {
+      return api("/rest/v1/rpc/" + fn, { method: "POST", body: JSON.stringify(body) }, 0)
+        .catch(function (e) {
+          if (/waking|connect/i.test(e.message)) {
+            throw new Error("We couldn't confirm your order — the connection dropped. " +
+                            "Wait a minute before trying again so it isn't placed twice.");
+          }
+          throw e;
+        });
+    }
     return api("/rest/v1/rpc/" + fn, { method: "POST", body: JSON.stringify(body) });
   };
 
