@@ -9,324 +9,381 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* ── Selly ordering page ─────────────────────────────────────────────────
-   * Pattern borrowed from the reference: location pill, search, category
-   * chips, dish cards with a pill Add, a sticky cart bar, and a cart that is a
-   * bottom sheet on a phone and a side panel on a wide screen.
-   *
-   * Left out on purpose: star ratings and "bestseller" badges (there is no
-   * per-dish rating data, and invented ones on a real order page would be
-   * dishonest), platform fees and taxes (the customer is charged neither), and
-   * a bottom nav (customers have no accounts to navigate). The veg / non-veg
-   * mark takes the slot a rating would — it is real, and it is what people in
-   * India actually look for.
+  /* ── Selly ordering ──────────────────────────────────────────────────────
+   * One accent, used sparingly. One icon weight. Prices in tabular numerals so
+   * a column of them lines up. Nothing here is an emoji: they are OS drawings
+   * that cannot take the text colour and differ on every handset, and at
+   * interface size they read as placeholder art.
    * ─────────────────────────────────────────────────────────────────────── */
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   :root{
-    --bg:#0b0b14;--card:#141421;--card2:#1a1a2a;--elev:#202033;--line:#262639;
-    --tx:#f3f3f8;--tx2:#a3a3bd;--tx3:#6b6b86;
-    --violet:#7c5cff;--violet2:#a18bff;--indigo:#5b6cff;
-    --grad:linear-gradient(135deg,#7c5cff 0%,#5b6cff 100%);
-    --green:#22c55e;--red:#ef4444;--amber:#f5a524;
-    --r:18px;
+    --bg:#0a0a11;--surface:#13131f;--surface2:#191926;--elev:#1f1f2e;
+    --line:#22223300;--line:#232334;--line2:#2c2c40;
+    --tx:#f2f2f7;--tx2:#9c9cb8;--tx3:#64647e;
+    --brand:#6d5cf6;--brandSoft:rgba(109,92,246,.13);--brandTx:#a99bff;
+    --green:#2fb457;--red:#e5484d;--amber:#d8963a;
+    --r-s:10px;--r-m:14px;--r-l:18px;
   }
   html,body{background:var(--bg);color:var(--tx);overflow-x:clip}
   body{min-height:100vh;
     font-family:"Plus Jakarta Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;padding-bottom:110px}
-  button{font-family:inherit}
+    -webkit-font-smoothing:antialiased;padding-bottom:104px;font-size:14px}
+  button,input,textarea{font-family:inherit}
   #load,#bad,#app,#done{display:none}
+  .num{font-variant-numeric:tabular-nums}
 
-  /* ── layout: one column on a phone, menu + cart panel on a wide screen ── */
+  /* one stroke weight, one grid, always the colour of its surroundings */
+  .ic{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;
+    stroke-linecap:round;stroke-linejoin:round}
+  .ic.sm{width:16px;height:16px}
+  .ic.xs{width:14px;height:14px;stroke-width:1.8}
+
   .layout{max-width:1120px;margin:0 auto;padding:0 16px}
   .main{min-width:0}
 
-  /* ── top: where it is going ── */
-  .top{position:sticky;top:0;z-index:30;background:linear-gradient(var(--bg) 78%,rgba(11,11,20,0));
-    padding:14px 0 10px;display:flex;align-items:center;gap:12px}
-  .top .where{flex:1}
-  .where{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit;min-width:0}
-  .where .pin{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;
-    background:rgba(124,92,255,.14);color:var(--violet2);font-size:17px}
-  .where .w1{font-size:11px;color:var(--tx3);font-weight:600;letter-spacing:.2px}
-  .where .w2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:5px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .where .w2 i{font-style:normal;color:var(--violet2);font-size:12px}
+  /* ── top ── */
+  .top{position:sticky;top:0;z-index:30;background:var(--bg);
+    padding:14px 0 12px;display:flex;align-items:center;gap:12px}
+  .where{display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit;
+    min-width:0;flex:1}
+  .where .pin{width:36px;height:36px;border-radius:var(--r-s);flex:none;display:grid;
+    place-items:center;background:var(--brandSoft);color:var(--brandTx)}
+  .where .w1{font-size:11px;color:var(--tx3);font-weight:600;letter-spacing:.15px}
+  .where .w2{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:4px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .where .w2 .ic{color:var(--tx3)}
+  .iconBtn{width:36px;height:36px;border-radius:var(--r-s);flex:none;border:1px solid var(--line2);
+    background:var(--surface);color:var(--tx2);cursor:pointer;display:grid;place-items:center}
+  .iconBtn:hover{color:var(--tx);border-color:#3a3a52}
+  .iconBtn:disabled{opacity:.4;cursor:not-allowed}
 
-  /* ── the kitchen ── */
-  .kitchen{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    padding:16px;margin-top:6px;position:relative;overflow:hidden}
-  .kitchen::after{content:"";position:absolute;right:-60px;top:-60px;width:180px;height:180px;
-    background:radial-gradient(circle,rgba(124,92,255,.22),transparent 70%);pointer-events:none}
-  .kt{display:flex;align-items:center;gap:13px;position:relative;z-index:1}
-  .kt .av{width:54px;height:54px;border-radius:16px;flex:none;display:grid;place-items:center;
-    font-size:26px;background:linear-gradient(135deg,#f5a524,#f97316)}
-  .kt h1{font-size:19px;font-weight:800;letter-spacing:-.3px;line-height:1.2}
-  .kt .meta{color:var(--tx2);font-size:12.5px;margin-top:4px;display:flex;align-items:center;
-    gap:6px;flex-wrap:wrap}
-  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;
-    box-shadow:0 0 0 3px rgba(34,197,94,.16)}
-  .dot.shut{background:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,.16)}
-  .facts{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;position:relative;z-index:1}
-  .fact{background:var(--elev);border-radius:20px;padding:6px 11px;font-size:11.5px;color:var(--tx2);
-    font-weight:600}
-  .fact.good{background:rgba(34,197,94,.12);color:#4ade80}
-  .shutBar{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:14px;
-    padding:12px 14px;margin-top:12px;font-size:13px;color:#f87171;line-height:1.55}
+  /* ── kitchen ── */
+  .kitchen{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:16px}
+  .kt{display:flex;align-items:center;gap:13px}
+  .kt .av{width:50px;height:50px;border-radius:var(--r-m);flex:none;display:grid;place-items:center;
+    background:var(--brandSoft);color:var(--brandTx);font-size:19px;font-weight:700;letter-spacing:-.5px}
+  .kt h1{font-size:19px;font-weight:700;letter-spacing:-.35px;line-height:1.25}
+  .kt .meta{color:var(--tx2);font-size:12.5px;margin-top:3px;display:flex;align-items:center;
+    gap:6px;flex-wrap:wrap;font-weight:500}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex:none}
+  .dot.shut{background:var(--red)}
+  .facts{display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;padding-top:13px;
+    border-top:1px solid var(--line)}
+  .fact{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);font-weight:500}
+  .fact .ic{color:var(--tx3)}
+  .fact.good{color:var(--green)} .fact.good .ic{color:var(--green)}
+  .shutBar{background:rgba(229,72,77,.09);border:1px solid rgba(229,72,77,.26);border-radius:var(--r-m);
+    padding:11px 13px;margin-top:13px;font-size:12.5px;color:#f4989b;line-height:1.55}
 
   /* ── search ── */
-  .search{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
-    border-radius:14px;padding:0 14px;margin-top:14px}
-  .search:focus-within{border-color:var(--violet)}
-  .search span{color:var(--tx3);font-size:15px}
-  .search input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:14.5px;
-    font-family:inherit;padding:13px 0}
+  .search{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-m);padding:0 13px;margin-top:14px}
+  .search:focus-within{border-color:rgba(109,92,246,.55)}
+  .search .ic{color:var(--tx3)}
+  .search input{flex:1;background:none;border:none;outline:none;color:var(--tx);font-size:14px;
+    padding:12px 0;font-weight:500}
   .search input::placeholder{color:var(--tx3)}
 
-  /* ── category chips ── */
-  .chips{display:flex;gap:9px;overflow-x:auto;padding:14px 0 4px;margin:0 -16px;padding-left:16px;
-    padding-right:16px;scrollbar-width:none}
+  /* ── categories: words, not pictures ── */
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 2px;margin:0 -16px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
-  .cat{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:78px;
-    background:var(--card);border:1px solid var(--line);border-radius:16px;padding:11px 10px 9px;
-    cursor:pointer;color:var(--tx2);font-size:11.5px;font-weight:700;transition:.15s}
-  .cat .ic{font-size:21px;line-height:1}
-  .cat.on{background:var(--grad);border-color:transparent;color:#fff;
-    box-shadow:0 8px 22px rgba(124,92,255,.35)}
+  .cat{flex:none;background:var(--surface);border:1px solid var(--line2);border-radius:999px;
+    padding:8px 15px;font-size:13px;font-weight:600;color:var(--tx2);cursor:pointer;white-space:nowrap}
+  .cat:hover{color:var(--tx)}
+  .cat.on{background:var(--brand);border-color:var(--brand);color:#fff}
 
   /* ── dishes ── */
-  .secHead{display:flex;align-items:baseline;justify-content:space-between;margin:22px 0 11px}
-  .secHead h2{font-size:17px;font-weight:800;letter-spacing:-.2px}
-  .secHead span{font-size:12px;color:var(--tx3);font-weight:600}
+  .secHead{display:flex;align-items:baseline;justify-content:space-between;margin:24px 0 12px}
+  .secHead h2{font-size:16px;font-weight:700;letter-spacing:-.2px}
+  .secHead span{font-size:12px;color:var(--tx3);font-weight:500}
 
-  .dish{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;
-    margin-bottom:11px}
+  .dish{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:13px;
+    margin-bottom:10px}
   .dTop{display:flex;gap:13px}
-  .tile{width:92px;height:92px;border-radius:14px;flex:none;display:grid;place-items:center;
-    font-size:38px;overflow:hidden;position:relative}
+  /* No photograph: a quiet panel with a line drawing, not a cartoon. It should
+     recede until a real photograph replaces it. */
+  .tile{width:86px;height:86px;border-radius:var(--r-m);flex:none;display:grid;place-items:center;
+    background:var(--surface2);border:1px solid var(--line2);overflow:hidden;position:relative}
   .tile img{width:100%;height:100%;object-fit:cover}
+  .tile .fm{width:36px;height:36px;fill:none;stroke:currentColor;stroke-width:1.3;
+    stroke-linecap:round;stroke-linejoin:round;opacity:.85}
   .dInfo{flex:1;min-width:0;display:flex;flex-direction:column}
   .nm{display:flex;align-items:flex-start;gap:7px}
-  .nm b{font-size:15px;font-weight:700;line-height:1.3}
-  .ds{color:var(--tx2);font-size:12px;margin-top:4px;line-height:1.45;
+  .nm b{font-size:14.5px;font-weight:600;line-height:1.35;letter-spacing:-.1px}
+  .ds{color:var(--tx2);font-size:12px;margin-top:4px;line-height:1.5;font-weight:500;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .dFoot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:9px;gap:8px}
-  .pr{font-size:15.5px;font-weight:800}
-  .from{font-size:11px;color:var(--tx3);font-weight:600}
+  .dFoot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;
+    padding-top:10px;gap:8px}
+  .pr{font-size:15px;font-weight:700;letter-spacing:-.2px}
+  .from{font-size:11px;color:var(--tx3);font-weight:600;margin-right:2px}
 
-  /* The mark Indian menus use: green square and dot for veg, red and triangle
-     for non-veg. Shape as well as colour, so it reads without colour vision. */
-  .vg{width:14px;height:14px;border:1.6px solid var(--green);border-radius:3px;flex:none;
-    display:grid;place-items:center;margin-top:3px}
+  /* the mark Indian menus carry: shape as well as colour */
+  .vg{width:14px;height:14px;border:1.5px solid var(--green);border-radius:3px;flex:none;
+    display:grid;place-items:center;margin-top:2px}
   .vg::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
   .vg.nv{border-color:var(--red)}
   .vg.nv::after{width:0;height:0;border-radius:0;background:none;
-    border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-bottom:6px solid var(--red)}
+    border-left:3.5px solid transparent;border-right:3.5px solid transparent;
+    border-bottom:6px solid var(--red)}
 
-  .add{background:var(--grad);border:none;color:#fff;border-radius:11px;padding:9px 16px;
-    font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;
-    box-shadow:0 6px 16px rgba(124,92,255,.3);flex:none}
-  .add:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
-  .stepper{display:flex;align-items:center;background:var(--elev);border:1px solid rgba(124,92,255,.55);
-    border-radius:11px;overflow:hidden;flex:none}
-  .stepper button{background:none;border:none;color:var(--violet2);font-size:17px;font-weight:800;
-    width:32px;height:34px;cursor:pointer;line-height:1}
-  .stepper span{font-size:13.5px;font-weight:800;min-width:20px;text-align:center}
+  /* outlined ADD, the convention here — a wall of filled buttons reads cheap */
+  .add{background:transparent;border:1.5px solid rgba(109,92,246,.45);color:var(--brandTx);
+    border-radius:var(--r-s);padding:8px 15px;font-size:12px;font-weight:800;cursor:pointer;
+    letter-spacing:.7px;text-transform:uppercase;display:flex;align-items:center;gap:5px;flex:none}
+  .add:hover{background:var(--brandSoft);border-color:var(--brand)}
+  .add:active{transform:translateY(1px)}
+  .add:disabled{border-color:var(--line2);color:var(--tx3);cursor:not-allowed;background:none}
+  .stepper{display:flex;align-items:center;background:var(--brand);border-radius:var(--r-s);
+    overflow:hidden;flex:none}
+  .stepper button{background:none;border:none;color:#fff;width:32px;height:34px;cursor:pointer;
+    display:grid;place-items:center}
+  .stepper button:active{background:rgba(0,0,0,.2)}
+  .stepper span{font-size:13.5px;font-weight:700;min-width:18px;text-align:center;color:#fff}
 
-  .portion{display:flex;align-items:center;gap:10px;padding-top:10px;margin-top:10px;
+  .portion{display:flex;align-items:center;gap:10px;padding-top:11px;margin-top:11px;
     border-top:1px solid var(--line)}
   .portion .lb{flex:1;color:var(--tx2);font-size:13px;font-weight:600}
-  .portion .pp{font-size:13.5px;font-weight:800}
+  .portion .pp{font-size:13.5px;font-weight:700}
 
-  .addons{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-  .chip{background:var(--elev);border:1px solid var(--line);border-radius:20px;
-    padding:7px 11px;font-size:11.5px;color:var(--tx2);cursor:pointer;font-weight:600}
-  .chip.on{background:rgba(124,92,255,.14);border-color:var(--violet);color:var(--violet2)}
+  .addons{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .chip{background:var(--surface2);border:1px solid var(--line2);border-radius:999px;
+    padding:7px 12px;font-size:11.5px;color:var(--tx2);cursor:pointer;font-weight:600;
+    display:flex;align-items:center;gap:5px}
+  .chip.on{background:var(--brandSoft);border-color:rgba(109,92,246,.5);color:var(--brandTx)}
 
-  .empty{color:var(--tx2);font-size:13.5px;text-align:center;padding:36px 10px;line-height:1.6}
+  .empty{color:var(--tx2);font-size:13.5px;text-align:center;padding:40px 10px;line-height:1.65}
 
-  /* ── sticky cart bar (phones) ── */
+  /* ── cart bar ── */
   .bar{position:fixed;left:12px;right:12px;bottom:12px;z-index:40;
-    background:rgba(24,24,38,.96);backdrop-filter:blur(16px);border:1px solid var(--line);
-    border-radius:18px;padding:10px 10px 10px 12px;
-    transform:translateY(160%);transition:transform .28s cubic-bezier(.4,0,.2,1);
-    box-shadow:0 18px 40px rgba(0,0,0,.5)}
+    background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-l);
+    padding:10px 10px 10px 13px;transform:translateY(170%);
+    transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:0 14px 34px rgba(0,0,0,.46)}
   .bar.on{transform:translateY(0)}
-  .bar .in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:11px}
-  .bag{width:42px;height:42px;border-radius:12px;background:var(--elev);display:grid;place-items:center;
-    font-size:19px;position:relative;flex:none}
-  .bag b{position:absolute;top:-6px;right:-6px;background:var(--violet);color:#fff;font-size:10.5px;
-    min-width:19px;height:19px;border-radius:10px;display:grid;place-items:center;padding:0 5px}
-  .bar .n{font-size:12px;color:var(--tx2);font-weight:600}
-  .bar .t{font-size:17px;font-weight:800;margin-top:1px}
-  .go{margin-left:auto;background:var(--grad);border:none;color:#fff;border-radius:13px;
-    padding:13px 18px;font-size:14px;font-weight:800;cursor:pointer;
-    box-shadow:0 8px 20px rgba(124,92,255,.35)}
-  .go:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
+  .bar .in{max-width:520px;margin:0 auto;display:flex;align-items:center;gap:12px}
+  .bag{width:38px;height:38px;border-radius:var(--r-s);background:var(--brandSoft);color:var(--brandTx);
+    display:grid;place-items:center;position:relative;flex:none}
+  .bag b{position:absolute;top:-5px;right:-5px;background:var(--brand);color:#fff;font-size:10px;
+    min-width:18px;height:18px;border-radius:9px;display:grid;place-items:center;padding:0 5px;
+    font-weight:700;border:2px solid var(--surface)}
+  .bar .n{font-size:11.5px;color:var(--tx3);font-weight:600}
+  .bar .t{font-size:16px;font-weight:700;margin-top:1px;letter-spacing:-.2px}
+  .go{margin-left:auto;background:var(--brand);border:none;color:#fff;border-radius:var(--r-m);
+    padding:12px 17px;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .go:active{transform:translateY(1px)}
+  .go:disabled{background:var(--line2);color:var(--tx3);cursor:not-allowed}
 
-  /* ── cart: bottom sheet on a phone ── */
-  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.64);opacity:0;pointer-events:none;
+  /* ── cart ── */
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;
     transition:opacity .25s;z-index:50}
   .scrim.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:24px 24px 0 0;
-    border-top:1px solid var(--line);transform:translateY(100%);
-    transition:transform .3s cubic-bezier(.4,0,.2,1);z-index:60;max-height:92vh;overflow-y:auto;
+  .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-radius:22px 22px 0 0;
+    border-top:1px solid var(--line2);transform:translateY(100%);
+    transition:transform .32s cubic-bezier(.32,.72,0,1);z-index:60;max-height:92vh;overflow-y:auto;
     padding-bottom:calc(20px + env(safe-area-inset-bottom))}
   .sheet.on{transform:translateY(0)}
   .sheet .in{max-width:520px;margin:0 auto;padding:0 16px}
-  .grab{width:38px;height:4px;border-radius:2px;background:var(--line);margin:10px auto 4px}
-  .sh-h{display:flex;align-items:center;gap:11px;padding:10px 0 14px;border-bottom:1px solid var(--line)}
-  .sh-h .bagI{width:40px;height:40px;border-radius:12px;background:rgba(124,92,255,.14);
-    color:var(--violet2);display:grid;place-items:center;font-size:18px;flex:none}
-  .sh-h b{font-size:17px;font-weight:800;display:block}
-  .sh-h small{font-size:12px;color:var(--tx3);font-weight:600}
-  .clr{margin-left:auto;background:none;border:1px solid var(--line);color:var(--violet2);
-    border-radius:20px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer}
-  .x{background:var(--elev);border:1px solid var(--line);color:var(--tx2);
-    width:32px;height:32px;border-radius:50%;font-size:14px;cursor:pointer;flex:none}
+  .grab{width:36px;height:4px;border-radius:2px;background:var(--line2);margin:9px auto 2px}
+  .sh-h{display:flex;align-items:center;gap:11px;padding:12px 0 14px;border-bottom:1px solid var(--line)}
+  .sh-h .bagI{width:36px;height:36px;border-radius:var(--r-s);background:var(--brandSoft);
+    color:var(--brandTx);display:grid;place-items:center;flex:none}
+  .sh-h b{font-size:16px;font-weight:700;display:block;letter-spacing:-.2px}
+  .sh-h small{font-size:11.5px;color:var(--tx3);font-weight:500}
+  .clr{margin-left:auto;background:none;border:1px solid var(--line2);color:var(--tx2);
+    border-radius:999px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer}
+  .clr:hover{color:var(--tx)}
+  .x{background:var(--surface2);border:1px solid var(--line2);color:var(--tx2);
+    width:30px;height:30px;border-radius:50%;cursor:pointer;flex:none;display:grid;place-items:center}
 
-  .cl{display:flex;align-items:center;gap:11px;padding:13px 0;border-bottom:1px solid var(--line)}
-  .cl .tile{width:52px;height:52px;border-radius:12px;font-size:23px}
+  .cl{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+  .cl .tile{width:48px;height:48px;border-radius:var(--r-s)}
+  .cl .tile .fm{width:24px;height:24px}
   .cl .ci{flex:1;min-width:0}
-  .cl .ci b{font-size:13.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .cl .ci span{font-size:12.5px;color:var(--tx2);font-weight:600}
-  .cl.sub{padding:9px 0 9px 20px}
-  .cl.sub b{font-size:12.5px;color:var(--tx2)}
-  .trash{background:none;border:none;color:var(--tx3);font-size:16px;cursor:pointer;padding:6px;flex:none}
+  .cl .ci b{font-size:13.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis}
+  .cl .ci span{font-size:12px;color:var(--tx3);font-weight:500}
+  .cl.sub{padding:9px 0 9px 18px}
+  .cl.sub b{font-size:12.5px;color:var(--tx2);font-weight:500}
+  .trash{background:none;border:none;color:var(--tx3);cursor:pointer;padding:6px;flex:none;
+    display:grid;place-items:center}
   .trash:hover{color:var(--red)}
 
-  .row{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--line);
-    border-radius:14px;padding:12px 13px;margin-top:14px;cursor:pointer}
-  .row .ri{font-size:17px;flex:none}
-  .row .rt{flex:1;min-width:0;font-size:13px;font-weight:700}
-  .row .rt small{display:block;font-size:11.5px;color:var(--tx3);font-weight:600;margin-top:1px}
-  .row .chev{color:var(--tx3);font-size:14px}
+  .row{display:flex;align-items:center;gap:11px;background:var(--surface2);border:1px solid var(--line);
+    border-radius:var(--r-m);padding:12px 13px;margin-top:14px;cursor:pointer}
+  .row .ri{color:var(--tx3);flex:none;display:grid;place-items:center}
+  .row .rt{flex:1;min-width:0;font-size:13px;font-weight:600}
+  .row .rt small{display:block;font-size:11.5px;color:var(--tx3);font-weight:500;margin-top:2px}
+  .row .chev{color:var(--tx3)}
 
-  .blk{margin-top:18px}
-  .blk h3{font-size:14px;font-weight:800;margin-bottom:9px}
-  label{display:block;font-size:11.5px;font-weight:700;color:var(--tx2);margin:11px 0 6px}
-  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:12px;
-    padding:12px 13px;color:var(--tx);font-size:15px;font-family:inherit;outline:none}
-  input:focus,textarea:focus{border-color:var(--violet)}
+  .blk{margin-top:20px}
+  .blk h3{font-size:11.5px;font-weight:700;color:var(--tx3);letter-spacing:.7px;
+    text-transform:uppercase;margin-bottom:10px}
+  label{display:block;font-size:11.5px;font-weight:600;color:var(--tx2);margin:12px 0 6px}
+  input,textarea{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:var(--r-m);
+    padding:12px 13px;color:var(--tx);font-size:14.5px;outline:none;font-weight:500}
+  input:focus,textarea:focus{border-color:rgba(109,92,246,.55)}
+  input::placeholder,textarea::placeholder{color:var(--tx3)}
   textarea{resize:none;line-height:1.5}
   .hint{font-size:11px;color:var(--tx3);margin-top:6px;line-height:1.5}
 
-  .dcard{display:flex;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--line);
-    border-radius:14px;padding:12px 13px}
-  .dcard .ri{font-size:17px;flex:none}
+  .dcard{display:flex;align-items:center;gap:11px;background:var(--surface2);border:1px solid var(--line);
+    border-radius:var(--r-m);padding:12px 13px}
+  .dcard .ri{color:var(--tx3);flex:none}
   .dcard .dct{flex:1;min-width:0}
-  .dcard .dct b{display:block;font-size:13.5px;font-weight:800}
+  .dcard .dct b{display:block;font-size:13px;font-weight:700}
   .dcard .dct span{display:block;font-size:12px;color:var(--tx2);margin-top:2px;line-height:1.45;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .chg{background:none;border:none;color:var(--violet2);font-size:12.5px;font-weight:800;cursor:pointer;flex:none}
+    font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .chg{background:none;border:none;color:var(--brandTx);font-size:12.5px;font-weight:700;
+    cursor:pointer;flex:none}
 
-  .payRow{display:flex;gap:8px}
-  .payOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:13px;
-    padding:13px 8px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:700}
-  .payOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:var(--violet2)}
+  .payRow{display:flex;gap:9px}
+  .payOpt{flex:1;background:var(--surface2);border:1px solid var(--line2);border-radius:var(--r-m);
+    padding:13px 8px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:7px}
+  .payOpt .ic{color:var(--tx3)}
+  .payOpt.on{background:var(--brandSoft);border-color:rgba(109,92,246,.5);color:var(--brandTx)}
+  .payOpt.on .ic{color:var(--brandTx)}
 
-  .bill{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:13px 14px}
-  .bl{display:flex;align-items:center;font-size:13px;color:var(--tx2);padding:4px 0;gap:8px}
-  .bl span:last-child{margin-left:auto;color:var(--tx);font-weight:700}
-  .bl s{color:var(--tx3);font-weight:600}
-  .free{background:rgba(124,92,255,.16);color:var(--violet2);font-size:10.5px;font-weight:800;
-    padding:2px 8px;border-radius:6px;letter-spacing:.3px}
-  .bl.tot{border-top:1px solid var(--line);margin-top:8px;padding-top:11px;font-size:16px;color:var(--tx);font-weight:800}
-  .bl.tot span:last-child{font-size:19px}
-  .nudge{font-size:11.5px;color:var(--amber);margin-top:8px;font-weight:600}
+  .bill{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-m);padding:13px 14px}
+  .bl{display:flex;align-items:center;font-size:13px;color:var(--tx2);padding:5px 0;gap:8px;font-weight:500}
+  .bl span:last-child{margin-left:auto;color:var(--tx);font-weight:600}
+  .bl s{color:var(--tx3);font-weight:500}
+  .free{background:rgba(47,180,87,.14);color:#4ec97a;font-size:10px;font-weight:700;
+    padding:3px 8px;border-radius:5px;letter-spacing:.4px}
+  .bl.tot{border-top:1px solid var(--line2);margin-top:9px;padding-top:12px;font-size:15px;
+    color:var(--tx);font-weight:700}
+  .bl.tot span:last-child{font-size:18px;letter-spacing:-.3px}
+  .nudge{font-size:11.5px;color:var(--amber);margin-top:9px;font-weight:600}
 
-  .place{width:100%;background:var(--grad);border:none;color:#fff;border-radius:15px;
-    padding:16px;font-size:15.5px;font-weight:800;cursor:pointer;margin-top:18px;
-    box-shadow:0 10px 26px rgba(124,92,255,.38)}
-  .place:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed;box-shadow:none}
-  .err{color:#f87171;font-size:12.5px;margin-top:11px;display:none;line-height:1.5}
+  .place{width:100%;background:var(--brand);border:none;color:#fff;border-radius:var(--r-m);
+    padding:16px;font-size:15px;font-weight:700;cursor:pointer;margin-top:18px;letter-spacing:-.1px}
+  .place:active{transform:translateY(1px)}
+  .place:disabled{background:var(--line2);color:var(--tx3);cursor:not-allowed}
+  .err{color:#f4989b;font-size:12.5px;margin-top:11px;display:none;line-height:1.5}
   .err.on{display:block}
   .foot{color:var(--tx3);font-size:11.5px;text-align:center;margin-top:18px;line-height:1.7}
-  .cartEmpty{text-align:center;padding:34px 10px;color:var(--tx2);font-size:13px;line-height:1.6}
-  .cartEmpty .em{font-size:36px;display:block;margin-bottom:8px}
+  .cartEmpty{text-align:center;padding:38px 10px;color:var(--tx2);font-size:13px;line-height:1.65}
+  .cartEmpty .ic{width:30px;height:30px;color:var(--tx3);margin:0 auto 10px;display:block}
 
-  /* ── wide screens: the cart is a panel that is always there ── */
   @media (min-width:900px){
     body{padding-bottom:40px}
-    .layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:26px;align-items:start}
+    .layout{display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:26px;align-items:start}
     .bar,#scrim{display:none!important}
-    .sheet{position:sticky;top:16px;transform:none!important;border-radius:22px;
-      border:1px solid var(--line);max-height:calc(100vh - 32px);margin-top:16px;
+    .sheet{position:sticky;top:16px;transform:none!important;border-radius:var(--r-l);
+      border:1px solid var(--line2);max-height:calc(100vh - 32px);margin-top:16px;
       transition:none;z-index:1}
     .sheet .grab,.sheet .x{display:none}
     .sheet .in{padding:0 18px}
   }
 
   /* ── states ── */
-  .state{text-align:center;padding:72px 20px}
-  .state .em{font-size:48px}
-  .state h1{margin-top:18px;font-size:22px;font-weight:800}
-  .state p{color:var(--tx2);font-size:13.5px;margin-top:10px;line-height:1.6}
-  .tick{width:74px;height:74px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
-    background:rgba(34,197,94,.14);font-size:34px;animation:pop .45s cubic-bezier(.2,.9,.3,1.3)}
-  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
-  .doneCard{background:var(--card);border:1px solid rgba(34,197,94,.3);border-radius:18px;
-    padding:16px;margin:22px auto 0;text-align:left;max-width:440px}
-  .doneCard .row2{display:flex;font-size:13.5px;padding:5px 0;color:var(--tx2)}
-  .doneCard .row2 span:last-child{margin-left:auto;color:var(--tx);font-weight:700}
-  .payBtn{display:block;max-width:440px;margin:16px auto 0;background:var(--green);color:#04220f;
-    text-decoration:none;border-radius:15px;padding:16px;font-size:15px;font-weight:800;text-align:center}
+  .state{text-align:center;padding:76px 20px}
+  .state .ic{width:40px;height:40px;color:var(--tx3);margin:0 auto}
+  .state h1{margin-top:18px;font-size:20px;font-weight:700}
+  .state p{color:var(--tx2);font-size:13.5px;margin-top:9px;line-height:1.65}
+  .tick{width:64px;height:64px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
+    background:rgba(47,180,87,.13);color:var(--green);animation:pop .42s cubic-bezier(.2,.9,.3,1.25)}
+  .tick .ic{width:30px;height:30px;color:var(--green);stroke-width:2.2;margin:0}
+  @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+  .doneCard{background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-l);
+    padding:16px;margin:22px auto 0;text-align:left;max-width:420px}
+  .doneCard .row2{display:flex;font-size:13.5px;padding:5px 0;color:var(--tx2);font-weight:500}
+  .doneCard .row2 span:last-child{margin-left:auto;color:var(--tx);font-weight:600}
+  .payBtn{display:flex;align-items:center;justify-content:center;gap:8px;max-width:420px;
+    margin:16px auto 0;background:var(--green);color:#04220f;text-decoration:none;
+    border-radius:var(--r-m);padding:15px;font-size:14.5px;font-weight:700}
 
-  /* ── voice ordering ── */
-  /* In the top bar, not floating: a floating button sat on top of the Add
-     button of whichever dish happened to be beneath it. */
-  .mic{width:42px;height:42px;border-radius:13px;flex:none;border:none;background:var(--grad);
-    color:#fff;font-size:18px;cursor:pointer;box-shadow:0 6px 16px rgba(124,92,255,.35);
-    display:grid;place-items:center}
-  .mic:disabled{background:var(--line);color:var(--tx3);box-shadow:none;cursor:not-allowed}
-  .orbWrap{display:flex;flex-direction:column;align-items:center;gap:11px;padding:14px 0 18px}
-  .orb{width:92px;height:92px;border-radius:50%;display:grid;place-items:center;font-size:34px;
-    background:var(--elev);border:1px solid var(--line);transition:.25s;cursor:pointer}
-  .orb.listen{background:rgba(239,68,68,.14);border-color:var(--red);animation:orbPulse 1.5s infinite}
-  .orb.speak{background:rgba(124,92,255,.16);border-color:var(--violet);animation:orbGlow 1.9s infinite}
-  .orb.think{background:rgba(245,165,36,.14);border-color:var(--amber)}
-  @keyframes orbPulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%{box-shadow:0 0 0 26px rgba(239,68,68,0)}
-    100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
-  @keyframes orbGlow{0%,100%{box-shadow:0 0 22px 2px rgba(124,92,255,.35)}
-    50%{box-shadow:0 0 34px 8px rgba(124,92,255,.55)}}
-  .vStatus{font-size:13px;color:var(--tx2);font-weight:700;text-align:center;min-height:19px}
-  .heard{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px 13px;
-    font-size:14px;color:var(--tx);line-height:1.55;min-height:46px}
+  /* ── voice ── */
+  .orbWrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0 18px}
+  .orb{width:86px;height:86px;border-radius:50%;display:grid;place-items:center;
+    background:var(--surface2);border:1px solid var(--line2);transition:.25s;cursor:pointer;color:var(--tx2)}
+  .orb .ic{width:30px;height:30px}
+  .orb.listen{background:rgba(229,72,77,.12);border-color:rgba(229,72,77,.5);color:#f4989b;
+    animation:orbPulse 1.6s infinite}
+  .orb.speak{background:var(--brandSoft);border-color:rgba(109,92,246,.5);color:var(--brandTx)}
+  .orb.think{background:rgba(216,150,58,.12);border-color:rgba(216,150,58,.45);color:var(--amber)}
+  @keyframes orbPulse{0%{box-shadow:0 0 0 0 rgba(229,72,77,.4)}
+    70%{box-shadow:0 0 0 22px rgba(229,72,77,0)}100%{box-shadow:0 0 0 0 rgba(229,72,77,0)}}
+  .vStatus{font-size:13px;color:var(--tx2);font-weight:600;text-align:center;min-height:19px}
+  .heard{background:var(--bg);border:1px solid var(--line2);border-radius:var(--r-m);padding:12px 13px;
+    font-size:14px;color:var(--tx);line-height:1.55;min-height:44px;font-weight:500}
   .heard em{color:var(--tx3);font-style:normal}
-  .vLine{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);
-    border-radius:11px;padding:10px 12px;margin-top:8px}
-  .vLine .vq{background:var(--violet);color:#fff;border-radius:7px;font-size:12px;font-weight:800;
+  .vLine{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line2);
+    border-radius:var(--r-s);padding:10px 12px;margin-top:8px}
+  .vLine .vq{background:var(--brand);color:#fff;border-radius:6px;font-size:11.5px;font-weight:700;
     padding:3px 8px;flex:none}
-  .vLine .vn{flex:1;font-size:13.5px;min-width:0}
-  .vLine .vp{font-size:13px;font-weight:700;color:var(--tx2);flex:none}
-  .vMiss{color:var(--amber);font-size:12px;margin-top:11px;line-height:1.55}
+  .vLine .vn{flex:1;font-size:13.5px;min-width:0;font-weight:500}
+  .vLine .vp{font-size:13px;font-weight:600;color:var(--tx2);flex:none}
+  .vMiss{color:var(--amber);font-size:12px;margin-top:11px;line-height:1.55;font-weight:500}
   .vBtns{display:flex;gap:9px;margin-top:16px}
-  .vBtns button{flex:1;border-radius:12px;padding:14px;font-size:14px;font-weight:800;cursor:pointer}
+  .vBtns button{flex:1;border-radius:var(--r-m);padding:14px;font-size:13.5px;font-weight:700;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px}
   .vAdd{background:var(--green);color:#04220f;border:none}
-  .vAdd:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
-  .vAgain{background:var(--elev);border:1px solid var(--line);color:var(--tx2)}
-  .langRow{display:flex;gap:8px}
-  .langOpt{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px;
-    text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:700}
-  .langOpt.on{background:rgba(124,92,255,.13);border-color:var(--violet);color:var(--violet2)}
-  /* The voice sheet is always a sheet, even on a wide screen where the cart
-     sheet has become a panel. */
+  .vAdd:disabled{background:var(--line2);color:var(--tx3);cursor:not-allowed}
+  .vAgain{background:var(--surface2);border:1px solid var(--line2);color:var(--tx2)}
+  .langRow{display:flex;gap:9px}
+  .langOpt{flex:1;background:var(--surface2);border:1px solid var(--line2);border-radius:var(--r-s);
+    padding:10px;text-align:center;font-size:12.5px;color:var(--tx2);cursor:pointer;font-weight:600}
+  .langOpt.on{background:var(--brandSoft);border-color:rgba(109,92,246,.5);color:var(--brandTx)}
   @media (min-width:900px){
-    #vSheet{position:fixed;left:auto;right:24px;bottom:24px;width:420px;border-radius:22px;
-      max-height:86vh;transform:translateY(120%)!important;transition:transform .3s cubic-bezier(.4,0,.2,1)!important;
-      z-index:70;margin:0}
+    #vSheet{position:fixed;left:auto;right:24px;bottom:24px;width:408px;border-radius:var(--r-l);
+      max-height:86vh;transform:translateY(130%)!important;
+      transition:transform .32s cubic-bezier(.32,.72,0,1)!important;z-index:70;margin:0}
     #vSheet.on{transform:translateY(0)!important}
-    #vSheet .x{display:block}
+    #vSheet .x{display:grid}
     #vScrim{display:block!important}
   }
 </style>
 </head>
 <body>
+<!-- ── Icons ────────────────────────────────────────────────────────────────
+     Drawn here rather than typed as emoji. Emoji are full-colour pictures
+     rendered by the operating system: they cannot inherit the text colour,
+     they look different on every phone, and at interface sizes they read as
+     placeholders. These are one stroke weight, one grid, and take the colour
+     of whatever they sit in.
+     ───────────────────────────────────────────────────────────────────── -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="i-pin"><path d="M12 20.8c4.3-5 6.3-8.3 6.3-10.8a6.3 6.3 0 1 0-12.6 0c0 2.5 2 5.8 6.3 10.8Z"/><circle cx="12" cy="9.9" r="2.3"/></g>
+    <g id="i-chev-d"><path d="m6.5 9.5 5.5 5.5 5.5-5.5"/></g>
+    <g id="i-chev-r"><path d="m9.5 6.5 5.5 5.5-5.5 5.5"/></g>
+    <g id="i-search"><circle cx="10.8" cy="10.8" r="6.6"/><path d="m20 20-4.5-4.5"/></g>
+    <g id="i-mic"><rect x="9.2" y="3" width="5.6" height="11" rx="2.8"/><path d="M5.6 11.2a6.4 6.4 0 0 0 12.8 0"/><path d="M12 17.6V21"/></g>
+    <g id="i-bag"><path d="M5.8 8.4h12.4l-1 11.2a1.5 1.5 0 0 1-1.5 1.4H8.3a1.5 1.5 0 0 1-1.5-1.4L5.8 8.4Z"/><path d="M9.4 8.4V6.8a2.6 2.6 0 0 1 5.2 0v1.6"/></g>
+    <g id="i-cart"><circle cx="10" cy="19.8" r="1.4"/><circle cx="17.6" cy="19.8" r="1.4"/><path d="M3 4.2h2.5l2.3 11.4h10.2L20.4 8H6.1"/></g>
+    <g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+    <g id="i-minus"><path d="M5 12h14"/></g>
+    <g id="i-trash"><path d="M4.4 7h15.2"/><path d="M9.4 7V5.2c0-.8.6-1.4 1.4-1.4h2.4c.8 0 1.4.6 1.4 1.4V7"/><path d="m6.6 7 .9 12.2c.1.9.8 1.5 1.6 1.5h5.8c.8 0 1.5-.6 1.6-1.5L17.4 7"/></g>
+    <g id="i-pencil"><path d="M4 20.2h4.1L20 8.3a2.2 2.2 0 0 0-3.1-3.1L5 17.1v3.1Z"/></g>
+    <g id="i-cash"><rect x="2.8" y="6" width="18.4" height="12" rx="2.4"/><circle cx="12" cy="12" r="2.6"/></g>
+    <g id="i-zap"><path d="M13.2 2.8 5.6 13h5.4l-1.2 8.2L17.4 11h-5.4l1.2-8.2Z"/></g>
+    <g id="i-clock"><circle cx="12" cy="12" r="8.4"/><path d="M12 7.4V12l3.2 1.9"/></g>
+    <g id="i-deliver"><path d="M12 3.4 4.3 7.4v9.2l7.7 4 7.7-4V7.4L12 3.4Z"/><path d="m4.3 7.4 7.7 4 7.7-4"/><path d="M12 11.4v9.2"/></g>
+    <g id="i-fork"><path d="M7 3.2v6a2.2 2.2 0 0 0 4.4 0v-6"/><path d="M9.2 11.2v9.6"/><path d="M16.6 3.2c-1.5 1.3-2.2 3-2 4.9.2 1.5.9 2.4 2 2.8v9.9"/></g>
+    <g id="i-check"><path d="m5 12.5 4.6 4.5L19 7.5"/></g>
+    <g id="i-x"><path d="m6 6 12 12M18 6 6 18"/></g>
+    <g id="i-home"><path d="M3.5 10.5 12 3.8l8.5 6.7"/><path d="M5.5 9.2V20h13V9.2"/><path d="M9.8 20v-5.2h4.4V20"/></g>
+    <g id="i-case"><rect x="3" y="7.2" width="18" height="12.6" rx="2.4"/><path d="M8.8 7.2V5.8c0-1.1.9-2 2-2h2.4c1.1 0 2 .9 2 2v1.4"/></g>
+    <g id="i-lock"><rect x="4.6" y="10.4" width="14.8" height="9.4" rx="2.2"/><path d="M8.2 10.4V7.8a3.8 3.8 0 1 1 7.6 0v2.6"/></g>
+    <g id="i-user"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20c.7-3.7 3.5-5.6 7.2-5.6s6.5 1.9 7.2 5.6"/></g>
+    <g id="i-store"><path d="M4 10v10h16V10"/><path d="M2.8 10 5 4.5h14l2.2 5.5Z"/><path d="M9.5 20v-6h5v6"/></g>
+    <g id="i-speaker"><path d="M5 9.6h3.2L12.4 6v12l-4.2-3.6H5V9.6Z"/><path d="M15.6 9.6a3.6 3.6 0 0 1 0 4.8"/></g>
+    <g id="i-wave"><path d="M4 12h2.2M9.4 7.2v9.6M14.6 9.6v4.8M19 12h1"/></g>
+    <g id="f-bowl"><path d="M3.5 11h17a8.5 8.5 0 0 1-17 0Z"/><path d="M8 7.8c0-1 1-1.5 1-2.5M12 7.3c0-1.1 1-1.7 1-2.8M16 7.8c0-1 1-1.5 1-2.5"/></g>
+    <g id="f-rice"><path d="M4 13h16a8 8 0 0 1-16 0Z"/><path d="M7.5 10.6c1.2-2.5 3-3.9 4.5-3.9s3.3 1.4 4.5 3.9"/></g>
+    <g id="f-bread"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/><path d="M8 10.5c1 .8 2 1 3 .6M13 14c1 .5 2 .3 3-.5"/></g>
+    <g id="f-sweet"><path d="M6 11h12l-1.2 8H7.2L6 11Z"/><path d="M7.5 11c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/><path d="M12 7V4.5"/></g>
+    <g id="f-cup"><path d="M6 6h10v7a5 5 0 0 1-10 0V6Z"/><path d="M16 8h2.5a2.5 2.5 0 0 1 0 5H16M5 20h12"/></g>
+    <g id="f-noodle"><path d="M4 11h16a8 8 0 0 1-16 0Z"/><path d="M8 8.5c1-2 1.6-3.5 1-5M12 8.5c1-2 1.6-3.5 1-5M16 8.5c1-2 1.6-3.5 1-5"/></g>
+    <g id="f-thali"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/></g>
+    <g id="f-snack"><path d="M12 4 20 18H4L12 4Z"/><path d="M9.5 13h5"/></g>
+  </defs>
+</svg>
 
-<div id="load" class="state"><div class="em">🍲</div><p>Loading the menu…</p></div>
+<div id="load" class="state"><svg viewBox="0 0 24 24" class="ic"><use href="#i-fork"/></svg><p>Loading the menu…</p></div>
 
 <div id="bad" class="state">
-  <div class="em">🤔</div>
+  <svg viewBox="0 0 24 24" class="ic"><use href="#i-store"/></svg>
   <h1 id="badTitle">This link isn't valid</h1>
   <p id="badBody">Ask the kitchen for their ordering link again.</p>
 </div>
@@ -337,18 +394,18 @@
 
       <div class="top">
         <a class="where" id="where" href="find.html">
-          <span class="pin">📍</span>
+          <span class="pin"><svg viewBox="0 0 24 24" class="ic"><use href="#i-pin"/></svg></span>
           <span style="min-width:0">
             <span class="w1" id="whereLbl">Delivering to</span>
             <span class="w2"><span id="whereTxt" style="overflow:hidden;text-overflow:ellipsis">Set your location</span><i>▾</i></span>
           </span>
         </a>
-        <button class="mic" id="micBtn" style="display:none" aria-label="Order by voice" title="Order by voice">🎤</button>
+        <button class="iconBtn" id="micBtn" style="display:none" aria-label="Order by voice" title="Order by voice"><svg viewBox="0 0 24 24" class="ic"><use href="#i-mic"/></svg></button>
       </div>
 
       <div class="kitchen">
         <div class="kt">
-          <div class="av">🍲</div>
+          <div class="av" id="ktAv"></div>
           <div style="min-width:0">
             <h1 id="ktName">Kitchen</h1>
             <div class="meta"><span class="dot" id="ktDot"></span><span id="ktMeta"></span></div>
@@ -359,7 +416,7 @@
       </div>
 
       <label class="search" for="q" style="margin-top:14px;display:flex">
-        <span>🔍</span>
+        <svg viewBox="0 0 24 24" class="ic"><use href="#i-search"/></svg>
         <input id="q" placeholder="Search dishes…" autocomplete="off" enterkeyhint="search">
       </label>
 
@@ -375,19 +432,19 @@
       <div class="grab"></div>
       <div class="in">
         <div class="sh-h">
-          <span class="bagI">🛍</span>
+          <span class="bagI"><svg viewBox="0 0 24 24" class="ic"><use href="#i-bag"/></svg></span>
           <span><b>Your order</b><small id="shCount">Nothing yet</small></span>
           <button class="clr" id="clearCart" style="display:none">Clear</button>
-          <button class="x" id="closeSheet">✕</button>
+          <button class="x" id="closeSheet" aria-label="Close"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-x"/></svg></button>
         </div>
 
         <div id="lines"></div>
 
         <div id="checkout">
           <div class="row" id="noteRow">
-            <span class="ri">✏️</span>
+            <span class="ri"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-pencil"/></svg></span>
             <span class="rt">Cooking instructions<small id="noteSum">Less spicy, no onion…</small></span>
-            <span class="chev">›</span>
+            <span class="chev"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-chev-r"/></svg></span>
           </div>
           <div id="noteBox" style="display:none">
             <input id="nt" placeholder="less spicy, no onion…" style="margin-top:8px">
@@ -398,7 +455,7 @@
             <!-- They gave all of this on the page before. Asking again, as three
                  full-width fields, made the cart the most crowded screen. -->
             <div class="dcard" id="dcard" style="display:none">
-              <span class="ri">📍</span>
+              <span class="ri"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-pin"/></svg></span>
               <div class="dct"><b id="dcName"></b><span id="dcAddr"></span></div>
               <button class="chg" id="dcEdit" type="button">Change</button>
             </div>
@@ -416,8 +473,8 @@
           <div class="blk">
             <h3>Pay with</h3>
             <div class="payRow">
-              <div class="payOpt on" data-pay="cod">💵 Cash on delivery</div>
-              <div class="payOpt" data-pay="upi">⚡ UPI now</div>
+              <div class="payOpt on" data-pay="cod"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-cash"/></svg>Cash on delivery</div>
+              <div class="payOpt" data-pay="upi"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-zap"/></svg>UPI now</div>
             </div>
           </div>
 
@@ -438,9 +495,9 @@
 
 <div class="bar" id="bar">
   <div class="in">
-    <div class="bag">🛒<b id="barCount">0</b></div>
+    <div class="bag"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-cart"/></svg><b id="barCount">0</b></div>
     <div><div class="n" id="cartN">0 items</div><div class="t" id="cartT">₹0</div></div>
-    <button class="go" id="goBtn">View cart →</button>
+    <button class="go" id="goBtn">View cart<svg viewBox="0 0 24 24" class="ic sm"><use href="#i-chev-r"/></svg></button>
   </div>
 </div>
 <div class="scrim" id="scrim"></div>
@@ -454,13 +511,13 @@
   <div class="grab"></div>
   <div class="in">
     <div class="sh-h" style="border:none;padding-bottom:4px">
-      <span class="bagI">🎙</span>
+      <span class="bagI"><svg viewBox="0 0 24 24" class="ic"><use href="#i-mic"/></svg></span>
       <span><b>Order by voice</b><small>Say a dish, then yes or no</small></span>
-      <button class="x" id="vClose" style="margin-left:auto">✕</button>
+      <button class="x" id="vClose" style="margin-left:auto" aria-label="Close"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-x"/></svg></button>
     </div>
 
     <div class="orbWrap">
-      <div class="orb" id="vOrb"><span id="vOrbIcon">🎤</span></div>
+      <div class="orb" id="vOrb"><span id="vOrbIcon"><svg viewBox="0 0 24 24" class="ic"><use href="#i-mic"/></svg></span></div>
       <div class="vStatus" id="vStatus">Starting…</div>
     </div>
 
@@ -475,7 +532,7 @@
     </div>
 
     <div class="vBtns">
-      <button class="vAgain" id="vAgain">🎤 Listen</button>
+      <button class="vAgain" id="vAgain"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-mic"/></svg>Listen</button>
       <button class="vAdd" id="vAdd" disabled>Add to order</button>
     </div>
     <p class="foot" id="vFoot">
@@ -485,11 +542,11 @@
 </div>
 
 <div id="done" class="state">
-  <div class="tick">✓</div>
+  <div class="tick"><svg viewBox="0 0 24 24" class="ic"><use href="#i-check"/></svg></div>
   <h1>Order placed</h1>
   <p id="doneSub"></p>
   <div class="doneCard" id="doneCard"></div>
-  <a class="payBtn" id="payBtn" style="display:none">💳 Pay now</a>
+  <a class="payBtn" id="payBtn" style="display:none"></a>
   <p class="foot">The kitchen will message you as it's cooked and sent out.</p>
 </div>
 
@@ -504,6 +561,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
   var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
+  var icon = function (id, cls) {
+    return '<svg viewBox="0 0 24 24" class="ic' + (cls ? " " + cls : "") + '"><use href="#i-' + id + '"/></svg>';
+  };
 
   var kitchen = null, menu = [], cart = {}, payMode = "cod";
   // Built when the order lands, and handed to the SMS endpoint so the message
@@ -631,17 +691,20 @@
                                   .filter(Boolean).join(" · ");
 
         var facts = [];
-        if (cfg.defaultPrepMinutes) facts.push(["", "⏱ ~" + cfg.defaultPrepMinutes + " min"]);
+        if (cfg.defaultPrepMinutes) facts.push(["", "clock", "~" + cfg.defaultPrepMinutes + " min"]);
         var charge = Number(kitchen.delivery_charge || 0), freeAt = Number(kitchen.free_above || 0);
-        if (!charge) facts.push(["good", "🛵 Free delivery"]);
+        if (!charge) facts.push(["good", "deliver", "Free delivery"]);
         else {
-          facts.push(["", "🛵 " + inr(charge) + " delivery"]);
-          if (freeAt) facts.push(["good", "Free over " + inr(freeAt)]);
+          facts.push(["", "deliver", inr(charge) + " delivery"]);
+          if (freeAt) facts.push(["good", "check", "Free over " + inr(freeAt)]);
         }
-        facts.push(["", "🍽 " + menu.length + (menu.length === 1 ? " dish" : " dishes")]);
+        facts.push(["", "fork", menu.length + (menu.length === 1 ? " dish" : " dishes")]);
         $("facts").innerHTML = facts.map(function (f) {
-          return '<span class="fact' + (f[0] ? " " + f[0] : "") + '">' + esc(f[1]) + '</span>';
+          return '<span class="fact' + (f[0] ? " " + f[0] : "") + '">' +
+                 icon(f[1], "sm") + esc(f[2]) + '</span>';
         }).join("");
+        // A monogram beats a stock bowl drawing for telling two kitchens apart.
+        $("ktAv").textContent = (kitchen.business_name || "K").trim().charAt(0).toUpperCase();
 
         if (!open) {
           $("shutBar").style.display = "block";
@@ -665,47 +728,34 @@
   // Most kitchens will not have photographed their menu, and a grey box reads
   // as broken. A tile coloured and marked by what kind of food it is reads as
   // intentional. Any photo the kitchen uploads replaces it.
+  // ── how a dish looks when it has no photograph ──────────────────────────
+  // A line drawing in a muted tint, not a cartoon on a saturated square. It
+  // should sit quietly until a real photograph replaces it, which any photo the
+  // kitchen uploads does automatically.
   var LOOKS = [
-    [/dessert|sweet|mithai|kheer|halwa/i, "🍮", "#3f1f33,#7a3a5d"],
-    [/bread|naan|roti|paratha|kulcha/i,   "🫓", "#4a3818,#8d6a2a"],
-    [/dal/i,                              "🍲", "#43230f,#7a4418"],
-    [/rice|biryani|pulao/i,               "🍚", "#3a3320,#6d5b2c"],
-    [/snack|starter|chaat|tikka|vada/i,   "🥟", "#3d2c14,#7c5420"],
-    [/beverage|drink|juice|lassi|tea|coffee|shake/i, "🥤", "#123040,#1f5a6e"],
-    [/chinese|noodle|manchurian/i,        "🍜", "#3a1d12,#7a3316"],
-    [/thali|meal|combo/i,                 "🍱", "#2f2748,#56458a"],
-    [/main|curry|sabzi|masala|paneer/i,   "🍛", "#4a2511,#8a3f14"],
+    [/dessert|sweet|mithai|kheer|halwa/i,            "sweet",  "#b98cae"],
+    [/bread|naan|roti|paratha|kulcha/i,              "bread",  "#c4a274"],
+    [/dal/i,                                         "bowl",   "#c79a68"],
+    [/rice|biryani|pulao/i,                          "rice",   "#bfb189"],
+    [/snack|starter|chaat|tikka|vada|pakora/i,       "snack",  "#c79c6a"],
+    [/beverage|drink|juice|lassi|tea|coffee|shake/i, "cup",    "#83aec0"],
+    [/chinese|noodle|manchurian/i,                   "noodle", "#c4926e"],
+    [/thali|meal|combo/i,                            "thali",  "#a096cf"],
+    [/main|curry|sabzi|masala|paneer/i,              "bowl",   "#c68f66"],
   ];
   function lookOf(it) {
-    var s = (it.category || "") + " " + (it.name || "");
-    for (var i = 0; i < LOOKS.length; i++) if (LOOKS[i][0].test(s)) return LOOKS[i];
-    return [null, "🍽", "#26263a,#3a3a55"];
+    var t = (it.category || "") + " " + (it.name || "");
+    for (var i = 0; i < LOOKS.length; i++) if (LOOKS[i][0].test(t)) return LOOKS[i];
+    return [null, "bowl", "#8a8aa8"];
   }
-  // Each dish gets its own shade within its category's family, so six curries
-  // in a row do not show six identical tiles — which read as a placeholder
-  // repeated, not as a menu. Picked from the name, so a dish keeps its colour.
-  var SHADES = {
-    warm   : ["#4a2511,#8a3f14","#3f2a12,#7a5220","#4a1d1d,#8a3030","#3a2c10,#72561c",
-              "#452012,#86401f","#3d2417,#7d4a2e"],
-    dessert: ["#3f1f33,#7a3a5d","#3a1d2f,#6e3353","#45233a,#834866"],
-    drink  : ["#123040,#1f5a6e","#10323a,#1d5f63","#162a45,#28517a"],
-  };
-  function shadeFor(it, base) {
-    var fam = base === "🍮" ? "dessert" : base === "🥤" ? "drink" : "warm";
-    var n = 0, s = String(it.name || "");
-    for (var i = 0; i < s.length; i++) n = (n * 31 + s.charCodeAt(i)) >>> 0;
-    return SHADES[fam][n % SHADES[fam].length];
-  }
-
   function tileHtml(it) {
     if (it && it.image_url) {
       return '<div class="tile"><img src="' + esc(it.image_url) + '" alt="" loading="lazy"></div>';
     }
     var l = lookOf(it || {});
-    return '<div class="tile" style="background:linear-gradient(135deg,' + shadeFor(it || {}, l[1]) + ')">' +
-           l[1] + '</div>';
+    return '<div class="tile" style="color:' + l[2] + '">' +
+           '<svg viewBox="0 0 24 24" class="fm"><use href="#f-' + l[1] + '"/></svg></div>';
   }
-  function catIcon(cat) { return lookOf({ category: cat, name: "" })[1]; }
 
   // Only when the kitchen said which it is. A guessed veg mark is worse than
   // none: someone relies on it.
@@ -761,7 +811,7 @@
     ["All"].concat(cs.list).forEach(function (c) {
       var b = document.createElement("button");
       b.className = "cat" + (c === activeCat ? " on" : "");
-      b.innerHTML = '<span class="ic">' + (c === "All" ? "🍽" : catIcon(c)) + '</span>' + esc(c);
+      b.textContent = c;
       b.onclick = function () { activeCat = c; renderCats(); renderMenu(); };
       box.appendChild(b);
     });
@@ -815,8 +865,8 @@
           var k = v.key + "|+|" + a.name;
           var c = document.createElement("div");
           c.className = "chip" + (cart[k] ? " on" : "");
-          c.textContent = (cart[k] ? "✓ " : "+ ") + a.name + " " + inr(a.price) +
-                          (vs.length > 1 ? " (" + v.portion + ")" : "");
+          c.innerHTML = icon(cart[k] ? "check" : "plus", "xs") + esc(a.name) + " " + inr(a.price) +
+                        (vs.length > 1 ? " (" + esc(v.portion) + ")" : "");
           c.onclick = function () { setQty(k, cart[k] ? 0 : (cart[v.key] || 1)); };
           box.appendChild(c);
         });
@@ -969,7 +1019,7 @@
     var box = $("lines");
     box.innerHTML = "";
     if (!n) {
-      box.innerHTML = '<div class="cartEmpty"><span class="em">🍽</span>' +
+      box.innerHTML = '<div class="cartEmpty">' + icon("bag") +
         'Your order is empty.<br>Add something from the menu to get started.</div>';
       return;
     }
@@ -982,7 +1032,7 @@
         '<div class="ci"><b>' + esc(l.name) + '</b><span>' + inr(l.price) + '</span></div>';
       row.appendChild(stepper(l.key, l.qty));
       var t = document.createElement("button");
-      t.className = "trash"; t.textContent = "🗑"; t.setAttribute("aria-label", "Remove");
+      t.className = "trash"; t.innerHTML = icon("trash", "sm"); t.setAttribute("aria-label", "Remove");
       t.onclick = function () { setQty(l.key, 0); };
       row.appendChild(t);
       box.appendChild(row);
@@ -1194,7 +1244,7 @@
       lastPayLink = link;
       $("payBtn").href = link;
       $("payBtn").style.display = "block";
-      $("payBtn").textContent = "💳 Pay " + inr(total) + " now";
+      $("payBtn").innerHTML = icon("zap", "sm") + "Pay " + inr(total) + " now";
     }
     show("done");
     $("bar").classList.remove("on");
@@ -1384,8 +1434,8 @@
     var orb = $("vOrb");
     if (!orb) return;
     orb.className = "orb" + (m === "idle" ? "" : " " + m);
-    $("vOrbIcon").textContent =
-      m === "listen" ? "🎙" : m === "speak" ? "🔊" : m === "think" ? "⋯" : "🎤";
+    $("vOrbIcon").innerHTML = icon(
+      m === "listen" ? "mic" : m === "speak" ? "speaker" : m === "think" ? "wave" : "mic");
     if (status != null) $("vStatus").textContent = status;
   }
 
