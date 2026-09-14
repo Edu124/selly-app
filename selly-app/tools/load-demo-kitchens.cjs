@@ -180,6 +180,9 @@ async function main() {
       // A short code because it goes in a link somebody may read aloud.
       public_code  : hash(seed).slice(0, 8),
       listed       : true,
+      // A UPI id makes the voice assistant's QR code real. Only ever one you
+      // supply and own — a made-up id would send real money to a stranger.
+      ...(process.env.DEMO_UPI ? { upi_id: process.env.DEMO_UPI } : {}),
       lat          : +(centre[0] + jitter(seed, 0)).toFixed(6),
       lng          : +(centre[1] + jitter(seed, 1)).toFixed(6),
       delivery_radius_km: 5,

@@ -13,6 +13,9 @@
     --violet:#7c5cff;--green:#22c55e;--blue:#0b84ff;
   }
   html,body{background:var(--bg);color:var(--tx);min-height:100%}
+  /* Without this, any element given display:flex ignores the hidden attribute —
+     which is how the recording bar showed while nothing was recording. */
+  [hidden]{display:none!important}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;padding:28px 20px 48px}
 
@@ -69,6 +72,32 @@
   .composer button{background:var(--blue);border:none;color:#fff;width:34px;height:34px;
     border-radius:50%;font-size:15px;cursor:pointer;flex:none}
   .composer button:disabled{background:var(--line);color:var(--tx3);cursor:not-allowed}
+
+  /* voice notes, and the replies that come back as voice */
+  .b.voice{min-width:200px}
+  .vn{display:flex;align-items:center;gap:9px}
+  .vn .play{width:30px;height:30px;border-radius:50%;border:none;cursor:pointer;flex:none;
+    display:grid;place-items:center;color:#fff}
+  .b.me .vn .play{background:rgba(255,255,255,.22)}
+  .b.them .vn .play{background:var(--violet)}
+  .vn .play:disabled{opacity:.45;cursor:default}
+  .vn svg{width:14px;height:14px;fill:currentColor}
+  .bars{display:flex;align-items:center;gap:2px;height:22px;flex:1}
+  .bars i{display:block;width:3px;border-radius:2px;background:currentColor;opacity:.55}
+  .b.them .bars{color:var(--tx2)}
+  .vn .dur{font-size:10.5px;opacity:.75;flex:none;font-variant-numeric:tabular-nums}
+  .cap{display:block;font-size:12px;line-height:1.45;margin-top:6px;opacity:.9}
+  .b.them .cap{color:var(--tx2)}
+  .cap a{word-break:break-all}
+  .qchips{display:flex;gap:6px;flex-wrap:wrap;align-self:flex-start;margin:-3px 0 2px}
+  .qchips button{background:transparent;border:1px solid var(--violet);color:#b7a5ff;border-radius:999px;
+    padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+  .qchips button:hover{background:rgba(124,92,255,.14)}
+  .composer .rec{background:var(--card);color:var(--tx2);display:grid;place-items:center}
+  .composer .rec svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+  .composer .rec.on{background:#ef4444;color:#fff}
+  .recBar{flex:1;display:flex;align-items:center;gap:8px;color:#f87171;font-size:13px;font-weight:600;padding:0 6px}
+  .recBar i{width:8px;height:8px;border-radius:50%;background:#ef4444;animation:blink 1s infinite}
 
   iframe{border:0;width:100%;flex:1;background:var(--bg)}
   #page{display:none;flex:1;flex-direction:column}
@@ -131,6 +160,8 @@
 
       <div class="composer" id="composer">
         <input id="msg" placeholder="Message" autocomplete="off">
+        <div class="recBar" id="recBar" hidden><i></i><span id="recTime">0:00</span>&nbsp;Recording — tap to send</div>
+        <button id="rec" class="rec" title="Voice note" aria-label="Record a voice note"><svg viewBox="0 0 24 24"><rect x="9.2" y="3" width="5.6" height="11" rx="2.8"/><path d="M5.6 11.2a6.4 6.4 0 0 0 12.8 0M12 17.6V21"/></svg></button>
         <button id="send" title="Send">↑</button>
       </div>
     </div>
@@ -183,7 +214,14 @@
         cannot collide with a real customer. Mark the order delivered in the app
         and the last message turns up on this phone within a few seconds.
       </p>
+      <p style="margin-top:9px">
+        <b style="display:inline;letter-spacing:0;text-transform:none;color:var(--tx)">Voice ordering:</b>
+        start as the regular customer, tap the mic and say “I want to eat dosa”.
+        Voice notes are simulated in this web chat — real SMS cannot carry audio;
+        in production this needs WhatsApp or RCS.
+      </p>
       <div class="tools">
+        <button id="regularBtn">Start as a regular customer (Priya, Viman Nagar)</button>
         <button id="againBtn">Text again as the same customer</button>
         <button id="resetBtn">Start over as somebody new</button>
       </div>
@@ -198,8 +236,10 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var KEY = "selly_demo_v1";
+  var SUPABASE_URL  = "https://ekughxkikjzkimadyyuk.supabase.co";
+  var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdWdoeGtpa2p6a2ltYWR5eXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODkxNzQsImV4cCI6MjA5MjE2NTE3NH0.RMROZ2GAcDC6yxY8YjLW3RmyUk2c5G6HnzQry4qA2xs";
 
-  var state = { mobile: null, msgs: [], seen: {} };
+  var state = { mobile: null, token: null, convo: null, msgs: [], seen: {} };
   try { state = Object.assign(state, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
 
   function save() {
@@ -232,16 +272,48 @@
   // ── the thread ───────────────────────────────────────────────────────────
   // Links are the entire point of the product, so a bubble containing one gets
   // it turned into something tappable rather than left as text to squint at.
-  function bubble(m) {
-    var el = document.createElement("div");
-    el.className = "b " + (m.from === "me" ? "me" : "them");
-
-    var html = esc(m.text).replace(/https?:\/\/\S+/g, function (u) {
+  function linkify(text) {
+    return esc(text).replace(/https?:\/\/\S+/g, function (u) {
       return '<a href="#" data-url="' + esc(u) + '">' + esc(u) + "</a>";
     });
-    if (m.from !== "me" && /https?:\/\//.test(m.text)) {
-      html += '<span class="tap">Tap the link</span>';
+  }
+
+  // Recordings live only for this page's lifetime; a reload keeps the
+  // transcript and the bubble, not the audio.
+  var audioById = {};
+
+  function bars(seed) {
+    var n = 0, str = String(seed || "");
+    for (var i = 0; i < str.length; i++) n = (n * 31 + str.charCodeAt(i)) >>> 0;
+    var out = "";
+    for (var k = 0; k < 22; k++) {
+      n = (n * 1103515245 + 12345) >>> 0;
+      out += '<i style="height:' + (5 + n % 17) + 'px"></i>';
     }
+    return out;
+  }
+  var PLAY = '<svg viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5L8 5.5Z"/></svg>';
+
+  function bubble(m) {
+    var el = document.createElement("div");
+    el.className = "b " + (m.from === "me" ? "me" : "them") + (m.kind === "voice" ? " voice" : "");
+
+    if (m.kind === "voice") {
+      var dur = m.dur || Math.max(2, Math.round((m.text || "").length / 15));
+      var canPlay = m.from === "them" || !!audioById[m.id];
+      el.innerHTML =
+        '<div class="vn"><button class="play" data-play="' + esc(m.id) + '"' + (canPlay ? "" : " disabled") +
+        ' aria-label="Play">' + PLAY + '</button>' +
+        '<div class="bars">' + bars(m.id || m.text) + '</div>' +
+        '<span class="dur">0:' + String(Math.min(dur, 59)).padStart(2, "0") + '</span></div>' +
+        (m.text
+          ? '<span class="cap">' + (m.from === "me" ? "“" + esc(m.text) + "”" : linkify(m.text)) + '</span>'
+          : '<span class="cap">(nothing heard)</span>');
+      return el;
+    }
+
+    var html = linkify(m.text);
+    if (m.from !== "me" && /https?:\/\//.test(m.text)) html += '<span class="tap">Tap the link</span>';
     el.innerHTML = html;
     return el;
   }
@@ -249,14 +321,61 @@
   function paint() {
     var t = $("thread");
     t.innerHTML = '<div class="day">Today</div>';
-    state.msgs.forEach(function (m) { t.appendChild(bubble(m)); });
+    state.msgs.forEach(function (m, i) {
+      t.appendChild(bubble(m));
+      // Suggested answers only under the latest question, and only until answered.
+      if (m.chips && m.chips.length && i === state.msgs.length - 1) {
+        var row = document.createElement("div");
+        row.className = "qchips";
+        m.chips.forEach(function (c) {
+          var b = document.createElement("button");
+          b.textContent = c;
+          b.onclick = function () { push("me", c); handleCustomer(c); };
+          row.appendChild(b);
+        });
+        t.appendChild(row);
+      }
+    });
     t.scrollTop = t.scrollHeight;
   }
 
-  function push(from, text) {
-    state.msgs.push({ from: from, text: text });
+  function push(from, text, extra) {
+    var m = Object.assign({ from: from, text: text,
+                            id: "m" + Date.now() + Math.floor(Math.random() * 1000) }, extra || {});
+    state.msgs.push(m);
     save(); paint();
+    return m;
   }
+
+  // ── the reply, spoken ────────────────────────────────────────────────────
+  // Here the spoken reply is synthesised by the browser. In production the
+  // server would generate a real audio file, so the voice note sounds the same
+  // on every phone — the one part of this that is a stand-in.
+  var TTS = window.speechSynthesis;
+  function say(text) {
+    if (!TTS || !text) return;
+    try { TTS.cancel(); } catch (e) {}
+    var u = new SpeechSynthesisUtterance(String(text).replace(/https?:\/\/\S+/g, "")
+              .replace(/₹\s?(\d[\d,]*)/g, "$1 rupees"));
+    u.lang = "en-IN";
+    var v = (TTS.getVoices() || []).filter(function (x) { return /en[-_]IN/i.test(x.lang); })[0];
+    if (v) u.voice = v;
+    try { TTS.speak(u); } catch (e) {}
+  }
+  function botVoice(text, chips) {
+    push("them", text, { kind: "voice", chips: chips || null });
+    say(text);
+  }
+
+  $("thread").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-play]");
+    if (!b) return;
+    var id = b.getAttribute("data-play");
+    var m = state.msgs.filter(function (x) { return x.id === id; })[0];
+    if (!m) return;
+    if (m.from === "me" && audioById[id]) new Audio(audioById[id]).play();
+    else if (m.from === "them") say(m.text);
+  });
 
   function typing(on) {
     var t = $("thread"), old = t.querySelector(".typing");
@@ -350,6 +469,7 @@
         }
 
         state.mobile = d.mobile;
+        state.token = d.token;
         save();
         $("dn").textContent = d.mobile;
 
@@ -363,12 +483,219 @@
       });
   }
 
+  // ── ordering by voice note ───────────────────────────────────────────────
+  function rpc(fn, body) {
+    return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON,
+                 Authorization: "Bearer " + SUPABASE_ANON },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json(); });
+  }
+
+  // A session for this demo customer: the same thing texting in creates.
+  function ensureSession() {
+    if (state.token) return Promise.resolve(state.token);
+    return fetch("/api/demo-session", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.mobile ? { mobile: state.mobile } : {}),
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.error) throw new Error(d.error);
+      state.mobile = d.mobile; state.token = d.token; save();
+      $("dn").textContent = d.mobile;
+      return d.token;
+    });
+  }
+
+  var INTENT = /\b(want|eat|order|hungry|craving|khana|chahiye|bhook|get me|send me|have)\b/i;
+  var STOPW = ["i","want","to","eat","order","a","an","some","the","please","me","get","would","like","have",
+               "can","for","mujhe","chahiye","khana","hai","am","im","hungry","craving","send","something",
+               "food","anything","bhook","lagi","kuch","let","us","do","could","you","my"];
+  function dishWords(text) {
+    return text.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
+      .filter(function (w) { return w && STOPW.indexOf(w) < 0; }).join(" ");
+  }
+  function dishFrom(text) { return INTENT.test(text) ? dishWords(text) : null; }
+
+  function yesNo(t) {
+    t = " " + String(t).toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ") + " ";
+    var has = function (l) { return l.some(function (w) { return t.indexOf(" " + w + " ") >= 0; }); };
+    if (has(["no", "nope", "nah", "nahi", "nahin", "dont", "different", "another", "change", "new"])) return "no";
+    if (has(["yes", "yeah", "yep", "ok", "okay", "sure", "haan", "han", "ha", "ji", "please",
+             "default", "same", "theek", "thik"])) return "yes";
+    return null;
+  }
+
+  function startVoiceOrder(dish) {
+    typing(true);
+    ensureSession()
+      .then(function (tok) { return rpc("session_context", { p_token: tok }); })
+      .then(function (rows) {
+        typing(false);
+        var c = rows && rows[0];
+        if (!dish) {
+          state.convo = { stage: "dish" }; save();
+          return botVoice("Sure" + (c && c.name ? ", " + c.name : "") + "! What would you like to eat?");
+        }
+        if (c && c.has_location) {
+          state.convo = { stage: "addr", dish: dish }; save();
+          step(2);
+          return botVoice("Sure, " + (c.name || "there") + ", but before ordering, should I take your default address" +
+                          (c.area ? " in " + c.area : "") + "?", ["Yes", "No"]);
+        }
+        // Somebody we have never delivered to has no default address to offer.
+        state.convo = null; save();
+        botVoice("Sure! First, where should I deliver? Set your location here: " +
+                 location.origin + "/find.html?s=" + state.token);
+      })
+      .catch(function () {
+        typing(false);
+        push("them", "I couldn't reach the kitchen system just now. Try again in a moment.");
+      });
+  }
+
+  function handleCustomer(text) {
+    var c = state.convo;
+    if (c && c.stage === "addr") {
+      var k = yesNo(text);
+      if (k === "yes") {
+        state.convo = null; save();
+        botVoice("Great. Finding the best " + (c.dish || "food") + " near you.");
+        setTimeout(function () {
+          openPage("voice.html?s=" + encodeURIComponent(state.token) + "&q=" + encodeURIComponent(c.dish || ""));
+          step(3);
+        }, 2200);
+        return;
+      }
+      if (k === "no") {
+        state.convo = null; save();
+        return botVoice("No problem. Set the new address here: " + location.origin + "/find.html?s=" + state.token);
+      }
+      return botVoice("Should I take your default address? Just say yes or no.", ["Yes", "No"]);
+    }
+    if (c && c.stage === "dish") {
+      state.convo = null; save();
+      return startVoiceOrder(dishWords(text) || text);
+    }
+    var dish = dishFrom(text);
+    if (dish !== null && (dish || /hungry|bhook|craving/i.test(text))) return startVoiceOrder(dish);
+    textIn(!!state.mobile);
+  }
+
   $("send").onclick = function () {
     var v = $("msg").value.trim() || "I want to order";
     $("msg").value = "";
     push("me", v);
-    textIn(!!state.mobile);
+    handleCustomer(v);
   };
+
+  // ── recording a voice note ───────────────────────────────────────────────
+  // The recording is kept so it plays back like any voice note; the words come
+  // from the browser's speech recognition running alongside it. In production
+  // the server would transcribe the uploaded audio instead.
+  var SRC = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recording = null, recTimer = null;
+
+  function setRecUI(on) {
+    $("rec").classList.toggle("on", on);
+    $("msg").hidden = on;
+    $("recBar").hidden = !on;
+    $("send").disabled = on;
+  }
+
+  function startRec() {
+    if (!SRC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      push("them", "Voice notes need Chrome or Edge on this device. You can type instead.");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+      var r = { stream: stream, chunks: [], text: "", start: Date.now(), mr: null, sr: null };
+      if (window.MediaRecorder) {
+        try {
+          r.mr = new MediaRecorder(stream);
+          r.mr.ondataavailable = function (e) { if (e.data && e.data.size) r.chunks.push(e.data); };
+          r.mr.start();
+        } catch (e) { r.mr = null; }
+      }
+      r.sr = new SRC();
+      r.sr.lang = "en-IN"; r.sr.interimResults = true; r.sr.continuous = true;
+      r.sr.onresult = function (e) {
+        var t = ""; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        r.text = t;
+      };
+      r.sr.onerror = function () {};
+      try { r.sr.start(); } catch (e) {}
+      recording = r;
+      setRecUI(true);
+      recTimer = setInterval(function () {
+        var sec = Math.round((Date.now() - r.start) / 1000);
+        $("recTime").textContent = "0:" + String(Math.min(sec, 59)).padStart(2, "0");
+        if (sec >= 59) stopRec();
+      }, 250);
+    }).catch(function () {
+      push("them", "The microphone is blocked. Allow it for this site, or type instead.");
+    });
+  }
+
+  function stopRec() {
+    var r = recording;
+    if (!r) return;
+    recording = null;
+    clearInterval(recTimer);
+    setRecUI(false);
+    var dur = Math.max(1, Math.round((Date.now() - r.start) / 1000));
+
+    var finished = false;
+    var finish = function () {
+      if (finished) return; finished = true;
+      r.stream.getTracks().forEach(function (t) { t.stop(); });
+      var m = push("me", (r.text || "").trim(), { kind: "voice", dur: dur });
+      if (r.chunks.length) {
+        audioById[m.id] = URL.createObjectURL(new Blob(r.chunks, { type: r.chunks[0].type || "audio/webm" }));
+        paint();
+      }
+      if (m.text) handleCustomer(m.text);
+      else botVoice("Sorry, I couldn't catch that. Try the voice note again, or type it.");
+    };
+    // Let the last words land before reading the transcript.
+    r.sr.onend = function () { setTimeout(finish, 150); };
+    try { r.sr.stop(); } catch (e) {}
+    if (r.mr && r.mr.state !== "inactive") { try { r.mr.stop(); } catch (e) {} }
+    setTimeout(finish, 1800);
+  }
+
+  $("rec").onclick = function () { if (recording) stopRec(); else startRec(); };
+  $("recBar").onclick = stopRec;
+  if (!SRC) $("rec").hidden = true;
+
+  // ── a customer we already know ───────────────────────────────────────────
+  // Voice ordering asks about a default address, which only exists for somebody
+  // who has ordered before. This makes one: a demo number with a saved name and
+  // address near the kitchen that actually serves dosa.
+  $("regularBtn").onclick = function () {
+    state = { mobile: null, token: null, convo: null, msgs: [], seen: {} };
+    save(); closePage();
+    state.msgs = [{ from: "them", text: "Setting up Priya…", id: "m0" }];
+    paint();
+    ensureSession()
+      .then(function (tok) {
+        return rpc("save_session_details", {
+          p_token: tok, p_name: "Priya", p_address: "Flat 12, Lunkad Gardens, Viman Nagar",
+          p_area: "Viman Nagar", p_city: "Pune", p_lat: 18.5704, p_lng: 73.9133,
+        });
+      })
+      .then(function () {
+        state.msgs = [{ from: "them", id: "m1",
+          text: "Welcome back, Priya. Send a voice note or type what you'd like to eat." }];
+        save(); paint(); step(1);
+      })
+      .catch(function () {
+        state.msgs = [{ from: "them", id: "m1",
+          text: "Couldn't set Priya up. The database may be waking; try again in a minute." }];
+        save(); paint();
+      });
+  };
+
   $("msg").addEventListener("keydown", function (e) {
     if (e.key === "Enter") $("send").click();
   });
@@ -381,7 +708,7 @@
   };
 
   $("resetBtn").onclick = function () {
-    state = { mobile: null, msgs: [], seen: {} };
+    state = { mobile: null, token: null, convo: null, msgs: [], seen: {} };
     save();
     closePage();
     paint();
@@ -404,6 +731,12 @@
 
     // Let them see the kitchen's own confirmation screen first, then come back
     // to the thread as the message arrives.
+    // A UPI order keeps the page open: the QR code has to stay on screen.
+    if (d.stay) {
+      push("them", "Order " + id + " confirmed. Total Rs " + d.total + ". Pay by UPI using the QR code on screen.");
+      step(4);
+      return;
+    }
     setTimeout(function () {
       closePage();
       push("them", text);
