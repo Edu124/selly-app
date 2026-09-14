@@ -127,6 +127,13 @@
   .tools button{background:var(--card);border:1px solid var(--line);color:var(--tx2);
     border-radius:10px;padding:9px 15px;font-size:12.5px;font-weight:700;cursor:pointer}
   .tools button:hover{border-color:var(--violet);color:var(--tx)}
+  .seg{display:flex;gap:6px;margin-top:4px}
+  .seg button{flex:1;background:var(--card);border:1px solid var(--line);color:var(--tx2);border-radius:10px;
+    padding:9px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+  .seg button.on{background:rgba(124,92,255,.16);border-color:var(--violet);color:#c9bdff}
+  .vsel{width:100%;margin-top:10px;background:var(--card);border:1px solid var(--line);color:var(--tx);
+    border-radius:10px;padding:10px 12px;font-size:13px;font-family:inherit;outline:none}
+  .vsel:focus{border-color:var(--violet)}
 </style>
 </head>
 <body>
@@ -226,10 +233,22 @@
         <button id="resetBtn">Start over as somebody new</button>
       </div>
     </div>
+
+    <div class="note">
+      <b>Selly's voice</b>
+      <div class="seg" id="langSeg">
+        <button data-lang="en-IN">English</button>
+        <button data-lang="hi-IN">हिंदी</button>
+      </div>
+      <select class="vsel" id="voiceSel" aria-label="Voice"></select>
+      <div class="tools" style="margin-top:10px"><button id="previewBtn">Play a sample</button></div>
+      <p id="voiceHint" style="margin-top:10px"></p>
+    </div>
   </div>
 
 </div>
 
+<script src="speak.js"></script>
 <script>
 (function () {
   "use strict";
@@ -351,17 +370,9 @@
   // Here the spoken reply is synthesised by the browser. In production the
   // server would generate a real audio file, so the voice note sounds the same
   // on every phone — the one part of this that is a stand-in.
-  var TTS = window.speechSynthesis;
-  function say(text) {
-    if (!TTS || !text) return;
-    try { TTS.cancel(); } catch (e) {}
-    var u = new SpeechSynthesisUtterance(String(text).replace(/https?:\/\/\S+/g, "")
-              .replace(/₹\s?(\d[\d,]*)/g, "$1 rupees"));
-    u.lang = "en-IN";
-    var v = (TTS.getVoices() || []).filter(function (x) { return /en[-_]IN/i.test(x.lang); })[0];
-    if (v) u.voice = v;
-    try { TTS.speak(u); } catch (e) {}
-  }
+  // Selly's voice lives in speak.js: the chosen voice and language, a cloud
+  // voice when the server has one, and the best device voice when it has not.
+  function say(text) { if (window.SellyVoice && text) SellyVoice.speak(text); }
   function botVoice(text, chips) {
     push("them", text, { kind: "voice", chips: chips || null });
     say(text);
@@ -484,6 +495,9 @@
   }
 
   // ── ordering by voice note ───────────────────────────────────────────────
+  var V = window.SellyVoice;
+  var T = V.T;
+
   function rpc(fn, body) {
     return fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
       method: "POST",
@@ -507,24 +521,35 @@
     });
   }
 
-  var INTENT = /\b(want|eat|order|hungry|craving|khana|chahiye|bhook|get me|send me|have)\b/i;
+  // Intent and filler, in English, Hinglish and Hindi. Hindi recognition
+  // returns Devanagari, so "मुझे डोसा खाना है" has to be read as well as
+  // "mujhe dosa khana hai".
+  var INTENT = ["want", "eat", "order", "hungry", "craving", "khana", "chahiye", "bhook", "have",
+                "खाना", "खाने", "चाहिए", "चाहता", "चाहती", "ऑर्डर", "मंगवाना", "मँगवाना", "भूख", "भेजो", "दीजिए"];
   var STOPW = ["i","want","to","eat","order","a","an","some","the","please","me","get","would","like","have",
                "can","for","mujhe","chahiye","khana","hai","am","im","hungry","craving","send","something",
-               "food","anything","bhook","lagi","kuch","let","us","do","could","you","my"];
-  function dishWords(text) {
-    return text.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
-      .filter(function (w) { return w && STOPW.indexOf(w) < 0; }).join(" ");
-  }
-  function dishFrom(text) { return INTENT.test(text) ? dishWords(text) : null; }
+               "food","anything","bhook","lagi","kuch","let","us","do","could","you","my",
+               "मुझे","खाना","खाने","चाहिए","है","हैं","एक","कुछ","को","का","की","के","ऑर्डर","करना","करो","कर",
+               "भूख","लगी","मैं","चाहता","चाहती","हूँ","हूं","दीजिए","दो","दे","भेजो","मंगवाना","मँगवाना","आज","जी"];
 
-  function yesNo(t) {
-    t = " " + String(t).toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ") + " ";
+  /** What they want to eat: as said (for speaking back) and in Latin (for menus). */
+  function dishOf(text, needIntent) {
+    var t = V.tokens(text);
+    if (needIntent && !t.some(function (w) { return INTENT.indexOf(w) >= 0; })) return null;
+    var words = t.filter(function (w) { return STOPW.indexOf(w) < 0; });
+    return { said: words.join(" "), query: words.map(V.toLatin).join(" ") };
+  }
+
+  function yesNo(text) {
+    var t = " " + V.tokens(text).join(" ") + " ";
     var has = function (l) { return l.some(function (w) { return t.indexOf(" " + w + " ") >= 0; }); };
-    if (has(["no", "nope", "nah", "nahi", "nahin", "dont", "different", "another", "change", "new"])) return "no";
-    if (has(["yes", "yeah", "yep", "ok", "okay", "sure", "haan", "han", "ha", "ji", "please",
-             "default", "same", "theek", "thik"])) return "yes";
+    if (has(["no", "nope", "nah", "nahi", "nahin", "dont", "different", "another", "change", "new",
+             "नहीं", "नही", "ना", "मत", "दूसरा", "नया", "बदलो"])) return "no";
+    if (has(["yes", "yeah", "yep", "ok", "okay", "sure", "haan", "han", "ha", "ji", "please", "default", "same",
+             "theek", "thik", "हाँ", "हां", "हा", "जी", "ठीक", "ज़रूर", "जरूर", "वही", "डिफ़ॉल्ट", "डिफॉल्ट"])) return "yes";
     return null;
   }
+  var YN = function () { return [T("Yes", "हाँ"), T("No", "नहीं")]; };
 
   function startVoiceOrder(dish) {
     typing(true);
@@ -533,24 +558,31 @@
       .then(function (rows) {
         typing(false);
         var c = rows && rows[0];
-        if (!dish) {
+        if (!dish.said) {
           state.convo = { stage: "dish" }; save();
-          return botVoice("Sure" + (c && c.name ? ", " + c.name : "") + "! What would you like to eat?");
+          return botVoice(T("Sure" + (c && c.name ? ", " + c.name : "") + "! What would you like to eat?",
+                            "ज़रूर" + (c && c.name ? ", " + c.name : "") + "! आप क्या खाना चाहेंगे?"));
         }
         if (c && c.has_location) {
           state.convo = { stage: "addr", dish: dish }; save();
           step(2);
-          return botVoice("Sure, " + (c.name || "there") + ", but before ordering, should I take your default address" +
-                          (c.area ? " in " + c.area : "") + "?", ["Yes", "No"]);
+          return botVoice(
+            T("Sure, " + (c.name || "there") + ", but before ordering, should I take your default address" +
+                (c.area ? " in " + c.area : "") + "?",
+              "ज़रूर, " + (c.name || "जी") + "। ऑर्डर करने से पहले बताइए, क्या मैं आपका " +
+                (c.area ? c.area + " वाला " : "") + "डिफ़ॉल्ट पता ले लूँ?"),
+            YN());
         }
         // Somebody we have never delivered to has no default address to offer.
         state.convo = null; save();
-        botVoice("Sure! First, where should I deliver? Set your location here: " +
+        botVoice(T("Sure! First, where should I deliver? Set your location here: ",
+                   "ज़रूर! पहले बताइए, खाना कहाँ पहुँचाना है? अपना पता यहाँ डालिए: ") +
                  location.origin + "/find.html?s=" + state.token);
       })
       .catch(function () {
         typing(false);
-        push("them", "I couldn't reach the kitchen system just now. Try again in a moment.");
+        push("them", T("I couldn't reach the kitchen system just now. Try again in a moment.",
+                       "अभी रसोई सिस्टम से जुड़ नहीं पाए। थोड़ी देर में फिर कोशिश करें।"));
       });
   }
 
@@ -560,30 +592,35 @@
       var k = yesNo(text);
       if (k === "yes") {
         state.convo = null; save();
-        botVoice("Great. Finding the best " + (c.dish || "food") + " near you.");
+        botVoice(T("Great. Finding the best " + (c.dish.said || "food") + " near you.",
+                   "बढ़िया! आपके आस-पास सबसे अच्छा " + (c.dish.said || "खाना") + " देखते हैं।"));
         setTimeout(function () {
-          openPage("voice.html?s=" + encodeURIComponent(state.token) + "&q=" + encodeURIComponent(c.dish || ""));
+          openPage("voice.html?s=" + encodeURIComponent(state.token) +
+                   "&q=" + encodeURIComponent(c.dish.query || "") + "&w=" + encodeURIComponent(c.dish.said || ""));
           step(3);
-        }, 2200);
+        }, 2600);
         return;
       }
       if (k === "no") {
         state.convo = null; save();
-        return botVoice("No problem. Set the new address here: " + location.origin + "/find.html?s=" + state.token);
+        return botVoice(T("No problem. Set the new address here: ", "कोई बात नहीं। नया पता यहाँ डालिए: ") +
+                        location.origin + "/find.html?s=" + state.token);
       }
-      return botVoice("Should I take your default address? Just say yes or no.", ["Yes", "No"]);
+      return botVoice(T("Should I take your default address? Just say yes or no.",
+                        "क्या मैं आपका डिफ़ॉल्ट पता ले लूँ? बस हाँ या नहीं बोलिए।"), YN());
     }
     if (c && c.stage === "dish") {
       state.convo = null; save();
-      return startVoiceOrder(dishWords(text) || text);
+      var d = dishOf(text, false);
+      return startVoiceOrder(d.said ? d : { said: text, query: text });
     }
-    var dish = dishFrom(text);
-    if (dish !== null && (dish || /hungry|bhook|craving/i.test(text))) return startVoiceOrder(dish);
+    var dish = dishOf(text, true);
+    if (dish && (dish.said || /hungry|bhook|craving|भूख/i.test(text))) return startVoiceOrder(dish);
     textIn(!!state.mobile);
   }
 
   $("send").onclick = function () {
-    var v = $("msg").value.trim() || "I want to order";
+    var v = $("msg").value.trim() || T("I want to order", "मुझे ऑर्डर करना है");
     $("msg").value = "";
     push("me", v);
     handleCustomer(v);
@@ -591,8 +628,9 @@
 
   // ── recording a voice note ───────────────────────────────────────────────
   // The recording is kept so it plays back like any voice note; the words come
-  // from the browser's speech recognition running alongside it. In production
-  // the server would transcribe the uploaded audio instead.
+  // from the browser's speech recognition running alongside it, in whichever
+  // language Selly is set to. In production the server would transcribe the
+  // uploaded audio instead.
   var SRC = window.SpeechRecognition || window.webkitSpeechRecognition;
   var recording = null, recTimer = null;
 
@@ -605,9 +643,11 @@
 
   function startRec() {
     if (!SRC || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      push("them", "Voice notes need Chrome or Edge on this device. You can type instead.");
+      push("them", T("Voice notes need Chrome or Edge on this device. You can type instead.",
+                     "वॉइस नोट के लिए इस डिवाइस पर Chrome या Edge चाहिए। आप लिख भी सकते हैं।"));
       return;
     }
+    V.stop();
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
       var r = { stream: stream, chunks: [], text: "", start: Date.now(), mr: null, sr: null };
       if (window.MediaRecorder) {
@@ -618,7 +658,8 @@
         } catch (e) { r.mr = null; }
       }
       r.sr = new SRC();
-      r.sr.lang = "en-IN"; r.sr.interimResults = true; r.sr.continuous = true;
+      r.sr.lang = V.get().lang;
+      r.sr.interimResults = true; r.sr.continuous = true;
       r.sr.onresult = function (e) {
         var t = ""; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
         r.text = t;
@@ -633,7 +674,8 @@
         if (sec >= 59) stopRec();
       }, 250);
     }).catch(function () {
-      push("them", "The microphone is blocked. Allow it for this site, or type instead.");
+      push("them", T("The microphone is blocked. Allow it for this site, or type instead.",
+                     "माइक्रोफ़ोन बंद है। इस साइट के लिए अनुमति दें, या लिखकर भेजें।"));
     });
   }
 
@@ -655,7 +697,8 @@
         paint();
       }
       if (m.text) handleCustomer(m.text);
-      else botVoice("Sorry, I couldn't catch that. Try the voice note again, or type it.");
+      else botVoice(T("Sorry, I couldn't catch that. Try the voice note again, or type it.",
+                      "माफ़ कीजिए, आवाज़ साफ़ नहीं आई। फिर से बोलिए या लिख दीजिए।"));
     };
     // Let the last words land before reading the transcript.
     r.sr.onend = function () { setTimeout(finish, 150); };
@@ -675,7 +718,7 @@
   $("regularBtn").onclick = function () {
     state = { mobile: null, token: null, convo: null, msgs: [], seen: {} };
     save(); closePage();
-    state.msgs = [{ from: "them", text: "Setting up Priya…", id: "m0" }];
+    state.msgs = [{ from: "them", text: T("Setting up Priya…", "प्रिया की प्रोफ़ाइल तैयार हो रही है…"), id: "m0" }];
     paint();
     ensureSession()
       .then(function (tok) {
@@ -686,15 +729,69 @@
       })
       .then(function () {
         state.msgs = [{ from: "them", id: "m1",
-          text: "Welcome back, Priya. Send a voice note or type what you'd like to eat." }];
+          text: T("Welcome back, Priya. Send a voice note or type what you'd like to eat.",
+                  "फिर से स्वागत है, प्रिया। वॉइस नोट भेजिए या लिखिए कि आप क्या खाना चाहेंगे।") }];
         save(); paint(); step(1);
       })
       .catch(function () {
         state.msgs = [{ from: "them", id: "m1",
-          text: "Couldn't set Priya up. The database may be waking; try again in a minute." }];
+          text: T("Couldn't set Priya up. The database may be waking; try again in a minute.",
+                  "प्रिया की प्रोफ़ाइल नहीं बन पाई। डेटाबेस शुरू हो रहा होगा, एक मिनट बाद फिर कोशिश करें।") }];
         save(); paint();
       });
   };
+
+  // ── choosing Selly's voice ───────────────────────────────────────────────
+  function renderVoicePanel() {
+    var s = V.get();
+    [].forEach.call(document.querySelectorAll("#langSeg button"), function (b) {
+      b.classList.toggle("on", b.getAttribute("data-lang") === s.lang);
+    });
+    $("msg").placeholder = T("Message", "मैसेज");
+    V.voices(s.lang).then(function (list) {
+      var sel = $("voiceSel");
+      sel.innerHTML = "";
+      var auto = document.createElement("option");
+      auto.value = ""; auto.textContent = T("Best available", "सबसे अच्छी उपलब्ध");
+      sel.appendChild(auto);
+      var groups = {};
+      list.forEach(function (v) { (groups[v.group] = groups[v.group] || []).push(v); });
+      Object.keys(groups).forEach(function (g) {
+        var og = document.createElement("optgroup");
+        og.label = g;
+        groups[g].forEach(function (v) {
+          var o = document.createElement("option");
+          o.value = v.id; o.textContent = v.label;
+          og.appendChild(o);
+        });
+        sel.appendChild(og);
+      });
+      sel.value = s.voice && list.some(function (v) { return v.id === s.voice; }) ? s.voice : "";
+
+      var natural = list.filter(function (v) { return /^Natural/.test(v.group); }).length;
+      V.serverInfo().then(function (info) {
+        $("voiceHint").textContent = info.configured
+          ? "Studio-quality voices are coming from " + info.provider + " — the same on every phone."
+          : natural
+            ? "This browser has natural voices built in — pick one marked Natural."
+            : list.length
+              ? "Only basic voices in this browser. Open this page in Microsoft Edge for free natural " +
+                "Indian voices, or add a speech key (VOICE_SETUP.md)."
+              : "This browser has no " + (s.lang === "hi-IN" ? "Hindi" : "English") + " voice installed. " +
+                "Try Microsoft Edge or Chrome, or add a speech key (VOICE_SETUP.md).";
+      });
+    });
+  }
+
+  [].forEach.call(document.querySelectorAll("#langSeg button"), function (b) {
+    b.onclick = function () { V.set({ lang: b.getAttribute("data-lang") }); renderVoicePanel(); };
+  });
+  $("voiceSel").onchange = function () { V.set({ voice: $("voiceSel").value }); };
+  $("previewBtn").onclick = function () {
+    V.speak(T("Hi! I'm Selly. What would you like to eat today?",
+              "नमस्ते! मैं सेली हूँ। आज आप क्या खाना चाहेंगे?"));
+  };
+  renderVoicePanel();
 
   $("msg").addEventListener("keydown", function (e) {
     if (e.key === "Enter") $("send").click();

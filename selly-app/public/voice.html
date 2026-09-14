@@ -135,11 +135,11 @@
     <h1 id="title"></h1>
     <div id="bestBox"></div>
     <div id="orderBox" hidden>
-      <div class="lbl">Your order</div>
+      <div class="lbl" id="lblOrder">Your order</div>
       <div class="card" id="orderCard"></div>
     </div>
     <div id="payBox" hidden>
-      <div class="lbl">Pay</div>
+      <div class="lbl" id="lblPay">Pay</div>
       <div class="card" id="payCard"></div>
     </div>
     <div class="lbl" id="othersLbl">Other kitchens near you</div>
@@ -155,7 +155,7 @@
       <button class="spk" id="spk" aria-label="Say it again"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-speaker"/></svg></button>
     </div>
     <div class="chips" id="chips"></div>
-    <button class="start" id="startBtn"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-speaker"/></svg>Tap to hear your suggestion</button>
+    <button class="start" id="startBtn"><svg viewBox="0 0 24 24" class="ic sm"><use href="#i-speaker"/></svg><span id="startTxt">Tap to hear your suggestion</span></button>
     <div class="ask" id="ask" hidden>
       <input id="typed" placeholder="Say or type your answer…" autocomplete="off">
       <button class="mic" id="micBtn" aria-label="Speak"><svg viewBox="0 0 24 24" class="ic"><use href="#i-mic"/></svg></button>
@@ -164,6 +164,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" async></script>
+<script src="speak.js"></script>
 <script>
 (function () {
   "use strict";
@@ -171,9 +172,14 @@
   var SUPABASE_URL  = "https://ekughxkikjzkimadyyuk.supabase.co";
   var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVrdWdoeGtpa2p6a2ltYWR5eXVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1ODkxNzQsImV4cCI6MjA5MjE2NTE3NH0.RMROZ2GAcDC6yxY8YjLW3RmyUk2c5G6HnzQry4qA2xs";
 
+  var V = window.SellyVoice;
+  var T = V.T;
+  var HI = function () { return V.get().lang === "hi-IN"; };
+
   var params = new URLSearchParams(location.search);
   var sess = params.get("s");
-  var want = (params.get("q") || "").trim();
+  var want = (params.get("q") || "").trim();             // for matching: Latin
+  var said = (params.get("w") || want).trim();           // for speaking: as the customer said it
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -181,6 +187,17 @@
   var inr = function (n) { return "₹" + Number(n || 0).toLocaleString("en-IN"); };
   var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   var ic = function (id, cls) { return '<svg viewBox="0 0 24 24" class="ic' + (cls ? " " + cls : "") + '"><use href="#i-' + id + '"/></svg>'; };
+
+  function labels() {
+    document.documentElement.lang = HI() ? "hi" : "en";
+    $("loadMsg").textContent = T("Finding the best kitchen for you…", "आपके लिए सबसे अच्छी रसोई ढूँढी जा रही है…");
+    $("lblOrder").textContent = T("Your order", "आपका ऑर्डर");
+    $("lblPay").textContent = T("Pay", "भुगतान");
+    $("othersLbl").textContent = T("Other kitchens near you", "आपके आस-पास की दूसरी रसोइयाँ");
+    $("startTxt").textContent = T("Tap to hear your suggestion", "सुझाव सुनने के लिए टैप करें");
+    $("typed").placeholder = T("Say or type your answer…", "बोलिए या अपना जवाब लिखिए…");
+  }
+  labels();
 
   // Reads wait out a database that is still waking; placing an order is never
   // retried, because a timed-out order may already have gone through.
@@ -207,12 +224,15 @@
   var stage = "start", cart = [], dessert = null;
 
   // ── what they asked for, matched against real menus ──────────────────────
-  var STOP = ["i","want","to","eat","order","a","an","some","the","please","me","get","would","like",
-              "have","can","for","mujhe","chahiye","khana","hai","ek","do","one"];
+  var STOP = ["i","want","to","eat","order","a","an","some","the","please","me","get","would","like","have",
+              "can","for","mujhe","chahiye","khana","hai","ek","one",
+              "मुझे","खाना","खाने","चाहिए","है","एक","कुछ","को","का","की","के","ऑर्डर","करना","करो","कर",
+              "भूख","लगी","मैं","चाहता","चाहती","हूँ","हूं","दीजिए","दो","दे","भेजो","मंगवाना","मँगवाना","आज","जी"];
   function queryWords(q) {
-    return q.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/)
-      .filter(function (w) { return w && STOP.indexOf(w) < 0; })
-      .map(function (w) { return w.length > 3 ? w.replace(/s$/, "") : w; });   // "dosas" -> "dosa"
+    return V.tokens(q)
+      .filter(function (w) { return STOP.indexOf(w) < 0; })
+      .map(V.toLatin)
+      .map(function (w) { return /^[a-z]{4,}s$/.test(w) ? w.slice(0, -1) : w; });   // "dosas" -> "dosa"
   }
   function dishMatches(name, words) {
     var nw = name.toLowerCase().split(/[^a-z]+/);
@@ -222,12 +242,9 @@
   }
 
   /**
-   * The best kitchen for the dish, and the reason, in words a person would use.
-   *
-   * Ranked on what we actually know: open now, serves the dish, nearest, then
-   * cheapest. There is no rating in that list on purpose — we do not have
-   * enough of them to rank on, and "best" built on three reviews would be a
-   * claim we cannot stand behind.
+   * The best kitchen for the dish, and the reason in plain words.
+   * Ranked on what we know: open now, serves the dish, nearest, then cheapest.
+   * Not on ratings — there are not enough of them to rank on honestly.
    */
   function choose() {
     var words = queryWords(want);
@@ -246,11 +263,15 @@
     });
     var open = cands.filter(function (c) { return c.k.is_open; });
     best = open[0] || null;
-    if (best) {
-      best.why = open.length === 1
-        ? "The only open kitchen within 5 km serving " + want + "."
-        : "The nearest open kitchen serving " + want + (open.length > 1 ? ", out of " + open.length + " that do." : ".");
-    }
+  }
+  function why() {
+    var n = kitchens.filter(function (k) {
+      return k.is_open && (menus[k.public_code] || []).some(function (d) { return dishMatches(d.name, queryWords(want)); });
+    }).length;
+    return n <= 1
+      ? T("The only open kitchen within 5 km serving " + said + ".", "5 किलोमीटर के अंदर " + said + " बनाने वाली अकेली खुली रसोई।")
+      : T("The nearest open kitchen serving " + said + ", out of " + n + " that do.",
+          said + " बनाने वाली " + n + " रसोइयों में सबसे नज़दीकी खुली रसोई।");
   }
 
   // ── rendering ────────────────────────────────────────────────────────────
@@ -258,25 +279,29 @@
   function mono(n) { return esc(String(n || "K").trim().charAt(0).toUpperCase()); }
 
   function render() {
+    labels();
     $("w2").textContent = ctx.area ? ctx.area + (ctx.city ? ", " + ctx.city : "") : (ctx.address || "");
-    $("w1").textContent = "Delivering to" + (ctx.name ? " · " + ctx.name : "");
+    $("w1").textContent = T("Delivering to", "डिलीवरी") + (ctx.name ? " · " + ctx.name : "");
 
     if (best) {
-      $("title").textContent = "Best " + want + " near you";
+      $("title").textContent = T("Best " + said + " near you", "आपके पास सबसे अच्छा " + said);
       $("bestBox").innerHTML =
         '<div class="card best">' +
-          '<span class="badge">' + ic("check", "sm") + 'Best match</span>' +
+          '<span class="badge">' + ic("check", "sm") + T("Best match", "सबसे अच्छा विकल्प") + '</span>' +
           '<div class="kRow"><div class="av">' + mono(best.k.business_name) + '</div>' +
             '<div style="min-width:0"><div class="kn">' + esc(best.k.business_name) + '</div>' +
-            '<div class="km"><span class="dot"></span>Open now · ' + esc(kmText(best.k)) +
+            '<div class="km"><span class="dot"></span>' + T("Open now", "अभी खुली है") + ' · ' + esc(kmText(best.k)) +
               (best.k.cuisine ? " · " + esc(best.k.cuisine) : "") + '</div></div></div>' +
           '<div class="dishRow"><span class="vg"></span><b>' + esc(best.dish.name) + '</b><span>' + inr(best.dish.price) + '</span></div>' +
-          '<div class="why">' + esc(best.why) + '</div>' +
+          '<div class="why">' + esc(why()) + '</div>' +
         '</div>';
     } else {
-      $("title").textContent = want ? "No " + want + " near you right now" : "Kitchens near you";
+      $("title").textContent = want ? T("No " + said + " near you right now", "अभी आपके पास " + said + " नहीं मिला")
+                                    : T("Kitchens near you", "आपके आस-पास की रसोइयाँ");
       $("bestBox").innerHTML = '<div class="card"><div class="muted" style="padding:14px 4px">' +
-        'None of the kitchens within 5 km has ' + esc(want || "that") + ' on the menu. Tap one below to see what they do have.</div></div>';
+        esc(T("None of the kitchens within 5 km has " + (said || "that") + " on the menu. Tap one below to see what they do have.",
+              "5 किलोमीटर के अंदर किसी रसोई के मेन्यू में " + (said || "यह") + " नहीं है। नीचे किसी रसोई पर टैप करके देखें कि उनके पास क्या है।")) +
+        '</div></div>';
     }
 
     var rest = kitchens.filter(function (k) { return !best || k.public_code !== best.k.public_code; });
@@ -285,8 +310,8 @@
       return '<a class="kit" href="order.html?k=' + encodeURIComponent(k.public_code) + (sess ? "&s=" + encodeURIComponent(sess) : "") + '">' +
         '<div class="av">' + mono(k.business_name) + '</div>' +
         '<div style="min-width:0"><div class="kn">' + esc(k.business_name) + '</div>' +
-        '<div class="km"><span class="dot' + (k.is_open ? "" : " shut") + '"></span>' + (k.is_open ? "Open" : "Closed") +
-          (k.cuisine ? " · " + esc(k.cuisine) : "") + '</div></div>' +
+        '<div class="km"><span class="dot' + (k.is_open ? "" : " shut") + '"></span>' +
+          (k.is_open ? T("Open", "खुली") : T("Closed", "बंद")) + (k.cuisine ? " · " + esc(k.cuisine) : "") + '</div></div>' +
         '<span class="dist">' + esc(kmText(k)) + '</span></a>';
     }).join("");
 
@@ -306,33 +331,27 @@
     $("orderCard").innerHTML = cart.map(function (l) {
       return '<div class="line"><span>' + l.qty + ' × ' + esc(l.name) + '</span><span>' + inr(l.price * l.qty) + '</span></div>';
     }).join("") +
-      '<div class="line"><span>Delivery</span><span>' + (fee ? inr(fee) : '<span class="free">FREE</span>') + '</span></div>' +
-      '<div class="line tot"><span>To pay</span><span>' + inr(subtotal() + fee) + '</span></div>';
+      '<div class="line"><span>' + T("Delivery", "डिलीवरी") + '</span><span>' +
+        (fee ? inr(fee) : '<span class="free">' + T("FREE", "मुफ़्त") + '</span>') + '</span></div>' +
+      '<div class="line tot"><span>' + T("To pay", "कुल") + '</span><span>' + inr(subtotal() + fee) + '</span></div>';
     $("orderBox").hidden = false;
   }
 
   // ── the conversation ─────────────────────────────────────────────────────
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var TTS = window.speechSynthesis;
-  var rec = null, wantEar = false, gen = 0, lastLine = "";
+  var rec = null, wantEar = false, gen = 0, lastLine = "", speaking = 0;
 
   function speak(text, then) {
     stopEar();
     lastLine = text;
     $("sayText").textContent = text;
     $("spk").classList.add("on");
-    var done = false, go = function () {
-      if (done) return; done = true; $("spk").classList.remove("on"); if (then) then();
-    };
-    if (!TTS) return go();
-    try { TTS.cancel(); } catch (e) {}
-    var u = new SpeechSynthesisUtterance(text.replace(/₹\s?(\d[\d,]*)/g, "$1 rupees"));
-    u.lang = "en-IN"; u.rate = 1;
-    var v = (TTS.getVoices() || []).filter(function (x) { return /en[-_]IN/i.test(x.lang); })[0];
-    if (v) u.voice = v;
-    u.onend = go; u.onerror = go;
-    setTimeout(go, Math.min(1500 + text.length * 80, 12000));   // never stall on a silent engine
-    try { TTS.speak(u); } catch (e) { go(); }
+    var me = ++speaking;
+    V.speak(text).then(function () {
+      if (me !== speaking) return;          // a newer line took over
+      $("spk").classList.remove("on");
+      if (then) then();
+    });
   }
 
   function chips(list) {
@@ -345,11 +364,7 @@
     });
   }
 
-  // Ask a question: say it, show the answers, then listen for one.
-  function ask(text, list) {
-    chips(list);
-    speak(text, function () { listen(); });
-  }
+  function ask(text, list) { chips(list); speak(text, function () { listen(); }); }
 
   function stopEar() {
     wantEar = false; gen++;
@@ -364,7 +379,8 @@
     wantEar = true;
     var g = ++gen, r = new SR();
     rec = r;
-    r.lang = "en-IN"; r.interimResults = true; r.continuous = false;
+    r.lang = V.get().lang;                   // Hindi answers are heard as Hindi
+    r.interimResults = true; r.continuous = false;
     r.onstart = function () { if (g === gen) $("micBtn").classList.add("on"); };
     r.onresult = function (e) {
       if (g !== gen) return;
@@ -374,7 +390,7 @@
     };
     r.onerror = function (e) {
       if (g !== gen) return;
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") { stopEar(); }
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") stopEar();
     };
     // Chrome ends a session after any pause. Still waiting for an answer: open another.
     r.onend = function () {
@@ -383,16 +399,27 @@
     try { r.start(); } catch (e) {}
   }
 
-  // What kind of answer was that. Payment words first, so "yes, cash" is cash.
-  function kind(t) {
-    t = " " + String(t).toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ") + " ";
+  // What kind of answer was that, in English, Hinglish or Hindi. Payment words
+  // first, so "yes, cash" is cash; "no" before "yes", so "no thanks" is a no.
+  function kind(text) {
+    var t = " " + V.tokens(text).join(" ") + " ";
     var has = function (l) { return l.some(function (w) { return t.indexOf(" " + w + " ") >= 0; }); };
-    if (has(["cash", "cod", "nagad", "nakad"]) || t.indexOf(" on delivery ") >= 0) return "cash";
-    if (has(["upi", "gpay", "phonepe", "paytm", "qr", "online", "scan"])) return "upi";
-    if (has(["no", "nope", "nah", "nahi", "nahin", "dont", "skip", "cancel", "other", "others", "options", "else", "later"])) return "no";
-    if (has(["yes", "yeah", "yep", "ok", "okay", "sure", "haan", "han", "ha", "ji", "order", "add", "confirm", "please", "theek", "thik", "go"])) return "yes";
+    if (has(["cash", "cod", "nagad", "nakad", "कैश", "नकद", "नक़द"]) || t.indexOf(" on delivery ") >= 0) return "cash";
+    if (has(["upi", "gpay", "phonepe", "paytm", "qr", "online", "scan", "यूपीआई", "ऑनलाइन", "स्कैन", "क्यूआर"])) return "upi";
+    if (has(["no", "nope", "nah", "nahi", "nahin", "dont", "skip", "cancel", "other", "others", "options", "else", "later",
+             "नहीं", "नही", "ना", "मत", "रद्द", "विकल्प", "दूसरा", "दूसरी", "धन्यवाद"])) return "no";
+    if (has(["yes", "yeah", "yep", "ok", "okay", "sure", "haan", "han", "ha", "ji", "order", "add", "confirm", "please",
+             "theek", "thik", "go", "हाँ", "हां", "हा", "जी", "ठीक", "ज़रूर", "जरूर", "ऑर्डर", "जोड़ें", "जोड़",
+             "जोड़ो", "करो", "कर", "लगा", "लगाओ"])) return "yes";
     return null;
   }
+
+  var CH = {
+    orderIt:  function () { return [T("Yes, order that", "हाँ, ऑर्डर कर दो"), T("Show other options", "और विकल्प दिखाओ")]; },
+    dessert:  function (d) { return [T("Add " + d, d + " जोड़ें"), T("No thanks", "नहीं, धन्यवाद")]; },
+    pay:      function () { return [T("Cash", "कैश"), "UPI"]; },
+    cashOnly: function () { return [T("Yes, cash on delivery", "हाँ, कैश पर"), T("Cancel", "रद्द करें")]; },
+  };
 
   function answer(text) {
     var k = kind(text);
@@ -406,29 +433,31 @@
                                    .sort(function (a, b) { return a.price - b.price; })[0] || null;
         if (dessert) {
           stage = "dessert";
-          return ask("Added " + best.dish.name + ". Would you like a dessert too? They have " + dessert.name +
-                     " for ₹" + dessert.price + ".", ["Add " + dessert.name, "No thanks"]);
+          return ask(T("Added " + best.dish.name + ". Would you like a dessert too? They have " + dessert.name + " for ₹" + dessert.price + ".",
+                       best.dish.name + " जोड़ दिया। क्या साथ में कुछ मीठा भी लेंगे? उनके पास " + dessert.name + " है, ₹" + dessert.price + " का।"),
+                     CH.dessert(dessert.name));
         }
         return askPay();
       }
       if (k === "no") {
         stage = "browse";
-        chips([]);
         $("others").scrollIntoView({ behavior: "smooth", block: "start" });
-        return speak("Sure. Here are the other kitchens near you. Tap one to see its menu.");
+        return speak(T("Sure. Here are the other kitchens near you. Tap one to see its menu.",
+                       "ठीक है। ये रहीं आपके आस-पास की दूसरी रसोइयाँ। मेन्यू देखने के लिए किसी पर टैप करें।"));
       }
-      return ask("Sorry, I didn't catch that. Should I order " + best.dish.name + " from " + best.k.business_name + "?",
-                 ["Yes, order that", "Show other options"]);
+      return ask(T("Sorry, I didn't catch that. Should I order " + best.dish.name + " from " + best.k.business_name + "?",
+                   "माफ़ कीजिए, समझ नहीं आया। क्या " + best.k.business_name + " से " + best.dish.name + " ऑर्डर कर दूँ?"),
+                 CH.orderIt());
     }
 
     if (stage === "dessert") {
       if (k === "yes") {
         cart.push({ id: dessert.id, name: dessert.name, price: Number(dessert.price), qty: 1 });
         renderOrder();
-        return askPay("Added " + dessert.name + ". ");
+        return askPay(T("Added " + dessert.name + ". ", dessert.name + " जोड़ दिया। "));
       }
       if (k === "no") return askPay();
-      return ask("Should I add " + dessert.name + "?", ["Add " + dessert.name, "No thanks"]);
+      return ask(T("Should I add " + dessert.name + "?", "क्या " + dessert.name + " जोड़ दूँ?"), CH.dessert(dessert.name));
     }
 
     if (stage === "pay") {
@@ -436,29 +465,32 @@
       if (k === "upi") {
         if (kitchenInfo && kitchenInfo.upi_id) return place("upi");
         stage = "cashonly";
-        return ask(best.k.business_name + " hasn't set up UPI payments yet, so this one would be cash on delivery. Shall I place it?",
-                   ["Yes, cash on delivery", "Cancel"]);
+        return ask(T(best.k.business_name + " hasn't set up UPI payments yet, so this one would be cash on delivery. Shall I place it?",
+                     best.k.business_name + " ने अभी UPI शुरू नहीं किया है, इसलिए यह ऑर्डर कैश ऑन डिलीवरी होगा। क्या ऑर्डर कर दूँ?"),
+                   CH.cashOnly());
       }
-      return ask("Cash on delivery, or UPI?", ["Cash", "UPI"]);
+      return ask(T("Cash on delivery, or UPI?", "कैश ऑन डिलीवरी या UPI?"), CH.pay());
     }
 
     if (stage === "cashonly") {
       if (k === "yes" || k === "cash") return place("cod");
       stage = "browse";
-      return speak("Okay, I haven't placed anything. Your order is still here if you change your mind.");
+      return speak(T("Okay, I haven't placed anything. Your order is still here if you change your mind.",
+                     "ठीक है, कोई ऑर्डर नहीं किया गया। मन बदले तो आपका ऑर्डर यहीं है।"));
     }
   }
 
   function askPay(prefix) {
     stage = "pay";
     var total = subtotal() + deliveryFee();
-    ask((prefix || "") + "Your total is ₹" + total + ". Cash on delivery, or UPI?", ["Cash", "UPI"]);
+    ask((prefix || "") + T("Your total is ₹" + total + ". Cash on delivery, or UPI?",
+                           "कुल ₹" + total + " हुए। कैश ऑन डिलीवरी करेंगे या UPI?"), CH.pay());
   }
 
   function place(mode) {
     stage = "placing";
     chips([]);
-    $("sayText").textContent = "Placing your order…";
+    $("sayText").textContent = T("Placing your order…", "आपका ऑर्डर लगाया जा रहा है…");
     rpc("place_public_order", {
       p_code: best.k.public_code,
       p_name: ctx.name || "Guest",
@@ -482,29 +514,29 @@
           "&tr=" + encodeURIComponent("SELLY" + String(r.order_id).replace(/\D/g, "").slice(-8));
         $("payCard").innerHTML =
           '<div class="qrBox"><div class="qr" id="qr"></div>' +
-          '<div style="font-size:15px;font-weight:700">Scan to pay ' + inr(total) + '</div>' +
-          '<div class="note">Order #' + shortId + ' is placed. Scan with any UPI app on another phone, ' +
-          'or pay from this one:</div>' +
-          '<a class="payBtn" href="' + esc(payLink) + '">' + ic("zap", "sm") + 'Open UPI app</a></div>';
+          '<div style="font-size:15px;font-weight:700">' + T("Scan to pay ", "भुगतान के लिए स्कैन करें ") + inr(total) + '</div>' +
+          '<div class="note">' + esc(T("Order #" + shortId + " is placed. Scan with any UPI app on another phone, or pay from this one:",
+                                       "ऑर्डर #" + shortId + " लग गया है। दूसरे फ़ोन के किसी भी UPI ऐप से स्कैन करें, या इसी फ़ोन से भुगतान करें:")) + '</div>' +
+          '<a class="payBtn" href="' + esc(payLink) + '">' + ic("zap", "sm") + T("Open UPI app", "UPI ऐप खोलें") + '</a></div>';
         $("payBox").hidden = false;
         var draw = function (n) {
-          if (window.QRCode) { new QRCode($("qr"), { text: payLink, width: 188, height: 188, correctLevel: QRCode.CorrectLevel.M }); }
+          if (window.QRCode) new QRCode($("qr"), { text: payLink, width: 188, height: 188, correctLevel: QRCode.CorrectLevel.M });
           else if (n < 20) setTimeout(function () { draw(n + 1); }, 250);
-          else $("qr").outerHTML = '<div class="note">The QR code couldn\'t load — use the button below.</div>';
+          else $("qr").outerHTML = '<div class="note">' + T("The QR code couldn't load — use the button below.", "QR कोड लोड नहीं हुआ — नीचे वाला बटन इस्तेमाल करें।") + '</div>';
         };
         draw(0);
         $("payBox").scrollIntoView({ behavior: "smooth", block: "start" });
-        speak("Done! Order " + shortId + " is placed. Scan the QR code to pay ₹" + total + ".");
+        speak(T("Done! Order " + shortId + " is placed. Scan the QR code to pay ₹" + total + ".",
+                "हो गया! ऑर्डर " + shortId + " लग गया। ₹" + total + " चुकाने के लिए QR कोड स्कैन करें।"));
       } else {
         $("orderCard").insertAdjacentHTML("beforeend",
-          '<div class="line" style="color:var(--green);font-weight:700;margin-top:6px">' + ic("check", "sm") +
-          '&nbsp;Order #' + shortId + ' placed · cash on delivery</div>');
-        speak("Done! Order " + shortId + " is placed. ₹" + total + ", cash on delivery. The kitchen has it now.");
+          '<div class="line" style="color:var(--green);font-weight:700;margin-top:6px">' + ic("check", "sm") + '&nbsp;' +
+          esc(T("Order #" + shortId + " placed · cash on delivery", "ऑर्डर #" + shortId + " लग गया · कैश ऑन डिलीवरी")) + '</div>');
+        speak(T("Done! Order " + shortId + " is placed. ₹" + total + ", cash on delivery. The kitchen has it now.",
+                "हो गया! ऑर्डर " + shortId + " लग गया। ₹" + total + ", कैश ऑन डिलीवरी। रसोई को ऑर्डर मिल गया है।"));
       }
       $("ask").hidden = true;
 
-      // Running inside the demo phone: let the thread show the confirmation.
-      // A UPI order keeps this page open, because the QR code has to stay on screen.
       try {
         if (window.parent && window.parent !== window) {
           window.parent.postMessage({ selly: "order-placed", orderId: r.order_id, total: total,
@@ -513,8 +545,9 @@
       } catch (e) {}
     }).catch(function () {
       stage = "pay";
-      ask("I couldn't confirm the order — the connection dropped. Please wait a moment before trying again, so it isn't placed twice. Cash or UPI?",
-          ["Cash", "UPI"]);
+      ask(T("I couldn't confirm the order — the connection dropped. Please wait a moment before trying again, so it isn't placed twice. Cash or UPI?",
+            "ऑर्डर पक्का नहीं हो पाया — कनेक्शन टूट गया। दोबारा ऑर्डर होने से बचने के लिए थोड़ा रुककर फिर कोशिश करें। कैश या UPI?"),
+          CH.pay());
     });
   }
 
@@ -526,12 +559,16 @@
     $("ask").hidden = false;
     if (best) {
       stage = "suggest";
-      ask("I found " + best.dish.name + " at " + best.k.business_name + ", " +
-          (best.k.distance_km != null ? best.k.distance_km + " kilometres away" : "near you") +
-          ", for ₹" + best.dish.price + ". Should I order that?", ["Yes, order that", "Show other options"]);
+      var dist = best.k.distance_km != null ? best.k.distance_km : null;
+      ask(T("I found " + best.dish.name + " at " + best.k.business_name + ", " +
+              (dist != null ? dist + " kilometres away" : "near you") + ", for ₹" + best.dish.price + ". Should I order that?",
+            best.k.business_name + " पर " + best.dish.name + " मिला, " +
+              (dist != null ? dist + " किलोमीटर दूर" : "आपके पास") + ", ₹" + best.dish.price + " का। क्या ऑर्डर कर दूँ?"),
+          CH.orderIt());
     } else {
       stage = "browse";
-      speak("I couldn't find " + (want || "that") + " within 5 kilometres. Here are the kitchens near you — tap one to see its menu.");
+      speak(T("I couldn't find " + (said || "that") + " within 5 kilometres. Here are the kitchens near you. Tap one to see its menu.",
+              "5 किलोमीटर के अंदर " + (said || "यह") + " नहीं मिला। ये रहीं आपके आस-पास की रसोइयाँ। मेन्यू देखने के लिए किसी पर टैप करें।"));
     }
   };
   $("spk").onclick = function () { if (lastLine) speak(lastLine, stage !== "done" && stage !== "browse" ? listen : null); };
@@ -543,13 +580,15 @@
 
   // ── load ─────────────────────────────────────────────────────────────────
   if (!sess) {
-    $("loadMsg").textContent = "This link is missing its session. Text us again to get a fresh one.";
+    $("loadMsg").textContent = T("This link is missing its session. Text us again to get a fresh one.",
+                                 "इस लिंक में सेशन नहीं है। नया लिंक पाने के लिए हमें फिर से मैसेज करें।");
     return;
   }
   rpc("session_context", { p_token: sess })
     .then(function (rows) {
       ctx = rows && rows[0];
-      if (!ctx) throw new Error("This link has expired. Text us again to get a fresh one.");
+      if (!ctx) throw new Error(T("This link has expired. Text us again to get a fresh one.",
+                                  "यह लिंक पुराना हो गया है। नया लिंक पाने के लिए हमें फिर से मैसेज करें।"));
       return rpc("kitchens_for", { p_lat: ctx.lat, p_lng: ctx.lng, p_area: ctx.area || null,
                                    p_city: ctx.city || null, p_max_km: 5 });
     })
